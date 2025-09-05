@@ -10,9 +10,11 @@ The Common backend MVP is a supply chain transparency platform built around a un
 
 ```mermaid
 graph TB
-    subgraph "Client Layer"
-        WEB[Web Frontend]
-        API_CLIENTS[API Clients]
+    subgraph "Frontend Layer"
+        REACT[React/Next.js App]
+        DESIGN_SYSTEM[Design System Components]
+        STATE_MGMT[State Management]
+        API_CLIENT[API Client]
     end
     
     subgraph "API Layer"
@@ -40,8 +42,11 @@ graph TB
         SCHEDULER[Task Scheduler]
     end
     
-    WEB --> FASTAPI
-    API_CLIENTS --> FASTAPI
+    REACT --> DESIGN_SYSTEM
+    REACT --> STATE_MGMT
+    REACT --> API_CLIENT
+    API_CLIENT --> FASTAPI
+    
     FASTAPI --> AUTH
     FASTAPI --> VALIDATION
     FASTAPI --> PO_SERVICE
@@ -60,13 +65,25 @@ graph TB
 
 ### Technology Stack
 
+**Backend:**
 - **Framework**: FastAPI (Python 3.11+) for high-performance async API
 - **Database**: PostgreSQL 15+ with JSONB support for flexible data structures
 - **Cache/Queue**: Redis for caching and background job processing
 - **Background Jobs**: Celery for async transparency calculations and notifications
 - **Authentication**: JWT tokens with secure password hashing
 - **Email**: Resend.com API for reliable email delivery
-- **Deployment**: Docker containers with Railway/Render for easy scaling
+
+**Frontend:**
+- **Framework**: React/Next.js with TypeScript for type-safe development
+- **Design System**: Imported design system components and styling
+- **State Management**: React Context/Redux for application state
+- **API Client**: Axios/Fetch for backend communication
+- **Visualization**: D3.js/Chart.js for transparency graphs and supply chain visualization
+- **Maps**: Mapbox/Google Maps for geographic coordinate input
+
+**Deployment:**
+- **Containerization**: Docker containers for both frontend and backend
+- **Hosting**: Railway/Render/Vercel for easy scaling and deployment
 
 ## Components and Interfaces
 
@@ -195,16 +212,27 @@ CREATE TABLE companies (
     company_type VARCHAR(50) NOT NULL, -- 'brand', 'refinery', 'mill', 'plantation', 'trader'
     email VARCHAR(255) UNIQUE NOT NULL,
     
-    -- Optional supply chain specific fields
-    mill_code VARCHAR(100), -- For mills only
-    certification_codes JSONB, -- For certified companies
+    -- Supply chain specific identifiers (role-based)
+    mill_code VARCHAR(100), -- For mills: 'MILL-SUM-001'
+    farm_id VARCHAR(100), -- For plantations: 'FARM-KAL-001'
+    administrative_area_id VARCHAR(100), -- For mills: 'admin_aceh_01'
+    certification_codes JSONB, -- For certified companies: ['cert_rspo_456789', 'cert_ispo_123456']
     
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     
-    INDEX idx_companies_type (company_type)
+    INDEX idx_companies_type (company_type),
+    INDEX idx_companies_mill_code (mill_code),
+    INDEX idx_companies_farm_id (farm_id)
 );
 ```
+
+-- **Role Mapping:**
+-- Brands: company_type='brand' (LVMH, Brand A)
+-- Refineries/Processors: company_type='refinery' (Supplier B)  
+-- Mills: company_type='mill' + mill_code + administrative_area_id + certification_codes
+-- Plantations: company_type='plantation' + farm_id + certification_codes
+-- Traders: company_type='trader'
 
 #### Company Locations Table
 ```sql
@@ -214,18 +242,28 @@ CREATE TABLE company_locations (
     location_type VARCHAR(50) NOT NULL, -- 'office', 'facility', 'plantation', 'mill'
     name VARCHAR(255) NOT NULL,
     
-    -- Geographic data
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
+    -- Geographic data (precise GPS for plantations/mills)
+    latitude DECIMAL(10, 8), -- Required for plantations and mills
+    longitude DECIMAL(11, 8), -- Required for plantations and mills
     address TEXT,
     country_code VARCHAR(3),
+    
+    -- Plantation specific fields
+    block_ids JSONB, -- For plantations: ['BLOCK-A-01', 'BLOCK-B-02']
     
     created_at TIMESTAMPTZ DEFAULT NOW(),
     
     INDEX idx_locations_company (company_id),
-    INDEX idx_locations_type (location_type)
+    INDEX idx_locations_type (location_type),
+    INDEX idx_locations_coordinates (latitude, longitude)
 );
 ```
+
+-- **Location Mapping:**
+-- Brand offices: location_type='office' (loc_lvmh_paris_01)
+-- Processing facilities: location_type='facility' (refineries, mills)
+-- Plantation blocks: location_type='plantation' + block_ids + precise GPS
+-- Trading offices: location_type='office'
 
 #### Users Table
 ```sql
@@ -236,12 +274,22 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL, -- 'admin', 'buyer', 'seller', 'consultant', 'support'
     
+    -- Platform user specific fields
+    client_group_id VARCHAR(100), -- For consultants: managing multiple clients
+    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     
     INDEX idx_users_company (company_id),
-    INDEX idx_users_role (role)
+    INDEX idx_users_role (role),
+    INDEX idx_users_client_group (client_group_id)
 );
 ```
+
+-- **User Role Mapping:**
+-- Platform Administrators: role='admin' (user_admin_01)
+-- Consultants: role='consultant' + client_group_id (user_consultant_charlie)
+-- Customer Support: role='support' (user_support_01)
+-- Company Users: role='buyer'/'seller'/'admin' based on company type
 
 #### Products Table
 ```sql
@@ -307,21 +355,72 @@ INSERT INTO products (common_product_id, name, description, category, can_have_c
  '[{"material": "palm_nuts_kernels", "min_percentage": 95, "max_percentage": 100, "required": true}]', 'MT', '15132110', null);
 ```
 
-#### Supply Chain Role Types Supported
+#### Complete Actor Type Support Mapping
 
-**Company Types:**
-- `brand` - End buyers/consumers (LVMH, Unilever, etc.)
-- `refinery` - Process crude palm oil into refined products  
-- `mill` - Process fresh fruit bunches into crude palm oil
-- `plantation` - Grow palm fruit and sell to mills
-- `trader` - Facilitate transactions without processing
+**Supply Chain Actors:**
 
-**User Roles:**
-- `admin` - Company administrators
-- `buyer` - Create purchase orders
-- `seller` - Confirm purchase orders  
-- `consultant` - Manage multiple client accounts
-- `support` - Platform support staff
+1. **Brands (LVMH, Brand A)**
+   - `companies.company_type = 'brand'`
+   - `company_locations` for facilities/offices
+   - Product codes via `products` table relationships
+   - ✅ **Fully Supported**
+
+2. **Refineries/Processors (Supplier B)**
+   - `companies.company_type = 'refinery'`
+   - `company_locations` for processing facilities
+   - Input/output product codes via `products` relationships
+   - `batches.batch_id` for output batches (batch_refined_2023_456)
+   - `batches.transformation_id` for transformation events
+   - ✅ **Fully Supported**
+
+3. **Mills (Processing Facilities)**
+   - `companies.company_type = 'mill'`
+   - `companies.mill_code` (MILL-SUM-001)
+   - `companies.administrative_area_id` (admin_aceh_01)
+   - `companies.certification_codes` (cert_rspo_456789)
+   - `company_locations` with precise GPS coordinates
+   - ✅ **Fully Supported**
+
+4. **Plantations/Farms**
+   - `companies.company_type = 'plantation'`
+   - `companies.farm_id` (FARM-KAL-001)
+   - `company_locations.block_ids` (BLOCK-A-01)
+   - `company_locations` with precise GPS coordinates
+   - `batches.batch_id` for harvest batches (HARVEST-2023-10-001)
+   - ✅ **Fully Supported**
+
+5. **Intermediate Traders**
+   - `companies.company_type = 'trader'`
+   - `company_locations` for trading offices
+   - `purchase_orders.common_po_id` can be anonymized for privacy
+   - ✅ **Fully Supported**
+
+**Platform Actors:**
+
+6. **Platform Administrators**
+   - `users.role = 'admin'` (platform level)
+   - `platform_config` for product_catalog_version management
+   - `platform_config` for validation_rule_set_id management
+   - ✅ **Fully Supported**
+
+7. **Consultants (Charlie)**
+   - `users.role = 'consultant'`
+   - `users.client_group_id` for managing multiple clients
+   - `platform_config` for report_template_id management
+   - ✅ **Fully Supported**
+
+8. **Customer Support**
+   - `users.role = 'support'`
+   - `support_tickets.ticket_id` for support requests
+   - `support_tickets.manual_process_id` for manual interventions
+   - ✅ **Fully Supported**
+
+**Additional Capabilities:**
+- **Anonymous POs**: `purchase_orders.common_po_id` can be anonymized for traders
+- **Batch Tracking**: Full traceability from harvest to final product
+- **Geographic Precision**: Latitude/longitude for mills and plantations
+- **Certification Management**: JSONB storage for multiple certifications
+- **Multi-location Support**: Companies can have multiple facilities/offices
 
 #### Purchase Orders Table (Core Entity)
 ```sql
@@ -411,13 +510,22 @@ CREATE TABLE batches (
     expiry_date DATE,
     quality_metrics JSONB,
     
+    -- Transformation tracking
+    transformation_id VARCHAR(100), -- For refineries: transformation events
+    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     
     INDEX idx_batches_company (company_id),
     INDEX idx_batches_type (batch_type),
-    INDEX idx_batches_date (production_date)
+    INDEX idx_batches_date (production_date),
+    INDEX idx_batches_transformation (transformation_id)
 );
 ```
+
+-- **Batch Mapping:**
+-- Refinery output batches: batch_type='processing' + transformation_id
+-- Plantation harvest batches: batch_type='harvest' (HARVEST-2023-10-001)
+-- Mill processing batches: batch_type='processing'
 
 #### Platform Configuration Table
 ```sql
@@ -435,11 +543,16 @@ CREATE TABLE platform_config (
 );
 ```
 
+-- **Configuration Mapping:**
+-- Product catalog versions: config_type='product_catalog_version' (for admins)
+-- Validation rule sets: config_type='validation_rule_set' (for business rules)
+-- Report templates: config_type='report_template' (for consultants)
+
 #### Support Tickets Table
 ```sql
 CREATE TABLE support_tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ticket_id VARCHAR(100) UNIQUE NOT NULL,
+    ticket_id VARCHAR(100) UNIQUE NOT NULL, -- For support requests
     company_id UUID REFERENCES companies(id),
     user_id UUID REFERENCES users(id),
     assigned_to UUID REFERENCES users(id), -- Support user
@@ -457,9 +570,14 @@ CREATE TABLE support_tickets (
     
     INDEX idx_tickets_company (company_id),
     INDEX idx_tickets_status (status),
-    INDEX idx_tickets_assigned (assigned_to)
+    INDEX idx_tickets_assigned (assigned_to),
+    INDEX idx_tickets_manual_process (manual_process_id)
 );
 ```
+
+-- **Support Mapping:**
+-- Support tickets: ticket_id (for support requests)
+-- Manual processes: manual_process_id (for tracking interventions)
 
 #### Audit Events Table
 ```sql
