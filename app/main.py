@@ -20,6 +20,8 @@ from app.api.products import router as products_router
 from app.api.purchase_orders import router as purchase_orders_router
 from app.api.confirmation import router as confirmation_router
 from app.api.traceability import router as traceability_router
+from app.api.transparency_jobs import router as transparency_jobs_router
+from app.api.notifications import router as notifications_router
 from app.api.origin_data import router as origin_data_router
 from app.api.business_relationships import router as business_relationships_router
 from app.api.batches import router as batches_router
@@ -138,6 +140,8 @@ app.include_router(products_router, prefix="/products", tags=["Products"])
 app.include_router(purchase_orders_router, tags=["Purchase Orders"])
 app.include_router(confirmation_router, tags=["Confirmation"])
 app.include_router(traceability_router, tags=["Traceability"])
+app.include_router(transparency_jobs_router, tags=["Transparency Jobs"])
+app.include_router(notifications_router, tags=["Notifications"])
 app.include_router(origin_data_router, tags=["Origin Data"])
 app.include_router(business_relationships_router, tags=["Business Relationships"])
 app.include_router(batches_router, tags=["Batch Tracking"])

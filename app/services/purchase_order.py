@@ -178,7 +178,22 @@ class PurchaseOrderService:
                 product_id=str(po_data.product_id),
                 total_amount=float(total_amount)
             )
-            
+
+            # Trigger notification for PO creation
+            try:
+                from app.services.notification_events import NotificationEventTrigger
+                notification_trigger = NotificationEventTrigger(self.db)
+                notification_trigger.trigger_po_created(
+                    po_id=purchase_order.id,
+                    created_by_user_id=current_user_company_id  # This should be user_id, but we only have company_id
+                )
+            except Exception as notification_error:
+                logger.warning(
+                    "Failed to trigger PO creation notification",
+                    po_id=str(purchase_order.id),
+                    error=str(notification_error)
+                )
+
             return purchase_order
             
         except Exception as e:
