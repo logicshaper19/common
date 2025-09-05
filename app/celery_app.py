@@ -17,6 +17,7 @@ celery_app = Celery(
     backend=settings.redis_url,
     include=[
         "app.services.transparency",
+        "app.services.transparency_jobs",
         "app.services.notifications",
     ]
 )
@@ -38,6 +39,7 @@ celery_app.conf.update(
 # Task routing
 celery_app.conf.task_routes = {
     "app.services.transparency.*": {"queue": "transparency"},
+    "app.services.transparency_jobs.*": {"queue": "transparency"},
     "app.services.notifications.*": {"queue": "notifications"},
 }
 
