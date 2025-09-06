@@ -17,12 +17,14 @@ from app.schemas.auth import (
 )
 from app.services.auth import AuthService
 from app.core.logging import get_logger
+from app.core.rate_limiting import rate_limit, RateLimitType
 
 logger = get_logger(__name__)
 router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
+@rate_limit(RateLimitType.AUTH, per_user=False)  # Rate limit by IP for auth
 async def login(
     user_credentials: UserLogin,
     db: Session = Depends(get_db)

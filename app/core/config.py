@@ -34,6 +34,9 @@ class Settings(BaseSettings):
         default="http://localhost:3000,http://localhost:8080",
         alias="ALLOWED_ORIGINS"
     )
+
+    # Security
+    force_https: bool = Field(default=False, alias="FORCE_HTTPS")
     
     # Transparency Calculation
     transparency_degradation_factor: float = Field(default=0.95, alias="TRANSPARENCY_DEGRADATION_FACTOR")

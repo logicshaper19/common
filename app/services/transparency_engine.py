@@ -14,6 +14,9 @@ from app.models.company import Company
 from app.models.product import Product
 from app.services.purchase_order import PurchaseOrderService
 from app.core.logging import get_logger
+from app.core.performance_cache import get_performance_cache
+from app.core.query_optimization import QueryOptimizer
+from app.core.performance_monitoring import get_performance_monitor
 
 logger = get_logger(__name__)
 
@@ -105,6 +108,8 @@ class TransparencyCalculationEngine:
     def __init__(self, db: Session):
         self.db = db
         self.po_service = PurchaseOrderService(db)
+        self.query_optimizer = QueryOptimizer(db)
+        self.performance_monitor = get_performance_monitor()
         
         # Configuration constants
         self.MAX_DEPTH = 20
@@ -140,7 +145,7 @@ class TransparencyCalculationEngine:
             "Rainforest Alliance", "Organic", "Fair Trade"
         }
     
-    def calculate_transparency(
+    async def calculate_transparency(
         self,
         po_id: UUID,
         force_recalculation: bool = False,
@@ -164,7 +169,17 @@ class TransparencyCalculationEngine:
             po_id=str(po_id),
             force_recalculation=force_recalculation
         )
-        
+
+        # Check cache first (unless forced recalculation)
+        cache = await get_performance_cache()
+        cache_params = {"include_detailed_analysis": include_detailed_analysis}
+
+        if not force_recalculation:
+            cached_result = await cache.get("transparency_scores", po_id, cache_params)
+            if cached_result:
+                logger.debug("Using cached transparency result", po_id=str(po_id))
+                return TransparencyResult(**cached_result)
+
         try:
             # Initialize calculation state
             visited_nodes: Set[UUID] = set()
@@ -242,7 +257,29 @@ class TransparencyCalculationEngine:
                 total_nodes=result.total_nodes,
                 cycles_detected=len(circular_references)
             )
-            
+
+            # Cache the result for future use
+            try:
+                result_dict = {
+                    "po_id": str(result.po_id),
+                    "transparency_to_mill": float(result.transparency_to_mill),
+                    "transparency_to_plantation": float(result.transparency_to_plantation),
+                    "calculation_timestamp": result.calculation_timestamp.isoformat(),
+                    "total_nodes": result.total_nodes,
+                    "max_depth_reached": result.max_depth_reached,
+                    "circular_references_detected": result.circular_references_detected,
+                    "confidence_level": float(result.confidence_level),
+                    "data_completeness_score": float(result.data_completeness_score),
+                    "calculation_metadata": result.calculation_metadata,
+                    "supply_chain_paths": result.supply_chain_paths,
+                    "transparency_nodes": result.transparency_nodes
+                }
+                await cache.set("transparency_scores", po_id, result_dict, cache_params)
+                logger.debug("Transparency result cached", po_id=str(po_id))
+            except Exception as cache_error:
+                logger.warning("Failed to cache transparency result",
+                             po_id=str(po_id), error=str(cache_error))
+
             return result
 
         except Exception as e:

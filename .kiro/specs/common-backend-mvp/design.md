@@ -11,7 +11,7 @@ The Common backend MVP is a supply chain transparency platform built around a un
 ```mermaid
 graph TB
     subgraph "Frontend Layer"
-        REACT[React/Next.js App]
+        REACT[React + SEMA Design System]
         DESIGN_SYSTEM[Design System Components]
         STATE_MGMT[State Management]
         API_CLIENT[API Client]
@@ -74,10 +74,10 @@ graph TB
 - **Email**: Resend.com API for reliable email delivery
 
 **Frontend:**
-- **Framework**: React/Next.js with TypeScript for type-safe development
-- **Design System**: Imported design system components and styling
+- **Framework**: React with TypeScript for type-safe development (matching SEMA design system)
+- **Design System**: SEMA Design System components with Tailwind CSS styling
 - **State Management**: React Context/Redux for application state
-- **API Client**: Axios/Fetch for backend communication
+- **API Client**: Axios/Fetch for backend communication with FastAPI
 - **Visualization**: D3.js/Chart.js for transparency graphs and supply chain visualization
 - **Maps**: Mapbox/Google Maps for geographic coordinate input
 

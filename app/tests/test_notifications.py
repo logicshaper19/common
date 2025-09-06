@@ -304,11 +304,17 @@ class TestNotificationService:
 class TestNotificationEventTrigger:
     """Test notification event triggers."""
     
-    def test_trigger_po_created(self, db_session, sample_po, sample_users):
+    @patch('app.services.notifications.send_email_notification')
+    @patch('app.services.notifications.send_webhook_notification')
+    def test_trigger_po_created(self, mock_webhook, mock_email, db_session, sample_po, sample_users):
         """Test PO created notification trigger."""
+        # Mock Celery tasks
+        mock_email.delay.return_value = Mock(id="email-task-id")
+        mock_webhook.delay.return_value = Mock(id="webhook-task-id")
+
         trigger = NotificationEventTrigger(db_session)
         user = sample_users["buyer_user"]
-        
+
         notification_ids = trigger.trigger_po_created(
             po_id=sample_po.id,
             created_by_user_id=user.id

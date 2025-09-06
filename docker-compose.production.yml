@@ -1,0 +1,305 @@
+# Production Environment Docker Compose Configuration
+version: '3.8'
+
+services:
+  # PostgreSQL Database (External in production - this is for reference)
+  # postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: common_production
+  #     POSTGRES_USER: common_prod_user
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #   # Use external managed database in production
+
+  # Redis (External in production - this is for reference)
+  # redis:
+  #   image: redis:7-alpine
+  #   # Use external managed Redis in production
+
+  # FastAPI Application (4 replicas for high availability)
+  api:
+    image: ${DOCKER_REGISTRY}/common-api:${IMAGE_TAG}
+    deploy:
+      replicas: 4
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 30s
+        order: stop-first
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - DEBUG=False
+      - LOG_LEVEL=WARNING
+      - ENVIRONMENT=production
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - TRANSPARENCY_DEGRADATION_FACTOR=0.95
+      - TRANSPARENCY_CALCULATION_TIMEOUT=30
+      - SENTRY_DSN=${SENTRY_DSN}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
+    networks:
+      - common_production_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+        labels: "service=api,environment=production"
+
+  # Celery Worker for background jobs (4 workers)
+  celery:
+    image: ${DOCKER_REGISTRY}/common-api:${IMAGE_TAG}
+    deploy:
+      replicas: 4
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - DEBUG=False
+      - LOG_LEVEL=WARNING
+      - ENVIRONMENT=production
+      - SENTRY_DSN=${SENTRY_DSN}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
+    command: celery -A app.celery_app worker --loglevel=warning --concurrency=8 --max-tasks-per-child=1000 --prefetch-multiplier=1
+    restart: unless-stopped
+    networks:
+      - common_production_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+        labels: "service=celery,environment=production"
+
+  # Celery Beat for scheduled tasks (single instance)
+  celery-beat:
+    image: ${DOCKER_REGISTRY}/common-api:${IMAGE_TAG}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - DEBUG=False
+      - LOG_LEVEL=WARNING
+      - ENVIRONMENT=production
+      - SENTRY_DSN=${SENTRY_DSN}
+    command: celery -A app.celery_app beat --loglevel=warning
+    restart: unless-stopped
+    networks:
+      - common_production_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+        labels: "service=celery-beat,environment=production"
+
+  # Nginx Load Balancer with SSL termination
+  nginx:
+    image: nginx:alpine
+    container_name: common_nginx_production
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/production.conf:/etc/nginx/nginx.conf
+      - ./config/ssl:/etc/nginx/ssl
+      - ./static:/var/www/static
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - common_production_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+        labels: "service=nginx,environment=production"
+
+  # Log aggregation with Fluentd
+  fluentd:
+    image: fluent/fluentd:v1.16-debian-1
+    container_name: common_fluentd_production
+    volumes:
+      - ./config/fluentd/fluent.conf:/fluentd/etc/fluent.conf
+      - /var/log:/var/log
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    environment:
+      - FLUENTD_CONF=fluent.conf
+      - ELASTICSEARCH_HOST=${ELASTICSEARCH_HOST}
+      - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
+    restart: unless-stopped
+    networks:
+      - common_production_network
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: common_prometheus_production
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/production.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus/rules:/etc/prometheus/rules
+      - prometheus_production_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=90d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    restart: unless-stopped
+    networks:
+      - common_production_network
+
+  # Grafana for monitoring dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: common_grafana_production
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_SECRET_KEY=${GRAFANA_SECRET_KEY}
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=${GRAFANA_DB_HOST}
+      - GF_DATABASE_NAME=${GRAFANA_DB_NAME}
+      - GF_DATABASE_USER=${GRAFANA_DB_USER}
+      - GF_DATABASE_PASSWORD=${GRAFANA_DB_PASSWORD}
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST}
+      - GF_SMTP_USER=${SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD}
+    volumes:
+      - grafana_production_data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+    restart: unless-stopped
+    networks:
+      - common_production_network
+
+  # Node Exporter for system metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: common_node_exporter_production
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    networks:
+      - common_production_network
+
+  # Alertmanager for handling alerts
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: common_alertmanager_production
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_production_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    restart: unless-stopped
+    networks:
+      - common_production_network
+
+volumes:
+  prometheus_production_data:
+    driver: local
+  grafana_production_data:
+    driver: local
+  alertmanager_production_data:
+    driver: local
+
+networks:
+  common_production_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+# Production deployment configuration
+configs:
+  nginx_config:
+    file: ./config/nginx/production.conf
+  prometheus_config:
+    file: ./config/prometheus/production.yml
+  grafana_datasources:
+    file: ./config/grafana/datasources/prometheus.yml
+
+secrets:
+  postgres_password:
+    external: true
+  jwt_secret:
+    external: true
+  grafana_password:
+    external: true

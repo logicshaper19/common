@@ -1,7 +1,7 @@
 """
 Product model for the Common supply chain platform.
 """
-from sqlalchemy import Column, String, Text, Boolean, DateTime, func
+from sqlalchemy import Column, String, Text, Boolean, DateTime, func, Index
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
@@ -26,3 +26,14 @@ class Product(Base):
     origin_data_requirements = Column(JSONType)  # Required origin data fields
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Performance indexes for frequently queried fields
+    __table_args__ = (
+        Index('idx_products_common_id', 'common_product_id'),
+        Index('idx_products_category', 'category'),
+        Index('idx_products_hs_code', 'hs_code'),
+        Index('idx_products_name', 'name'),
+        Index('idx_products_composition', 'can_have_composition'),
+        Index('idx_products_category_composition', 'category', 'can_have_composition'),
+        Index('idx_products_created_at', 'created_at'),
+    )

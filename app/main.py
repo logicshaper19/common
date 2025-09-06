@@ -14,6 +14,15 @@ from app.core.config import settings
 from app.core.database import init_db, get_db
 from app.core.logging import configure_logging, log_request, log_response, get_logger
 from app.core.redis import init_redis, close_redis
+from app.core.documentation import custom_openapi, get_custom_swagger_ui_html, get_custom_redoc_html
+from app.core.validation import validation_exception_handler
+from app.core.security_headers import SecurityHeadersMiddleware, CORSSecurityMiddleware
+from app.core.versioning import APIVersion, create_versioned_router, get_api_version_info
+from app.core.error_handling import (
+    CommonHTTPException,
+    common_exception_handler,
+    general_exception_handler
+)
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
 from app.api.products import router as products_router
@@ -22,9 +31,14 @@ from app.api.confirmation import router as confirmation_router
 from app.api.traceability import router as traceability_router
 from app.api.transparency_jobs import router as transparency_jobs_router
 from app.api.notifications import router as notifications_router
+from app.api.audit import router as audit_router
+from app.api.data_access import router as data_access_router
+from app.api.transparency_visualization import router as transparency_visualization_router
+from app.api.viral_analytics import router as viral_analytics_router
 from app.api.origin_data import router as origin_data_router
 from app.api.business_relationships import router as business_relationships_router
 from app.api.batches import router as batches_router
+from app.api.performance import router as performance_router
 from app.services.seed_data import SeedDataService
 
 # Configure logging
@@ -73,21 +87,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 # Create FastAPI application
 app = FastAPI(
-    title=settings.app_name,
+    title="Common Supply Chain Platform API",
     version=settings.app_version,
     description="Supply chain transparency platform with unified Purchase Order system",
-    docs_url="/docs" if settings.debug else None,
-    redoc_url="/redoc" if settings.debug else None,
+    docs_url=None,  # Custom docs endpoint
+    redoc_url=None,  # Custom redoc endpoint
+    openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 
-# Add CORS middleware
+# Set custom OpenAPI schema
+app.openapi = lambda: custom_openapi(app)
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Add enhanced CORS middleware
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSSecurityMiddleware,
+    allowed_origins=settings.allowed_origins_list,
+    allow_credentials=True
 )
 
 # Add trusted host middleware
@@ -133,6 +152,38 @@ async def logging_middleware(request: Request, call_next):
     return response
 
 
+# Add exception handlers
+from fastapi.exceptions import RequestValidationError
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(CommonHTTPException, common_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
+
+
+# Custom documentation endpoints
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    """Custom Swagger UI with enhanced styling."""
+    return get_custom_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Common API Documentation"
+    )
+
+
+@app.get("/redoc", include_in_schema=False)
+async def custom_redoc_html():
+    """Custom ReDoc with enhanced styling."""
+    return get_custom_redoc_html(
+        openapi_url="/openapi.json",
+        title="Common API Documentation"
+    )
+
+
+@app.get("/api/version")
+async def api_version_info():
+    """Get comprehensive API version information."""
+    return get_api_version_info()
+
+
 # Include routers
 app.include_router(health_router, prefix="/health", tags=["Health"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
@@ -142,9 +193,14 @@ app.include_router(confirmation_router, tags=["Confirmation"])
 app.include_router(traceability_router, tags=["Traceability"])
 app.include_router(transparency_jobs_router, tags=["Transparency Jobs"])
 app.include_router(notifications_router, tags=["Notifications"])
+app.include_router(audit_router, tags=["Audit"])
+app.include_router(data_access_router, tags=["Data Access"])
+app.include_router(transparency_visualization_router, tags=["Transparency Visualization"])
+app.include_router(viral_analytics_router, tags=["Viral Analytics"])
 app.include_router(origin_data_router, tags=["Origin Data"])
 app.include_router(business_relationships_router, tags=["Business Relationships"])
 app.include_router(batches_router, tags=["Batch Tracking"])
+app.include_router(performance_router, tags=["Performance"])
 
 
 @app.get("/")

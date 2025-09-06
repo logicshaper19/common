@@ -1,0 +1,240 @@
+# Staging Environment Docker Compose Configuration
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: common_postgres_staging
+    environment:
+      POSTGRES_DB: common_staging
+      POSTGRES_USER: common_staging_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sh:/docker-entrypoint-initdb.d/postgres-init.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U common_staging_user -d common_staging"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - common_staging_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis for caching and background jobs
+  redis:
+    image: redis:7-alpine
+    container_name: common_redis_staging
+    volumes:
+      - redis_staging_data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - common_staging_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # FastAPI Application (2 replicas for load balancing)
+  api:
+    image: ${DOCKER_REGISTRY}/common-api:${IMAGE_TAG}
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://common_staging_user:${POSTGRES_PASSWORD}@postgres:5432/common_staging
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - DEBUG=False
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=staging
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - TRANSPARENCY_DEGRADATION_FACTOR=0.95
+      - TRANSPARENCY_CALCULATION_TIMEOUT=30
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - common_staging_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Celery Worker for background jobs (2 workers)
+  celery:
+    image: ${DOCKER_REGISTRY}/common-api:${IMAGE_TAG}
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+        reservations:
+          memory: 128M
+          cpus: '0.15'
+    environment:
+      - DATABASE_URL=postgresql://common_staging_user:${POSTGRES_PASSWORD}@postgres:5432/common_staging
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - DEBUG=False
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=staging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 --max-tasks-per-child=1000
+    restart: unless-stopped
+    networks:
+      - common_staging_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Celery Beat for scheduled tasks
+  celery-beat:
+    image: ${DOCKER_REGISTRY}/common-api:${IMAGE_TAG}
+    environment:
+      - DATABASE_URL=postgresql://common_staging_user:${POSTGRES_PASSWORD}@postgres:5432/common_staging
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - DEBUG=False
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=staging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app beat --loglevel=info
+    restart: unless-stopped
+    networks:
+      - common_staging_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: common_nginx_staging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/staging.conf:/etc/nginx/nginx.conf
+      - ./config/ssl:/etc/nginx/ssl
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - common_staging_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Monitoring with Prometheus (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: common_prometheus_staging
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/staging.yml:/etc/prometheus/prometheus.yml
+      - prometheus_staging_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - common_staging_network
+
+  # Grafana for monitoring dashboards (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: common_grafana_staging
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_staging_data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+    restart: unless-stopped
+    networks:
+      - common_staging_network
+
+volumes:
+  postgres_staging_data:
+    driver: local
+  redis_staging_data:
+    driver: local
+  prometheus_staging_data:
+    driver: local
+  grafana_staging_data:
+    driver: local
+
+networks:
+  common_staging_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

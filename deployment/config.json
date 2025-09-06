@@ -1,0 +1,99 @@
+{
+  "staging": {
+    "docker_registry": "registry.staging.common.com",
+    "image_name": "common-api",
+    "replicas": 2,
+    "health_check_url": "https://api-staging.common.com/health",
+    "database_url": "postgresql://common_staging_user:${POSTGRES_PASSWORD}@staging-db.common.com:5432/common_staging",
+    "redis_url": "redis://staging-redis.common.com:6379/0",
+    "environment_vars": {
+      "DEBUG": "False",
+      "LOG_LEVEL": "INFO",
+      "ENVIRONMENT": "staging",
+      "ALLOWED_ORIGINS": "https://app-staging.common.com,https://admin-staging.common.com",
+      "TRANSPARENCY_DEGRADATION_FACTOR": "0.95",
+      "TRANSPARENCY_CALCULATION_TIMEOUT": "30",
+      "SENTRY_DSN": "${SENTRY_DSN_STAGING}",
+      "NEW_RELIC_LICENSE_KEY": "${NEW_RELIC_LICENSE_KEY}"
+    },
+    "deployment": {
+      "strategy": "rolling_update",
+      "max_unavailable": 1,
+      "max_surge": 1,
+      "health_check_grace_period": 60,
+      "deployment_timeout": 600
+    },
+    "monitoring": {
+      "prometheus_url": "http://prometheus-staging.common.com:9090",
+      "grafana_url": "http://grafana-staging.common.com:3000",
+      "alertmanager_url": "http://alertmanager-staging.common.com:9093"
+    },
+    "backup": {
+      "database_backup_schedule": "0 2 * * *",
+      "retention_days": 30,
+      "backup_location": "s3://common-staging-backups/"
+    }
+  },
+  "production": {
+    "docker_registry": "registry.common.com",
+    "image_name": "common-api",
+    "replicas": 4,
+    "health_check_url": "https://api.common.com/health",
+    "database_url": "postgresql://common_prod_user:${POSTGRES_PASSWORD}@prod-db.common.com:5432/common_production",
+    "redis_url": "redis://prod-redis.common.com:6379/0",
+    "environment_vars": {
+      "DEBUG": "False",
+      "LOG_LEVEL": "WARNING",
+      "ENVIRONMENT": "production",
+      "ALLOWED_ORIGINS": "https://app.common.com,https://admin.common.com",
+      "TRANSPARENCY_DEGRADATION_FACTOR": "0.95",
+      "TRANSPARENCY_CALCULATION_TIMEOUT": "30",
+      "SENTRY_DSN": "${SENTRY_DSN_PRODUCTION}",
+      "NEW_RELIC_LICENSE_KEY": "${NEW_RELIC_LICENSE_KEY}",
+      "DATADOG_API_KEY": "${DATADOG_API_KEY}"
+    },
+    "deployment": {
+      "strategy": "blue_green",
+      "max_unavailable": 0,
+      "max_surge": 2,
+      "health_check_grace_period": 120,
+      "deployment_timeout": 900,
+      "canary_percentage": 10,
+      "canary_duration": 300
+    },
+    "monitoring": {
+      "prometheus_url": "http://prometheus.common.com:9090",
+      "grafana_url": "http://grafana.common.com:3000",
+      "alertmanager_url": "http://alertmanager.common.com:9093",
+      "datadog_enabled": true,
+      "new_relic_enabled": true,
+      "sentry_enabled": true
+    },
+    "backup": {
+      "database_backup_schedule": "0 1 * * *",
+      "retention_days": 90,
+      "backup_location": "s3://common-production-backups/",
+      "cross_region_replication": true
+    },
+    "security": {
+      "ssl_certificate_path": "/etc/ssl/certs/common.crt",
+      "ssl_private_key_path": "/etc/ssl/private/common.key",
+      "enable_waf": true,
+      "enable_ddos_protection": true,
+      "ip_whitelist": [],
+      "rate_limiting": {
+        "requests_per_minute": 1000,
+        "burst_size": 100
+      }
+    },
+    "scaling": {
+      "auto_scaling_enabled": true,
+      "min_replicas": 4,
+      "max_replicas": 20,
+      "target_cpu_utilization": 70,
+      "target_memory_utilization": 80,
+      "scale_up_cooldown": 300,
+      "scale_down_cooldown": 600
+    }
+  }
+}

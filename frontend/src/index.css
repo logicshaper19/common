@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* SEMA Design System Base Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    @apply bg-neutral-50 text-neutral-900 antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-neutral-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-neutral-400;
+  }
+}
+
+@layer components {
+  /* SEMA Button Components */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white border-primary-600 hover:bg-primary-700 focus:ring-primary-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-50 focus:ring-primary-500;
+  }
+
+  .btn-success {
+    @apply btn bg-success-600 text-white border-success-600 hover:bg-success-700 focus:ring-success-500;
+  }
+
+  .btn-warning {
+    @apply btn bg-warning-600 text-white border-warning-600 hover:bg-warning-700 focus:ring-warning-500;
+  }
+
+  .btn-error {
+    @apply btn bg-error-600 text-white border-error-600 hover:bg-error-700 focus:ring-error-500;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  /* SEMA Input Components */
+  .input {
+    @apply block w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg bg-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-neutral-50 disabled:text-neutral-500;
+  }
+
+  .input-error {
+    @apply input border-error-300 focus:ring-error-500 focus:border-error-500;
+  }
+
+  /* SEMA Card Components */
+  .card {
+    @apply bg-white rounded-xl border border-neutral-200 shadow-sm;
+  }
+
+  .card-header {
+    @apply px-6 py-4 border-b border-neutral-200;
+  }
+
+  .card-body {
+    @apply px-6 py-4;
+  }
+
+  .card-footer {
+    @apply px-6 py-4 border-t border-neutral-200 bg-neutral-50 rounded-b-xl;
+  }
+
+  /* SEMA Badge Components */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full;
+  }
+
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-800;
+  }
+
+  .badge-success {
+    @apply badge bg-success-100 text-success-800;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning-100 text-warning-800;
+  }
+
+  .badge-error {
+    @apply badge bg-error-100 text-error-800;
+  }
+
+  .badge-neutral {
+    @apply badge bg-neutral-100 text-neutral-800;
+  }
+
+  /* SEMA Alert Components */
+  .alert {
+    @apply p-4 rounded-lg border;
+  }
+
+  .alert-success {
+    @apply alert bg-success-50 border-success-200 text-success-800;
+  }
+
+  .alert-warning {
+    @apply alert bg-warning-50 border-warning-200 text-warning-800;
+  }
+
+  .alert-error {
+    @apply alert bg-error-50 border-error-200 text-error-800;
+  }
+
+  .alert-info {
+    @apply alert bg-primary-50 border-primary-200 text-primary-800;
+  }
+}
+
+@layer utilities {
+  /* Custom utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
