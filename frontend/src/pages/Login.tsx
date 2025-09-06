@@ -31,7 +31,7 @@ const Login: React.FC = () => {
 
   // Redirect if already authenticated
   if (isAuthenticated) {
-    const from = (location.state as any)?.from?.pathname || '/';
+    const from = (location.state as any)?.from?.pathname || '/app';
     return <Navigate to={from} replace />;
   }
 
@@ -94,11 +94,11 @@ const Login: React.FC = () => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-primary-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-2xl">C</span>
+          <div className="mx-auto mb-6">
+            <span className="text-4xl font-bold text-black lowercase">common</span>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-neutral-900">
-            Sign in to Common
+          <h2 className="text-3xl font-bold text-neutral-900">
+            Sign in to your account
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
             Supply Chain Transparency Platform
@@ -134,9 +134,10 @@ const Login: React.FC = () => {
                       </p>
                       {(error.includes('password') || error.includes('credentials') || error.includes('401')) && (
                         <div className="text-xs text-error-700 space-y-1">
-                          <p className="font-medium">💡 Admin Access Help:</p>
-                          <p>• Email: <code className="bg-error-100 px-1 rounded">admin@example.com</code></p>
-                          <p>• Password: <code className="bg-error-100 px-1 rounded">adminpassword123</code></p>
+                          <p className="font-medium">💡 Login Help:</p>
+                          <p>• Double-check your email address and password</p>
+                          <p>• Make sure Caps Lock is not enabled</p>
+                          <p>• Ensure your account is active and not locked</p>
                           <p className="mt-2 text-error-600">
                             If you're still having trouble, contact your system administrator.
                           </p>
@@ -229,41 +230,15 @@ const Login: React.FC = () => {
               </Button>
             </form>
 
-            {/* Admin access help */}
+            {/* Help section */}
             <div className="mt-6 pt-6 border-t border-neutral-200">
-              <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-primary-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-primary-800 mb-2">
-                      🔐 Admin Access
-                    </h3>
-                    <div className="text-xs text-primary-700 space-y-1">
-                      <p>For admin dashboard access, use:</p>
-                      <div className="bg-white bg-opacity-50 rounded px-2 py-1 font-mono">
-                        <p>📧 Email: admin@example.com</p>
-                        <p>🔑 Password: adminpassword123</p>
-                      </div>
-                      <p className="text-primary-600 mt-2">
-                        💡 Need help? Check the ADMIN_ACCESS.md guide or contact support.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              <div className="text-center">
+                <p className="text-sm text-neutral-600">
+                  Need help accessing your account?
+                </p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Contact your system administrator or check the documentation.
+                </p>
               </div>
             </div>
           </CardBody>

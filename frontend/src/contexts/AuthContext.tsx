@@ -93,17 +93,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await apiClient.login(credentials);
+      // First, authenticate and get the token
+      const tokenResponse = await apiClient.login(credentials);
+
+      // Then fetch the user data using the token
+      const userResponse = await apiClient.getCurrentUser();
 
       setState(prev => ({
         ...prev,
-        user: response.user,
+        user: userResponse,
         isAuthenticated: true,
         isLoading: false,
         error: null,
       }));
-      
-      showSuccess('Welcome back!', `Signed in as ${response.user.email}`);
+
+      showSuccess('Welcome back!', `Signed in as ${userResponse.email}`);
     } catch (error) {
       const errorMessage = parseErrorMessage(error);
       setState(prev => ({
@@ -113,11 +117,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         error: errorMessage,
       }));
-      
+
       showError('Login Failed', errorMessage);
       throw error;
     }
-  }, []);
+  }, [showError, showSuccess]);
 
   // Logout function
   const logout = useCallback(async () => {
@@ -135,8 +139,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         error: null,
       });
-      
+
       showSuccess('Signed out', 'You have been successfully signed out.');
+
+      // Redirect to landing page after logout
+      window.location.href = '/';
     }
   }, []);
 
@@ -273,7 +280,7 @@ export function usePermissions() {
   const canViewCompany = (companyId: string): boolean => {
     if (!user) return false;
     if (user.role === 'admin') return true;
-    return user.company_id === companyId;
+    return user.company.id === companyId;
   };
 
   const canEditPurchaseOrder = (po: any): boolean => {
@@ -281,12 +288,12 @@ export function usePermissions() {
     if (user.role === 'admin') return true;
     
     // Buyers can edit their own POs
-    if (user.role === 'buyer' && po.buyer_company_id === user.company_id) {
+    if (user.role === 'buyer' && po.buyer_company_id === user.company.id) {
       return true;
     }
-    
+
     // Sellers can confirm POs
-    if (user.role === 'seller' && po.seller_company_id === user.company_id) {
+    if (user.role === 'seller' && po.seller_company_id === user.company.id) {
       return po.status === 'pending';
     }
     
