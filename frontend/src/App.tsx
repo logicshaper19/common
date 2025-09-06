@@ -8,6 +8,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
+import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import ConfirmationDemo from './pages/ConfirmationDemo';
 import TransparencyDashboard from './pages/TransparencyDashboard';
@@ -25,10 +26,11 @@ function App() {
           <Router>
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
 
           {/* Protected routes */}
-          <Route path="/" element={<Layout />}>
+          <Route path="/app" element={<Layout />}>
             <Route index element={
               <ProtectedRoute>
                 <Dashboard />
