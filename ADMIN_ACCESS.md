@@ -7,8 +7,8 @@ Since we removed the demo credentials from the login page for production securit
 The application now automatically creates a default admin user on startup if none exists.
 
 **Default Credentials:**
-- **Email:** `admin@common.local`
-- **Password:** `admin123456`
+- **Email:** `elisha@common.co`
+- **Password:** `slp225`
 
 These can be customized using environment variables:
 
