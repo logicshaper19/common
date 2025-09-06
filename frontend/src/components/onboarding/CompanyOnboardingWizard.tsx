@@ -174,7 +174,7 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
       setCompanyData(prev => ({
         ...prev,
         [parent]: {
-          ...prev[parent as keyof CompanyOnboardingData],
+          ...(prev[parent as keyof CompanyOnboardingData] as object),
           [child]: value,
         },
       }));
@@ -276,9 +276,9 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
       </div>
 
       <div className="flex items-center space-x-2">
-        {steps[currentStep].icon && (
-          <steps[currentStep].icon className="h-5 w-5 text-primary-600" />
-        )}
+        {steps[currentStep].icon && React.createElement(steps[currentStep].icon, {
+          className: "h-5 w-5 text-primary-600"
+        })}
         <div>
           <h3 className="font-medium text-neutral-900">{steps[currentStep].title}</h3>
           <p className="text-sm text-neutral-600">{steps[currentStep].description}</p>
@@ -333,7 +333,7 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
           label="Company Name"
           value={companyData.company_name}
           onChange={(e) => handleCompanyFieldChange('company_name', e.target.value)}
-          error={errors.company_name}
+          errorMessage={errors.company_name}
           placeholder="Your Company Name"
           required
         />
@@ -344,14 +344,15 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
           label="Company Type"
           value={companyData.company_type}
           onChange={(e) => handleCompanyFieldChange('company_type', e.target.value)}
-          error={errors.company_type}
+          errorMessage={errors.company_type}
           required
           disabled={!!companyType}
-        >
-          <option value="originator">Originator (Raw Materials)</option>
-          <option value="processor">Processor (Manufacturing)</option>
-          <option value="brand">Brand (Retail)</option>
-        </Select>
+          options={[
+            { label: 'Originator (Raw Materials)', value: 'originator' },
+            { label: 'Processor (Manufacturing)', value: 'processor' },
+            { label: 'Brand (Retail)', value: 'brand' }
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -360,7 +361,7 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
           type="email"
           value={companyData.email}
           onChange={(e) => handleCompanyFieldChange('email', e.target.value)}
-          error={errors.email}
+          errorMessage={errors.email}
           placeholder="contact@company.com"
           required
         />
@@ -404,7 +405,7 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
           label="Street Address"
           value={companyData.address.street}
           onChange={(e) => handleCompanyFieldChange('address.street', e.target.value)}
-          error={errors['address.street']}
+          errorMessage={errors['address.street']}
           placeholder="123 Main Street"
           required
         />
@@ -415,7 +416,7 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
           label="City"
           value={companyData.address.city}
           onChange={(e) => handleCompanyFieldChange('address.city', e.target.value)}
-          error={errors['address.city']}
+          errorMessage={errors['address.city']}
           placeholder="City"
           required
         />
@@ -440,17 +441,18 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
           label="Country"
           value={companyData.address.country}
           onChange={(e) => handleCompanyFieldChange('address.country', e.target.value)}
-          error={errors['address.country']}
+          errorMessage={errors['address.country']}
           required
-        >
-          <option value="United States">United States</option>
-          <option value="Canada">Canada</option>
-          <option value="Mexico">Mexico</option>
-          <option value="United Kingdom">United Kingdom</option>
-          <option value="Germany">Germany</option>
-          <option value="France">France</option>
-          <option value="Other">Other</option>
-        </Select>
+          options={[
+            { label: 'United States', value: 'United States' },
+            { label: 'Canada', value: 'Canada' },
+            { label: 'Mexico', value: 'Mexico' },
+            { label: 'United Kingdom', value: 'United Kingdom' },
+            { label: 'Germany', value: 'Germany' },
+            { label: 'France', value: 'France' },
+            { label: 'Other', value: 'Other' }
+          ]}
+        />
       </div>
     </div>
   );

@@ -2,7 +2,6 @@
  * User management client for admin API
  */
 import { BaseAdminClient } from '../base/BaseAdminClient';
-import { UserMockProvider } from '../mock/userMocks';
 import { PaginatedResponse } from '../base/types';
 import {
   AdminUser,
@@ -13,7 +12,6 @@ import {
 } from '../../../types/admin';
 
 export class UserClient extends BaseAdminClient {
-  private mockProvider = new UserMockProvider();
 
   /**
    * Get paginated list of users with filtering

@@ -172,19 +172,21 @@ const DataSharingPermissionsModal: React.FC<DataSharingPermissionsModalProps> = 
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         <Card>
-          <CardHeader 
+          <CardHeader
             title="Data Sharing Permissions"
             subtitle={`Configure access for ${relationship.seller_company_name}`}
-            icon={ShieldCheckIcon}
             action={
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onCancel}
-                icon={XMarkIcon}
-              >
-                Close
-              </Button>
+              <div className="flex items-center space-x-2">
+                <ShieldCheckIcon className="h-5 w-5 text-neutral-400" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCancel}
+                  leftIcon={<XMarkIcon className="h-4 w-4" />}
+                >
+                  Close
+                </Button>
+              </div>
             }
           />
           

@@ -84,7 +84,7 @@ export function UserCompanyManagement({ className = '' }: UserCompanyManagementP
       setLoading(true);
       setError(null);
       const response = await adminApi.getUsers(userFilters);
-      setUsers(response.users);
+      setUsers(response.data);
       setUserTotalPages(Math.ceil(response.total / userFilters.per_page));
       setTotalUsers(response.total);
     } catch (err) {
@@ -100,7 +100,7 @@ export function UserCompanyManagement({ className = '' }: UserCompanyManagementP
       setLoading(true);
       setError(null);
       const response = await adminApi.getCompanies(companyFilters);
-      setCompanies(response.companies);
+      setCompanies(response.data);
       setCompanyTotalPages(Math.ceil(response.total / companyFilters.per_page));
       setTotalCompanies(response.total);
     } catch (err) {

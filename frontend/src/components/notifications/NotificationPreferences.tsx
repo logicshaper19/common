@@ -81,16 +81,19 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
   const updateGlobalSetting = (section: string, field: string, value: any) => {
     if (!preferences) return;
 
-    setPreferences(prev => ({
-      ...prev!,
-      global_settings: {
-        ...prev!.global_settings,
-        [section]: {
-          ...prev!.global_settings[section as keyof typeof prev.global_settings],
-          [field]: value,
+    setPreferences(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        global_settings: {
+          ...prev.global_settings,
+          [section]: {
+            ...(prev.global_settings[section as keyof typeof prev.global_settings] as any || {}),
+            [field]: value,
+          },
         },
-      },
-    }));
+      };
+    });
     setHasChanges(true);
   };
 
@@ -185,10 +188,10 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
   return (
     <div className={className}>
       <Card>
-        <CardHeader 
+        <CardHeader
           title="Notification Preferences"
           subtitle="Configure how and when you receive notifications"
-          icon={BellIcon}
+          action={<BellIcon className="h-5 w-5 text-neutral-400" />}
         />
         
         <CardBody>
@@ -231,12 +234,13 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
                         value={preferences.global_settings.email_digest.frequency}
                         onChange={(e) => updateGlobalSetting('email_digest', 'frequency', e.target.value)}
                         size="sm"
-                      >
-                        <option value="immediate">Immediate</option>
-                        <option value="hourly">Hourly</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                      </Select>
+                        options={[
+                          { label: 'Immediate', value: 'immediate' },
+                          { label: 'Hourly', value: 'hourly' },
+                          { label: 'Daily', value: 'daily' },
+                          { label: 'Weekly', value: 'weekly' }
+                        ]}
+                      />
                       
                       {(preferences.global_settings.email_digest.frequency === 'daily' || 
                         preferences.global_settings.email_digest.frequency === 'weekly') && (
@@ -360,12 +364,13 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
                             onChange={(e) => updatePreference(notificationType, 'priority_threshold', e.target.value)}
                             size="sm"
                             className="w-32"
-                          >
-                            <option value="low">Low</option>
-                            <option value="normal">Normal</option>
-                            <option value="high">High</option>
-                            <option value="urgent">Urgent</option>
-                          </Select>
+                            options={[
+                              { label: 'Low', value: 'low' },
+                              { label: 'Normal', value: 'normal' },
+                              { label: 'High', value: 'high' },
+                              { label: 'Urgent', value: 'urgent' }
+                            ]}
+                          />
                         </div>
                         
                         {/* Quiet Hours (for specific types) */}
