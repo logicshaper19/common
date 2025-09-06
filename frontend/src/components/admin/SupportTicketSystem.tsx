@@ -69,7 +69,7 @@ export function SupportTicketSystem({ className = '' }: SupportTicketSystemProps
       setLoading(true);
       setError(null);
       const response = await adminApi.getTickets(filters);
-      setTickets(response.tickets);
+      setTickets(response.data);
       setTotalPages(Math.ceil(response.total / filters.per_page));
       setTotalTickets(response.total);
     } catch (err) {

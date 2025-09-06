@@ -64,3 +64,18 @@ class ImprovementRecommendation:
     estimated_cost: Optional[str] = None
     success_metrics: List[str] = field(default_factory=list)
 
+
+@dataclass
+class GapAnalysisResult:
+    """Complete gap analysis result for a supply chain."""
+    analysis_id: str
+    company_id: UUID
+    analysis_timestamp: str
+    overall_score: float
+    transparency_to_mill: float
+    transparency_to_plantation: float
+    gaps: List[GapAnalysis] = field(default_factory=list)
+    recommendations: List[ImprovementRecommendation] = field(default_factory=list)
+    summary: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+

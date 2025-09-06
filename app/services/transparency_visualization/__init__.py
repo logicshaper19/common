@@ -9,11 +9,17 @@ from .visualization_service import TransparencyVisualizationService
 from .gap_analyzer import TransparencyGapAnalyzer
 from .recommendation_engine import ImprovementRecommendationEngine
 from .styling_engine import VisualizationStylingEngine
+from .models.visualization_models import SupplyChainVisualization, VisualizationNode, VisualizationEdge
+from .models.gap_models import GapAnalysisResult
 
 __all__ = [
     "TransparencyVisualizationService",
     "TransparencyGapAnalyzer", 
     "ImprovementRecommendationEngine",
-    "VisualizationStylingEngine"
+    "VisualizationStylingEngine",
+    "SupplyChainVisualization",
+    "VisualizationNode",
+    "VisualizationEdge",
+    "GapAnalysisResult"
 ]
 

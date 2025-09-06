@@ -66,7 +66,7 @@ export function AuditLogViewer({ className = '' }: AuditLogViewerProps) {
       setLoading(true);
       setError(null);
       const response = await adminApi.getAuditLogs(filters);
-      setLogs(response.logs);
+      setLogs(response.data);
       setTotalPages(Math.ceil(response.total / filters.per_page));
       setTotalLogs(response.total);
     } catch (err) {

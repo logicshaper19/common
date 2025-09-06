@@ -188,18 +188,20 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
   return (
     <div className={className}>
       <Card>
-        <CardHeader 
+        <CardHeader
           title="Business Relationships"
           subtitle={`${relationships.length} active relationships`}
-          icon={UsersIcon}
           action={
-            <Button
-              variant="primary"
-              onClick={() => setShowInviteForm(true)}
-              icon={PlusIcon}
-            >
-              Invite Supplier
-            </Button>
+            <div className="flex items-center space-x-2">
+              <UsersIcon className="h-5 w-5 text-neutral-400" />
+              <Button
+                variant="primary"
+                onClick={() => setShowInviteForm(true)}
+                leftIcon={<PlusIcon className="h-4 w-4" />}
+              >
+                Invite Supplier
+              </Button>
+            </div>
           }
         />
         
@@ -212,7 +214,7 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                   placeholder="Search companies..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  icon={MagnifyingGlassIcon}
+                  leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
                 />
               </div>
               
@@ -220,24 +222,25 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  icon={FunnelIcon}
-                >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="terminated">Terminated</option>
-                </Select>
+                  options={[
+                    { label: 'All Status', value: 'all' },
+                    { label: 'Active', value: 'active' },
+                    { label: 'Pending', value: 'pending' },
+                    { label: 'Suspended', value: 'suspended' },
+                    { label: 'Terminated', value: 'terminated' }
+                  ]}
+                />
 
                 <Select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                >
-                  <option value="all">All Types</option>
-                  <option value="supplier">Suppliers</option>
-                  <option value="customer">Customers</option>
-                  <option value="partner">Partners</option>
-                </Select>
+                  options={[
+                    { label: 'All Types', value: 'all' },
+                    { label: 'Suppliers', value: 'supplier' },
+                    { label: 'Customers', value: 'customer' },
+                    { label: 'Partners', value: 'partner' }
+                  ]}
+                />
 
                 <Select
                   value={`${sortBy}-${sortOrder}`}
@@ -246,14 +249,15 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                     setSortBy(field as any);
                     setSortOrder(order as any);
                   }}
-                >
-                  <option value="name-asc">Name A-Z</option>
-                  <option value="name-desc">Name Z-A</option>
-                  <option value="date-desc">Newest First</option>
-                  <option value="date-asc">Oldest First</option>
-                  <option value="value-desc">Highest Value</option>
-                  <option value="transparency-desc">Best Transparency</option>
-                </Select>
+                  options={[
+                    { label: 'Name A-Z', value: 'name-asc' },
+                    { label: 'Name Z-A', value: 'name-desc' },
+                    { label: 'Newest First', value: 'date-desc' },
+                    { label: 'Oldest First', value: 'date-asc' },
+                    { label: 'Highest Value', value: 'value-desc' },
+                    { label: 'Best Transparency', value: 'transparency-desc' }
+                  ]}
+                />
               </div>
             </div>
           </div>

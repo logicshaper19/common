@@ -211,7 +211,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={onClose}
-                  icon={XMarkIcon}
+                  leftIcon={<XMarkIcon className="h-4 w-4" />}
                   aria-label="Close notifications"
                 />
               </div>
@@ -224,7 +224,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => setShowFilters(!showFilters)}
-                  icon={FunnelIcon}
+                  leftIcon={<FunnelIcon className="h-4 w-4" />}
                 >
                   Filters
                 </Button>
@@ -242,7 +242,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
               {selectedNotifications.size > 0 && (
                 <Menu as="div" className="relative">
-                  <Menu.Button as={Button} variant="outline" size="sm" icon={EllipsisVerticalIcon}>
+                  <Menu.Button as={Button} variant="outline" size="sm" leftIcon={<EllipsisVerticalIcon className="h-4 w-4" />}>
                     Actions ({selectedNotifications.size})
                   </Menu.Button>
                   
@@ -302,7 +302,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 placeholder="Search notifications..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                icon={MagnifyingGlassIcon}
+                leftIcon={<MagnifyingGlassIcon className="h-4 w-4" />}
                 size="sm"
               />
               
@@ -311,24 +311,26 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   value={filters.status?.[0] || 'all'}
                   onChange={(e) => handleFilterChange('status', e.target.value === 'all' ? undefined : [e.target.value])}
                   size="sm"
-                >
-                  <option value="all">All Status</option>
-                  <option value="unread">Unread</option>
-                  <option value="read">Read</option>
-                  <option value="archived">Archived</option>
-                </Select>
+                  options={[
+                    { label: 'All Status', value: 'all' },
+                    { label: 'Unread', value: 'unread' },
+                    { label: 'Read', value: 'read' },
+                    { label: 'Archived', value: 'archived' }
+                  ]}
+                />
                 
                 <Select
                   value={filters.priorities?.[0] || 'all'}
                   onChange={(e) => handleFilterChange('priorities', e.target.value === 'all' ? undefined : [e.target.value])}
                   size="sm"
-                >
-                  <option value="all">All Priority</option>
-                  <option value="urgent">Urgent</option>
-                  <option value="high">High</option>
-                  <option value="normal">Normal</option>
-                  <option value="low">Low</option>
-                </Select>
+                  options={[
+                    { label: 'All Priority', value: 'all' },
+                    { label: 'Urgent', value: 'urgent' },
+                    { label: 'High', value: 'high' },
+                    { label: 'Normal', value: 'normal' },
+                    { label: 'Low', value: 'low' }
+                  ]}
+                />
               </div>
             </div>
           )}

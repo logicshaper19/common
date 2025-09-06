@@ -202,14 +202,13 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
       <CardHeader 
         title="Notification History"
         subtitle={`${totalCount} total notifications`}
-        icon={ClockIcon}
         action={
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
-              icon={FunnelIcon}
+              leftIcon={<FunnelIcon className="h-4 w-4" />}
             >
               Filters
             </Button>
@@ -220,7 +219,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleBulkAction('archive')}
-                  icon={ArchiveBoxIcon}
+                  leftIcon={<ArchiveBoxIcon className="h-4 w-4" />}
                 >
                   Archive ({selectedNotifications.size})
                 </Button>
@@ -228,7 +227,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleBulkAction('delete')}
-                  icon={TrashIcon}
+                  leftIcon={<TrashIcon className="h-4 w-4" />}
                   className="text-error-600 hover:text-error-700"
                 >
                   Delete ({selectedNotifications.size})
@@ -405,7 +404,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
                         variant="outline"
                         size="sm"
                         onClick={() => window.location.href = notification.action_url!}
-                        icon={EyeIcon}
+                        leftIcon={<EyeIcon className="h-4 w-4" />}
                       >
                         {notification.action_text}
                       </Button>

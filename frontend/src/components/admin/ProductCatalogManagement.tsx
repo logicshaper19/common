@@ -67,7 +67,7 @@ export function ProductCatalogManagement({ className = '' }: ProductCatalogManag
       setLoading(true);
       setError(null);
       const response = await adminApi.getProducts(filters);
-      setProducts(response.products);
+      setProducts(response.data);
       setTotalPages(response.total_pages);
       setTotalProducts(response.total);
     } catch (err) {

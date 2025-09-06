@@ -2,7 +2,6 @@
  * Product management client for admin API
  */
 import { BaseAdminClient } from '../base/BaseAdminClient';
-import { ProductMockProvider } from '../mock/productMocks';
 import { PaginatedResponse } from '../base/types';
 import {
   Product as AdminProduct,
@@ -14,7 +13,6 @@ import {
 } from '../../../types/admin';
 
 export class ProductClient extends BaseAdminClient {
-  private mockProvider = new ProductMockProvider();
 
   /**
    * Get paginated list of products with filtering
@@ -249,7 +247,6 @@ export class ProductClient extends BaseAdminClient {
 
       return response;
     } catch (error) {
-      console.warn('Backend not available for product import, using mock data');
       
       // Mock import result
       return {

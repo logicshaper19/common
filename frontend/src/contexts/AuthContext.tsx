@@ -3,7 +3,7 @@
  * Manages user authentication state and provides auth-related functions
  */
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
-import { apiClient, User, LoginRequest, ApiError } from '../lib/api';
+import { apiClient, User, Company, LoginRequest, ApiError } from '../lib/api';
 import { parseErrorMessage } from '../lib/utils';
 
 // Types
@@ -50,6 +50,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Initialize authentication state
   const initializeAuth = useCallback(async () => {
     try {
+      // DEVELOPMENT MODE: Create mock user for testing
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      
+      if (isDevelopment) {
+        // Create mock user for development
+        const mockUser: User = {
+          id: '1',
+          email: 'brand.user@ecofashion.com',
+          full_name: 'Brand User',
+          role: 'buyer',
+          is_active: true,
+          company_id: '1',
+          company: {
+            id: '1',
+            name: 'EcoFashion Co.',
+            company_type: 'brand',
+            email: 'contact@ecofashion.com',
+            phone: '+1-555-0123',
+            address: '123 Fashion St, New York, NY',
+            country: 'United States',
+            website: 'https://ecofashion.com',
+            description: 'Sustainable fashion brand'
+          }
+        };
+
+        setState(prev => ({
+          ...prev,
+          user: mockUser,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        }));
+        return;
+      }
+
       // Check if we have a token in localStorage
       const token = localStorage.getItem('auth_token');
       if (!token) {
