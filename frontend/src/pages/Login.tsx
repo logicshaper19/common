@@ -109,7 +109,7 @@ const Login: React.FC = () => {
         <Card>
           <CardBody>
             <form className="space-y-6" onSubmit={handleSubmit}>
-              {/* Global error message */}
+              {/* Enhanced error message with guidance */}
               {error && (
                 <div className="bg-error-50 border border-error-200 rounded-lg p-4">
                   <div className="flex">
@@ -127,7 +127,21 @@ const Login: React.FC = () => {
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-error-800">{error}</p>
+                      <p className="text-sm font-medium text-error-800 mb-2">
+                        {error.includes('password') || error.includes('credentials') || error.includes('401') 
+                          ? 'Invalid email or password' 
+                          : error}
+                      </p>
+                      {(error.includes('password') || error.includes('credentials') || error.includes('401')) && (
+                        <div className="text-xs text-error-700 space-y-1">
+                          <p className="font-medium">💡 Admin Access Help:</p>
+                          <p>• Email: <code className="bg-error-100 px-1 rounded">admin@example.com</code></p>
+                          <p>• Password: <code className="bg-error-100 px-1 rounded">adminpassword123</code></p>
+                          <p className="mt-2 text-error-600">
+                            If you're still having trouble, contact your system administrator.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -215,9 +229,42 @@ const Login: React.FC = () => {
               </Button>
             </form>
 
-            {/* Demo credentials */}
+            {/* Admin access help */}
             <div className="mt-6 pt-6 border-t border-neutral-200">
-
+              <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="h-5 w-5 text-primary-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-primary-800 mb-2">
+                      🔐 Admin Access
+                    </h3>
+                    <div className="text-xs text-primary-700 space-y-1">
+                      <p>For admin dashboard access, use:</p>
+                      <div className="bg-white bg-opacity-50 rounded px-2 py-1 font-mono">
+                        <p>📧 Email: admin@example.com</p>
+                        <p>🔑 Password: adminpassword123</p>
+                      </div>
+                      <p className="text-primary-600 mt-2">
+                        💡 Need help? Check the ADMIN_ACCESS.md guide or contact support.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </CardBody>
         </Card>
