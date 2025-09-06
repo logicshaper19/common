@@ -37,24 +37,24 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="h-screen bg-neutral-50 flex overflow-hidden">
       {/* Sidebar */}
-      <Sidebar 
-        isOpen={isMobileMenuOpen} 
-        onClose={handleMobileMenuClose} 
+      <Sidebar
+        isOpen={isMobileMenuOpen}
+        onClose={handleMobileMenuClose}
       />
 
       {/* Main content area */}
-      <div className="lg:pl-64">
-        {/* Header */}
-        <Header 
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header - Fixed height */}
+        <Header
           onMenuClick={handleMobileMenuToggle}
           isMobileMenuOpen={isMobileMenuOpen}
         />
 
-        {/* Page content */}
-        <main className="flex-1">
-          <div className="px-4 sm:px-6 lg:px-8 py-6">
+        {/* Page content - Fill remaining space */}
+        <main className="flex-1 overflow-auto bg-neutral-50">
+          <div className="px-4 sm:px-6 lg:px-8 py-6 h-full">
             <Outlet />
           </div>
         </main>

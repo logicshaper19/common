@@ -37,10 +37,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobileMenuOpen }) => {
   };
 
   return (
-    <header className="bg-white border-b border-neutral-200 sticky top-0 z-40">
+    <header className="bg-white border-b-2 border-neutral-300 shadow-md relative z-40 w-full min-h-[64px]">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Left side - Logo and mobile menu button */}
+          {/* Left side - Mobile menu button only */}
           <div className="flex items-center">
             {/* Mobile menu button */}
             <Button
@@ -53,20 +53,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobileMenuOpen }) => {
               <Bars3Icon className="h-6 w-6" />
             </Button>
 
-            {/* Logo */}
-            <div className="flex items-center">
+            {/* Logo - Only show on mobile when sidebar is closed */}
+            <div className="flex items-center lg:hidden">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">C</span>
                 </div>
               </div>
-              <div className="ml-3 hidden sm:block">
-                <h1 className="text-xl font-semibold text-neutral-900">
+              <div className="ml-3">
+                <h1 className="text-lg font-semibold text-neutral-900">
                   Common
                 </h1>
-                <p className="text-xs text-neutral-500">
-                  Supply Chain Platform
-                </p>
               </div>
             </div>
           </div>

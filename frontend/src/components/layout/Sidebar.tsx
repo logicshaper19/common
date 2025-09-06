@@ -155,21 +155,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         )}
       >
         <div className="flex flex-col h-full">
-          {/* Mobile close button */}
-          <div className="flex items-center justify-between p-4 lg:hidden">
+          {/* Logo section - Always visible */}
+          <div className="flex items-center justify-between p-4 border-b border-neutral-200">
             <div className="flex items-center">
               <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">C</span>
               </div>
-              <span className="ml-2 text-lg font-semibold text-neutral-900">
-                Common
-              </span>
+              <div className="ml-3">
+                <h1 className="text-lg font-semibold text-neutral-900">
+                  Common
+                </h1>
+                <p className="text-xs text-neutral-500">
+                  Supply Chain Platform
+                </p>
+              </div>
             </div>
+            {/* Mobile close button */}
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
               aria-label="Close sidebar"
+              className="lg:hidden"
             >
               <XMarkIcon className="h-6 w-6" />
             </Button>
