@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import { apiClient, User, Company, LoginRequest, ApiError } from '../lib/api';
 import { parseErrorMessage } from '../lib/utils';
+import { useToast } from './ToastContext';
 
 // Types
 interface AuthState {
@@ -40,6 +41,7 @@ interface AuthProviderProps {
 
 // Auth provider component
 export function AuthProvider({ children }: AuthProviderProps) {
+  const { showSuccess, showError } = useToast();
   const [state, setState] = useState<AuthState>({
     user: null,
     isLoading: true,
@@ -100,6 +102,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         error: null,
       }));
+      
+      showSuccess('Welcome back!', `Signed in as ${response.user.email}`);
     } catch (error) {
       const errorMessage = parseErrorMessage(error);
       setState(prev => ({
@@ -109,6 +113,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         error: errorMessage,
       }));
+      
+      showError('Login Failed', errorMessage);
       throw error;
     }
   }, []);
@@ -129,6 +135,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         error: null,
       });
+      
+      showSuccess('Signed out', 'You have been successfully signed out.');
     }
   }, []);
 
