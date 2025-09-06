@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.redis import get_redis
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.monitoring import health_manager, HealthStatus
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -29,8 +30,35 @@ async def health_check() -> Dict[str, Any]:
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "version": settings.app_version,
-        "service": "common-api"
+        "service": "common-api",
+        "environment": getattr(settings, 'environment', 'development')
     }
+
+
+@router.get("/detailed")
+async def detailed_health_check() -> Dict[str, Any]:
+    """
+    Detailed health check with all service dependencies.
+
+    Returns:
+        Comprehensive health status with all dependencies
+
+    Raises:
+        HTTPException: If service is unhealthy
+    """
+    overall_status, health_summary = await health_manager.get_overall_health_status()
+
+    # Set HTTP status code based on health
+    if overall_status == HealthStatus.UNHEALTHY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=health_summary
+        )
+    elif overall_status == HealthStatus.DEGRADED:
+        # Return 200 but indicate degraded performance
+        health_summary["warning"] = "Service is degraded but operational"
+
+    return health_summary
 
 
 @router.get("/ready")

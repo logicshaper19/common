@@ -1,0 +1,68 @@
+{
+  "SOUTHEAST_ASIA": {
+    "name": "Southeast Asia",
+    "min_latitude": -10.0,
+    "max_latitude": 20.0,
+    "min_longitude": 90.0,
+    "max_longitude": 140.0,
+    "description": "Indonesia, Malaysia, Thailand, Philippines - Major global palm oil producers",
+    "major_producers": ["Indonesia", "Malaysia", "Thailand", "Philippines"],
+    "harvest_seasons": ["year_round"],
+    "quality_standards": ["high_accuracy_required", "farm_identification_recommended"]
+  },
+  "WEST_AFRICA": {
+    "name": "West Africa",
+    "min_latitude": -5.0,
+    "max_latitude": 15.0,
+    "min_longitude": -20.0,
+    "max_longitude": 15.0,
+    "description": "Nigeria, Ghana, Ivory Coast, Cameroon - Growing production region",
+    "major_producers": ["Nigeria", "Ghana", "Ivory Coast", "Cameroon"],
+    "harvest_seasons": ["year_round"],
+    "quality_standards": ["farm_identification_recommended", "seasonal_tracking"]
+  },
+  "CENTRAL_AFRICA": {
+    "name": "Central Africa",
+    "min_latitude": -10.0,
+    "max_latitude": 10.0,
+    "min_longitude": 10.0,
+    "max_longitude": 30.0,
+    "description": "Democratic Republic of Congo, Gabon - Emerging production",
+    "major_producers": ["Democratic Republic of Congo", "Gabon"],
+    "harvest_seasons": ["year_round"],
+    "quality_standards": ["basic_documentation"]
+  },
+  "SOUTH_AMERICA": {
+    "name": "South America",
+    "min_latitude": -20.0,
+    "max_latitude": 15.0,
+    "min_longitude": -85.0,
+    "max_longitude": -35.0,
+    "description": "Colombia, Ecuador, Brazil - Expanding cultivation",
+    "major_producers": ["Colombia", "Ecuador", "Brazil"],
+    "harvest_seasons": ["year_round", "seasonal_peaks"],
+    "quality_standards": ["environmental_compliance", "deforestation_monitoring"]
+  },
+  "CENTRAL_AMERICA": {
+    "name": "Central America",
+    "min_latitude": 5.0,
+    "max_latitude": 20.0,
+    "min_longitude": -95.0,
+    "max_longitude": -75.0,
+    "description": "Guatemala, Honduras, Costa Rica - Small-scale production",
+    "major_producers": ["Guatemala", "Honduras", "Costa Rica"],
+    "harvest_seasons": ["seasonal"],
+    "quality_standards": ["basic_documentation", "fair_trade_encouraged"]
+  },
+  "OCEANIA": {
+    "name": "Oceania",
+    "min_latitude": -15.0,
+    "max_latitude": 0.0,
+    "min_longitude": 140.0,
+    "max_longitude": 170.0,
+    "description": "Papua New Guinea, Solomon Islands - Island nation production",
+    "major_producers": ["Papua New Guinea", "Solomon Islands"],
+    "harvest_seasons": ["year_round"],
+    "quality_standards": ["island_logistics", "community_certification"]
+  }
+}

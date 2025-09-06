@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [x] 1. Set up project foundation and core infrastructure
+- [ ] 1. Set up project foundation and core infrastructure
   - Create FastAPI project structure with proper directory organization
   - Set up PostgreSQL database with Docker configuration
   - Configure Redis for caching and background jobs
@@ -154,12 +154,12 @@
   - Build logging aggregation and error tracking
   - _Requirements: 10.5, 12.3_
 
-- [ ] 20. Set up frontend foundation with design system
-  - Initialize React/Next.js project with TypeScript
-  - Integrate the imported design system components and styling
-  - Set up API client for backend communication
+- [ ] 20. Set up frontend foundation with SEMA design system
+  - Initialize React + TypeScript + Tailwind CSS project (matching SEMA design system stack)
+  - Integrate the SEMA design system components and styling
+  - Set up API client for backend communication with FastAPI
   - Implement authentication context and protected routes
-  - Create base layout components and navigation structure
+  - Create base layout components and navigation structure using SEMA components
   - Write unit tests for core frontend components
   - _Requirements: 12.1, 12.2_
 

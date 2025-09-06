@@ -22,6 +22,9 @@ from app.schemas.purchase_order import (
     PurchaseOrderStatus
 )
 from app.core.logging import get_logger
+from app.core.data_access_middleware import require_po_access, filter_response_data
+from app.core.rate_limiting import rate_limit, RateLimitType
+from app.models.data_access import DataCategory, AccessType
 
 logger = get_logger(__name__)
 
@@ -29,6 +32,7 @@ router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
 
 
 @router.post("/", response_model=PurchaseOrderResponse)
+@rate_limit(RateLimitType.STANDARD)
 def create_purchase_order(
     purchase_order: PurchaseOrderCreate,
     db: Session = Depends(get_db),
@@ -172,6 +176,12 @@ def list_purchase_orders(
 
 
 @router.get("/{purchase_order_id}", response_model=PurchaseOrderWithDetails)
+@require_po_access(AccessType.READ)
+@filter_response_data(
+    data_category=DataCategory.PURCHASE_ORDER,
+    entity_type="purchase_order",
+    target_company_field="seller_company_id"
+)
 def get_purchase_order(
     purchase_order_id: str,
     db: Session = Depends(get_db),
@@ -210,6 +220,7 @@ def get_purchase_order(
 
 
 @router.put("/{purchase_order_id}", response_model=PurchaseOrderResponse)
+@require_po_access(AccessType.WRITE)
 def update_purchase_order(
     purchase_order_id: str,
     purchase_order_update: PurchaseOrderUpdate,
@@ -268,6 +279,7 @@ def delete_purchase_order(
 
 
 @router.post("/trace", response_model=TraceabilityResponse)
+@rate_limit(RateLimitType.HEAVY)
 def trace_supply_chain(
     request: TraceabilityRequest,
     db: Session = Depends(get_db),

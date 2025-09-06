@@ -1,0 +1,224 @@
+{
+  "certification_bodies": {
+    "RSPO": {
+      "name": "Roundtable on Sustainable Palm Oil",
+      "description": "Global standard for sustainable palm oil production",
+      "is_high_value": true,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed", "refined"],
+      "quality_weight": 1.0,
+      "recognition_level": "international"
+    },
+    "NDPE": {
+      "name": "No Deforestation, No Peat, No Exploitation",
+      "description": "Environmental protection and social responsibility standard",
+      "is_high_value": true,
+      "applicable_regions": ["SOUTHEAST_ASIA", "SOUTH_AMERICA", "CENTRAL_AFRICA"],
+      "applicable_categories": ["raw_material", "processed"],
+      "quality_weight": 0.9,
+      "recognition_level": "international"
+    },
+    "ISPO": {
+      "name": "Indonesian Sustainable Palm Oil",
+      "description": "Indonesian national standard for sustainable palm oil",
+      "is_high_value": true,
+      "applicable_regions": ["SOUTHEAST_ASIA"],
+      "applicable_categories": ["raw_material", "processed"],
+      "quality_weight": 0.8,
+      "recognition_level": "national"
+    },
+    "MSPO": {
+      "name": "Malaysian Sustainable Palm Oil",
+      "description": "Malaysian national standard for sustainable palm oil",
+      "is_high_value": true,
+      "applicable_regions": ["SOUTHEAST_ASIA"],
+      "applicable_categories": ["raw_material", "processed"],
+      "quality_weight": 0.8,
+      "recognition_level": "national"
+    },
+    "RTRS": {
+      "name": "Round Table on Responsible Soy",
+      "description": "Responsible soy production standard",
+      "is_high_value": false,
+      "applicable_regions": ["SOUTH_AMERICA"],
+      "applicable_categories": ["raw_material"],
+      "quality_weight": 0.6,
+      "recognition_level": "regional"
+    },
+    "ISCC": {
+      "name": "International Sustainability and Carbon Certification",
+      "description": "EU recognized sustainability standard",
+      "is_high_value": false,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed", "refined"],
+      "quality_weight": 0.7,
+      "recognition_level": "international"
+    },
+    "SAN": {
+      "name": "Sustainable Agriculture Network",
+      "description": "Biodiversity conservation and sustainable farming",
+      "is_high_value": false,
+      "applicable_regions": ["CENTRAL_AMERICA", "SOUTH_AMERICA"],
+      "applicable_categories": ["raw_material"],
+      "quality_weight": 0.6,
+      "recognition_level": "regional"
+    },
+    "UTZ": {
+      "name": "UTZ Certified",
+      "description": "Sustainable farming and better opportunities for farmers",
+      "is_high_value": false,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed"],
+      "quality_weight": 0.5,
+      "recognition_level": "international"
+    },
+    "Rainforest Alliance": {
+      "name": "Rainforest Alliance",
+      "description": "Environmental and social sustainability certification",
+      "is_high_value": true,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed"],
+      "quality_weight": 0.8,
+      "recognition_level": "international"
+    },
+    "Organic": {
+      "name": "Organic Certification",
+      "description": "Chemical-free production methods",
+      "is_high_value": true,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed", "refined"],
+      "quality_weight": 0.9,
+      "recognition_level": "international"
+    },
+    "Fair Trade": {
+      "name": "Fair Trade Certification",
+      "description": "Ethical trading practices and fair farmer compensation",
+      "is_high_value": true,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed"],
+      "quality_weight": 0.8,
+      "recognition_level": "international"
+    },
+    "Non-GMO": {
+      "name": "Non-GMO Certification",
+      "description": "Non-genetically modified organisms",
+      "is_high_value": false,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed", "refined"],
+      "quality_weight": 0.4,
+      "recognition_level": "international"
+    },
+    "Sustainable": {
+      "name": "General Sustainability Certification",
+      "description": "General sustainability practices",
+      "is_high_value": false,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed"],
+      "quality_weight": 0.3,
+      "recognition_level": "general"
+    },
+    "Traceable": {
+      "name": "Traceability Certification",
+      "description": "Supply chain transparency and traceability",
+      "is_high_value": false,
+      "applicable_regions": ["all"],
+      "applicable_categories": ["raw_material", "processed", "refined"],
+      "quality_weight": 0.5,
+      "recognition_level": "general"
+    }
+  },
+  "regional_requirements": {
+    "SOUTHEAST_ASIA": {
+      "raw_material": {
+        "required": ["RSPO"],
+        "recommended": ["NDPE", "ISPO", "MSPO"],
+        "compliance_level": "recommended"
+      },
+      "processed": {
+        "required": [],
+        "recommended": ["RSPO", "ISPO", "MSPO"],
+        "compliance_level": "recommended"
+      }
+    },
+    "WEST_AFRICA": {
+      "raw_material": {
+        "required": ["RSPO"],
+        "recommended": ["Rainforest Alliance", "Sustainable"],
+        "compliance_level": "recommended"
+      },
+      "processed": {
+        "required": [],
+        "recommended": ["RSPO", "Rainforest Alliance"],
+        "compliance_level": "optional"
+      }
+    },
+    "CENTRAL_AFRICA": {
+      "raw_material": {
+        "required": [],
+        "recommended": ["RSPO", "Rainforest Alliance"],
+        "compliance_level": "optional"
+      },
+      "processed": {
+        "required": [],
+        "recommended": ["RSPO"],
+        "compliance_level": "optional"
+      }
+    },
+    "SOUTH_AMERICA": {
+      "raw_material": {
+        "required": [],
+        "recommended": ["RSPO", "NDPE", "Rainforest Alliance"],
+        "compliance_level": "recommended"
+      },
+      "processed": {
+        "required": [],
+        "recommended": ["RSPO", "Rainforest Alliance"],
+        "compliance_level": "optional"
+      }
+    },
+    "CENTRAL_AMERICA": {
+      "raw_material": {
+        "required": [],
+        "recommended": ["Rainforest Alliance", "Sustainable", "Fair Trade"],
+        "compliance_level": "optional"
+      },
+      "processed": {
+        "required": [],
+        "recommended": ["Fair Trade", "Rainforest Alliance"],
+        "compliance_level": "optional"
+      }
+    },
+    "OCEANIA": {
+      "raw_material": {
+        "required": [],
+        "recommended": ["RSPO", "Rainforest Alliance"],
+        "compliance_level": "optional"
+      },
+      "processed": {
+        "required": [],
+        "recommended": ["RSPO"],
+        "compliance_level": "optional"
+      }
+    }
+  },
+  "product_categories": {
+    "raw_material": {
+      "description": "Fresh fruit bunches, crude palm oil, palm kernels",
+      "base_requirements": ["RSPO"],
+      "premium_requirements": ["NDPE", "Organic"],
+      "quality_threshold": 0.7
+    },
+    "processed": {
+      "description": "Refined palm oil, palm oil derivatives",
+      "base_requirements": [],
+      "premium_requirements": ["RSPO", "Rainforest Alliance"],
+      "quality_threshold": 0.6
+    },
+    "refined": {
+      "description": "Highly processed palm oil products",
+      "base_requirements": [],
+      "premium_requirements": ["RSPO"],
+      "quality_threshold": 0.5
+    }
+  }
+}

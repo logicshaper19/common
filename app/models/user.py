@@ -1,7 +1,7 @@
 """
 User model for the Common supply chain platform.
 """
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, func
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, func, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -23,6 +23,17 @@ class User(Base):
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     # company = relationship("Company", back_populates="users")
+
+    # Performance indexes for frequently queried fields
+    __table_args__ = (
+        Index('idx_users_email', 'email'),
+        Index('idx_users_company_id', 'company_id'),
+        Index('idx_users_role', 'role'),
+        Index('idx_users_active', 'is_active'),
+        Index('idx_users_company_role', 'company_id', 'role'),
+        Index('idx_users_company_active', 'company_id', 'is_active'),
+        Index('idx_users_created_at', 'created_at'),
+    )

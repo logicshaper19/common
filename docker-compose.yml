@@ -1,47 +1,68 @@
+# Development Docker Compose Configuration
 version: '3.8'
 
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:15
+    container_name: common_postgres_dev
     environment:
       POSTGRES_DB: common_db
       POSTGRES_USER: common_user
       POSTGRES_PASSWORD: common_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/postgres-init.sh:/docker-entrypoint-initdb.d/postgres-init.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U common_user -d common_db"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - common_network
 
   # Redis for caching and background jobs
   redis:
     image: redis:7-alpine
+    container_name: common_redis_dev
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - common_network
 
   # FastAPI Application
   api:
-    build: .
+    build:
+      context: .
+      target: production
+    container_name: common_api_dev
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://common_user:common_password@postgres:5432/common_db
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET_KEY=your-secret-key-change-in-production
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
       - RESEND_API_KEY=your-resend-api-key
+      - DEBUG=True
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,15 +70,31 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - ./logs:/app/logs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - common_network
 
   # Celery Worker for background jobs
   celery:
-    build: .
+    build:
+      context: .
+      target: production
+    container_name: common_celery_dev
     environment:
       - DATABASE_URL=postgresql://common_user:common_password@postgres:5432/common_db
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET_KEY=your-secret-key-change-in-production
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - DEBUG=True
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,8 +102,63 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
-    command: celery -A app.celery_app worker --loglevel=info
+      - ./logs:/app/logs
+    command: celery -A app.celery_app worker --loglevel=debug --concurrency=2
+    restart: unless-stopped
+    networks:
+      - common_network
+
+  # Celery Beat for scheduled tasks
+  celery-beat:
+    build:
+      context: .
+      target: production
+    container_name: common_celery_beat_dev
+    environment:
+      - DATABASE_URL=postgresql://common_user:common_password@postgres:5432/common_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - DEBUG=True
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    command: celery -A app.celery_app beat --loglevel=debug
+    restart: unless-stopped
+    networks:
+      - common_network
+
+  # Flower for Celery monitoring
+  flower:
+    build:
+      context: .
+      target: production
+    container_name: common_flower_dev
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379
+      - FLOWER_PORT=5555
+    depends_on:
+      - redis
+      - celery
+    command: celery -A app.celery_app flower --port=5555
+    restart: unless-stopped
+    networks:
+      - common_network
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+
+networks:
+  common_network:
+    driver: bridge
