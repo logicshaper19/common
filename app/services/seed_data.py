@@ -221,9 +221,9 @@ class SeedDataService:
             return
         
         # Get admin configuration from environment variables
-        admin_email = os.getenv("ADMIN_EMAIL", "admin@common.local")
-        admin_password = os.getenv("ADMIN_PASSWORD", "admin123456")
-        admin_name = os.getenv("ADMIN_NAME", "Platform Administrator")
+        admin_email = os.getenv("ADMIN_EMAIL", "elisha@common.co")
+        admin_password = os.getenv("ADMIN_PASSWORD", "slp225")
+        admin_name = os.getenv("ADMIN_NAME", "Elisha")
         company_name = os.getenv("ADMIN_COMPANY_NAME", "Common Platform")
         
         try:
