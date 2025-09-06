@@ -10,7 +10,7 @@ import { AuditClient } from './clients/AuditClient';
 import { SystemClient } from './clients/SystemClient';
 
 // Re-export types for convenience
-export * from '../../../types/admin';
+export * from '../../types/admin';
 export * from './base/types';
 
 // Re-export individual clients for direct use

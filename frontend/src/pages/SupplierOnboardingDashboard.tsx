@@ -135,7 +135,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
             <Button
               variant="primary"
               onClick={() => setActiveTab('invite')}
-              icon={PlusIcon}
+              leftIcon={<PlusIcon className="h-4 w-4" />}
               className="h-20 flex-col"
             >
               <span className="text-lg font-medium">Invite Supplier</span>
@@ -145,7 +145,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => setActiveTab('relationships')}
-              icon={UsersIcon}
+              leftIcon={<UsersIcon className="h-4 w-4" />}
               className="h-20 flex-col"
             >
               <span className="text-lg font-medium">Manage Relationships</span>
@@ -155,7 +155,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => setActiveTab('analytics')}
-              icon={ChartBarIcon}
+              leftIcon={<ChartBarIcon className="h-4 w-4" />}
               className="h-20 flex-col"
             >
               <span className="text-lg font-medium">View Analytics</span>
@@ -175,7 +175,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setActiveTab('invite')}
-              icon={PlusIcon}
+              leftIcon={<PlusIcon className="h-4 w-4" />}
             >
               Send Invitation
             </Button>
@@ -197,7 +197,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={() => setActiveTab('invite')}
-                icon={PlusIcon}
+                leftIcon={<PlusIcon className="h-4 w-4" />}
               >
                 Send Your First Invitation
               </Button>
@@ -256,7 +256,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setActiveTab('relationships')}
-              icon={EyeIcon}
+              leftIcon={<EyeIcon className="h-4 w-4" />}
             >
               View All
             </Button>
@@ -327,7 +327,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
         <Button
           variant="primary"
           onClick={() => setActiveTab('invite')}
-          icon={PlusIcon}
+          leftIcon={<PlusIcon className="h-4 w-4" />}
         >
           Invite Supplier
         </Button>

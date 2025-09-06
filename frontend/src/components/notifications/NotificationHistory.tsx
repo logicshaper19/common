@@ -59,12 +59,16 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
     setError(null);
 
     try {
-      const searchFilters = {
+      const searchFilters: NotificationFilters = {
         ...filters,
         search_query: searchQuery || undefined,
       };
 
-      const response = await notificationApi.getNotifications(searchFilters, page, pageSize);
+      const response = await notificationApi.getNotifications({
+        ...searchFilters,
+        page,
+        per_page: pageSize
+      });
       
       if (page === 1) {
         setNotifications(response.notifications);
@@ -73,7 +77,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
       }
       
       setCurrentPage(page);
-      setTotalCount(response.total_count);
+      setTotalCount(response.total);
       setHasNext(response.has_next);
     } catch (error) {
       console.error('Failed to load notifications:', error);
@@ -133,7 +137,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
     try {
       for (const id of notificationIds) {
         if (action === 'archive') {
-          await notificationApi.archiveNotification(id);
+          await notificationApi.markAsRead(id); // Use markAsRead instead of archiveNotification
         } else {
           await notificationApi.deleteNotification(id);
         }
@@ -241,18 +245,27 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
       <CardBody>
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
-          <Input
-            placeholder="Search notifications..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            icon={MagnifyingGlassIcon}
-          />
+          <div className="relative">
+            <Input
+              placeholder="Search notifications..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          </div>
           
           {showFilters && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-neutral-50 rounded-lg">
               <Select
                 value={filters.status?.[0] || 'all'}
                 onChange={(e) => handleFilterChange('status', e.target.value === 'all' ? undefined : [e.target.value])}
+                options={[
+                  { value: 'all', label: 'All Status' },
+                  { value: 'unread', label: 'Unread' },
+                  { value: 'read', label: 'Read' },
+                  { value: 'archived', label: 'Archived' }
+                ]}
               >
                 <option value="all">All Status</option>
                 <option value="unread">Unread</option>
@@ -263,6 +276,13 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
               <Select
                 value={filters.priorities?.[0] || 'all'}
                 onChange={(e) => handleFilterChange('priorities', e.target.value === 'all' ? undefined : [e.target.value])}
+                options={[
+                  { value: 'all', label: 'All Priority' },
+                  { value: 'urgent', label: 'Urgent' },
+                  { value: 'high', label: 'High' },
+                  { value: 'normal', label: 'Normal' },
+                  { value: 'low', label: 'Low' }
+                ]}
               >
                 <option value="all">All Priority</option>
                 <option value="urgent">Urgent</option>
@@ -274,6 +294,13 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
               <Select
                 value={filters.types?.[0] || 'all'}
                 onChange={(e) => handleFilterChange('types', e.target.value === 'all' ? undefined : [e.target.value])}
+                options={[
+                  { value: 'all', label: 'All Types' },
+                  { value: 'po_created', label: 'Purchase Orders' },
+                  { value: 'transparency_updated', label: 'Transparency' },
+                  { value: 'supplier_invited', label: 'Suppliers' },
+                  { value: 'system_alert', label: 'System Alerts' }
+                ]}
               >
                 <option value="all">All Types</option>
                 <option value="po_created">Purchase Orders</option>

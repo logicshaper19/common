@@ -149,7 +149,6 @@ const MultiClientDashboard: React.FC<MultiClientDashboardProps> = ({
           <CardHeader 
             title="Active Alerts"
             subtitle={`${data.alerts.length} items requiring attention`}
-            icon={ExclamationTriangleIcon}
           />
           <CardBody>
             <div className="space-y-3">

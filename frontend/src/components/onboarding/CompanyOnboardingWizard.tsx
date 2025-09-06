@@ -40,6 +40,7 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [companyData, setCompanyData] = useState<CompanyOnboardingData>({
+    id: undefined,
     company_name: '',
     company_type: companyType || 'originator',
     email: '',
@@ -243,9 +244,24 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
 
     setIsSubmitting(true);
     try {
-      const result = await onboardingApi.completeCompanyOnboarding(companyData, userData);
+      const updateData = {
+        id: companyData.id || 'temp-id',
+        company_name: companyData.company_name,
+        company_type: companyData.company_type,
+        address: companyData.address,
+        phone: companyData.phone,
+        website: companyData.website,
+        user_data: userData,
+        status: 'completed' as const
+      };
+      const result = await onboardingApi.updateCompanyOnboarding(updateData.id, updateData);
       if (onComplete) {
-        onComplete(result);
+        // Transform result to match expected callback type
+        onComplete({
+          company_id: result.id || updateData.id,
+          user_id: userData.email, // Use user email as temp user ID
+          access_token: 'temp-access-token' // Placeholder token
+        });
       }
     } catch (error) {
       console.error('Onboarding failed:', error);

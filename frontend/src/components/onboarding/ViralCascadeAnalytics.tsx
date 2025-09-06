@@ -59,7 +59,7 @@ const ViralCascadeAnalytics: React.FC<ViralCascadeAnalyticsProps> = ({
   const loadMetrics = async () => {
     setIsLoading(true);
     try {
-      const data = await onboardingApi.getViralCascadeMetrics(companyId);
+      const data = await onboardingApi.getViralCascadeMetrics(companyId || 'default-company-id');
       setMetrics(data);
     } catch (error) {
       console.error('Failed to load viral cascade metrics:', error);
@@ -394,13 +394,12 @@ const ViralCascadeAnalytics: React.FC<ViralCascadeAnalyticsProps> = ({
         <CardHeader 
           title="Viral Cascade Analytics"
           subtitle="Track supplier onboarding growth and viral expansion"
-          icon={ArrowTrendingUpIcon}
           action={
             <Button
               variant="outline"
               size="sm"
               onClick={loadMetrics}
-              icon={ArrowPathIcon}
+              leftIcon={<ArrowPathIcon className="h-4 w-4" />}
             >
               Refresh
             </Button>

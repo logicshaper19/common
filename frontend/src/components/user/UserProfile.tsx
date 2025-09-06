@@ -149,7 +149,6 @@ const UserProfile: React.FC<UserProfileProps> = ({
         <CardHeader 
           title="User Profile"
           subtitle="Manage your account information and preferences"
-          icon={UserCircleIcon}
         />
         
         <CardBody>
@@ -290,12 +289,13 @@ const UserProfile: React.FC<UserProfileProps> = ({
                   value={profile.role}
                   onChange={(e) => updateProfile('role', e.target.value)}
                   disabled
-                >
-                  <option value="admin">Administrator</option>
-                  <option value="buyer">Buyer</option>
-                  <option value="seller">Seller</option>
-                  <option value="viewer">Viewer</option>
-                </Select>
+                  options={[
+                    { value: 'admin', label: 'Administrator' },
+                    { value: 'buyer', label: 'Buyer' },
+                    { value: 'seller', label: 'Seller' },
+                    { value: 'viewer', label: 'Viewer' }
+                  ]}
+                />
               </div>
 
               {/* Preferences */}
@@ -304,43 +304,47 @@ const UserProfile: React.FC<UserProfileProps> = ({
                   label="Timezone"
                   value={profile.timezone}
                   onChange={(e) => updateProfile('timezone', e.target.value)}
-                >
-                  <option value="America/New_York">Eastern Time (ET)</option>
-                  <option value="America/Chicago">Central Time (CT)</option>
-                  <option value="America/Denver">Mountain Time (MT)</option>
-                  <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                  <option value="UTC">UTC</option>
-                </Select>
+                  options={[
+                    { value: 'America/New_York', label: 'Eastern Time (ET)' },
+                    { value: 'America/Chicago', label: 'Central Time (CT)' },
+                    { value: 'America/Denver', label: 'Mountain Time (MT)' },
+                    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+                    { value: 'UTC', label: 'UTC' }
+                  ]}
+                />
                 
                 <Select
                   label="Language"
                   value={profile.language}
                   onChange={(e) => updateProfile('language', e.target.value)}
-                >
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                </Select>
+                  options={[
+                    { value: 'en', label: 'English' },
+                    { value: 'es', label: 'Spanish' },
+                    { value: 'fr', label: 'French' },
+                    { value: 'de', label: 'German' }
+                  ]}
+                />
                 
                 <Select
                   label="Date Format"
                   value={profile.date_format}
                   onChange={(e) => updateProfile('date_format', e.target.value)}
-                >
-                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                </Select>
+                  options={[
+                    { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
+                    { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
+                    { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' }
+                  ]}
+                />
                 
                 <Select
                   label="Time Format"
                   value={profile.time_format}
                   onChange={(e) => updateProfile('time_format', e.target.value)}
-                >
-                  <option value="12h">12 Hour</option>
-                  <option value="24h">24 Hour</option>
-                </Select>
+                  options={[
+                    { value: '12h', label: '12 Hour' },
+                    { value: '24h', label: '24 Hour' }
+                  ]}
+                />
               </div>
             </div>
           )}

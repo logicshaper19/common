@@ -34,7 +34,7 @@ from app.api.notifications import router as notifications_router
 from app.api.audit import router as audit_router
 from app.api.data_access import router as data_access_router
 from app.api.transparency_visualization import router as transparency_visualization_router
-from app.api.viral_analytics import router as viral_analytics_router
+# from app.api.viral_analytics import router as viral_analytics_router
 from app.api.origin_data import router as origin_data_router
 from app.api.business_relationships import router as business_relationships_router
 from app.api.batches import router as batches_router
@@ -196,7 +196,7 @@ app.include_router(notifications_router, tags=["Notifications"])
 app.include_router(audit_router, tags=["Audit"])
 app.include_router(data_access_router, tags=["Data Access"])
 app.include_router(transparency_visualization_router, tags=["Transparency Visualization"])
-app.include_router(viral_analytics_router, tags=["Viral Analytics"])
+# app.include_router(viral_analytics_router, tags=["Viral Analytics"])
 app.include_router(origin_data_router, tags=["Origin Data"])
 app.include_router(business_relationships_router, tags=["Business Relationships"])
 app.include_router(batches_router, tags=["Batch Tracking"])
