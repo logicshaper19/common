@@ -7,7 +7,7 @@ import { RequestOptions, ApiResponse } from './types';
 
 export abstract class BaseAdminClient {
   /**
-   * Simulate network delay for better UX in mock mode
+   * Utility method for adding delays in development/testing
    */
   protected async delay(ms: number = 500): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -46,7 +46,7 @@ export abstract class BaseAdminClient {
       // Log the error for debugging
       console.warn(`Backend request failed for ${endpoint}:`, error.message);
       
-      // Re-throw to let individual clients handle fallback to mock data
+      // Re-throw to let individual clients handle the error
       throw error;
     }
   }

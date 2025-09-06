@@ -18,21 +18,16 @@ export class ProductClient extends BaseAdminClient {
    * Get paginated list of products with filtering
    */
   async getProducts(filters: ProductFilter): Promise<PaginatedResponse<AdminProduct>> {
-    try {
-      // Validate pagination parameters
-      const { page, per_page } = this.validatePagination(filters.page, filters.per_page);
-      const validatedFilters = { ...filters, page, per_page };
+    // Validate pagination parameters
+    const { page, per_page } = this.validatePagination(filters.page, filters.per_page);
+    const validatedFilters = { ...filters, page, per_page };
 
-      const response = await this.makeRequest<PaginatedResponse<AdminProduct>>(
-        '/admin/products',
-        { params: validatedFilters }
-      );
+    const response = await this.makeRequest<PaginatedResponse<AdminProduct>>(
+      '/admin/products',
+      { params: validatedFilters }
+    );
 
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for products, using mock data');
-      return this.mockProvider.getProducts(filters);
-    }
+    return response;
   }
 
   /**
@@ -41,13 +36,8 @@ export class ProductClient extends BaseAdminClient {
   async getProduct(id: string): Promise<AdminProduct> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      const response = await this.makeRequest<AdminProduct>(`/admin/products/${id}`);
-      return response;
-    } catch (error) {
-      console.warn(`Backend not available for product ${id}, using mock data`);
-      return this.mockProvider.getProduct(id);
-    }
+    const response = await this.makeRequest<AdminProduct>(`/admin/products/${id}`);
+    return response;
   }
 
   /**
@@ -56,17 +46,12 @@ export class ProductClient extends BaseAdminClient {
   async createProduct(data: ProductCreate): Promise<AdminProduct> {
     this.validateRequired(data, ['common_product_id', 'name', 'category', 'default_unit']);
 
-    try {
-      const response = await this.makeRequest<AdminProduct>('/admin/products', {
-        method: 'POST',
-        data,
-      });
+    const response = await this.makeRequest<AdminProduct>('/admin/products', {
+      method: 'POST',
+      data,
+    });
 
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for product creation, using mock data');
-      return this.mockProvider.createProduct(data);
-    }
+    return response;
   }
 
   /**
@@ -75,17 +60,12 @@ export class ProductClient extends BaseAdminClient {
   async updateProduct(id: string, data: ProductUpdate): Promise<AdminProduct> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      const response = await this.makeRequest<AdminProduct>(`/admin/products/${id}`, {
-        method: 'PUT',
-        data,
-      });
+    const response = await this.makeRequest<AdminProduct>(`/admin/products/${id}`, {
+      method: 'PUT',
+      data,
+    });
 
-      return response;
-    } catch (error) {
-      console.warn(`Backend not available for product ${id} update, using mock data`);
-      return this.mockProvider.updateProduct(id, data);
-    }
+    return response;
   }
 
   /**
@@ -94,16 +74,11 @@ export class ProductClient extends BaseAdminClient {
   async deleteProduct(id: string): Promise<{ success: boolean }> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      await this.makeRequest(`/admin/products/${id}`, {
-        method: 'DELETE',
-      });
+    const response = await this.makeRequest<{ success: boolean }>(`/admin/products/${id}`, {
+      method: 'DELETE',
+    });
 
-      return { success: true };
-    } catch (error) {
-      console.warn(`Backend not available for product ${id} deletion, using mock data`);
-      return this.mockProvider.deleteProduct(id);
-    }
+    return { success: true };
   }
 
   /**
@@ -112,17 +87,12 @@ export class ProductClient extends BaseAdminClient {
   async validateProduct(data: ProductCreate): Promise<ProductValidationResult> {
     this.validateRequired(data, ['common_product_id', 'name', 'category']);
 
-    try {
-      const response = await this.makeRequest<ProductValidationResult>('/admin/products/validate', {
-        method: 'POST',
-        data,
-      });
+    const response = await this.makeRequest<ProductValidationResult>('/admin/products/validate', {
+      method: 'POST',
+      data,
+    });
 
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for product validation, using mock data');
-      return this.mockProvider.validateProduct(data);
-    }
+    return response;
   }
 
   /**
@@ -135,20 +105,15 @@ export class ProductClient extends BaseAdminClient {
       throw new Error('At least one product ID is required for bulk operations');
     }
 
-    try {
-      const response = await this.makeRequest<{ success: boolean; affected_count: number }>(
-        '/admin/products/bulk',
-        {
-          method: 'POST',
-          data: operation,
-        }
-      );
+    const response = await this.makeRequest<{ success: boolean; affected_count: number }>(
+      '/admin/products/bulk',
+      {
+        method: 'POST',
+        data: operation,
+      }
+    );
 
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for bulk product operation, using mock data');
-      return this.mockProvider.bulkProductOperation(operation);
-    }
+    return response;
   }
 
   /**
@@ -163,99 +128,129 @@ export class ProductClient extends BaseAdminClient {
     most_used: AdminProduct[];
     recently_created: AdminProduct[];
   }> {
-    try {
-      const response = await this.makeRequest<any>('/admin/products/stats');
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for product stats, using mock data');
-      
-      // Generate mock stats
-      const allProducts = await this.mockProvider.getProducts({
-        page: 1,
-        per_page: 1000,
-      });
-
-      const products = allProducts.data;
-      
-      const stats = {
-        total_products: products.length,
-        active_products: products.filter(p => p.status === 'active').length,
-        inactive_products: products.filter(p => p.status === 'inactive').length,
-        deprecated_products: products.filter(p => p.status === 'deprecated').length,
-        by_category: products.reduce((acc, p) => {
-          acc[p.category] = (acc[p.category] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
-        most_used: products
-          .sort((a, b) => b.usage_count - a.usage_count)
-          .slice(0, 5),
-        recently_created: products
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 5),
-      };
-
-      return stats;
-    }
+    const response = await this.makeRequest<any>('/admin/products/stats');
+    return response;
   }
 
   /**
    * Export products to various formats
    */
-  async exportProducts(filters: ProductFilter, format: 'csv' | 'xlsx' | 'json' = 'csv'): Promise<{ download_url: string }> {
-    try {
-      const response = await this.makeRequest<{ download_url: string }>('/admin/products/export', {
-        method: 'POST',
-        data: { filters, format },
-      });
+  async exportProducts(filters: ProductFilter, format: 'csv' | 'xlsx' | 'json'): Promise<{ download_url: string }> {
+    const response = await this.makeRequest<{ download_url: string }>('/admin/products/export', {
+      method: 'POST',
+      data: { filters, format },
+    });
 
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for product export, using mock data');
-      
-      // In a real implementation, this would generate an actual file
-      return {
-        download_url: `https://example.com/exports/products-${Date.now()}.${format}`,
-      };
-    }
+    return response;
   }
 
   /**
    * Import products from file
    */
-  async importProducts(file: File, options: {
+  async importProducts(file: File, options?: {
     update_existing?: boolean;
     validate_only?: boolean;
-  } = {}): Promise<{
+  }): Promise<{
     success: boolean;
     imported_count: number;
     updated_count: number;
-    errors: string[];
-    warnings: string[];
+    errors: Array<{
+      row: number;
+      field: string;
+      message: string;
+    }>;
   }> {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options) {
       formData.append('options', JSON.stringify(options));
-
-      const response = await this.makeRequest<any>('/admin/products/import', {
-        method: 'POST',
-        data: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      return response;
-    } catch (error) {
-      
-      // Mock import result
-      return {
-        success: true,
-        imported_count: 10,
-        updated_count: 5,
-        errors: [],
-        warnings: ['Some products had missing HS codes'],
-      };
     }
+
+    const response = await this.makeRequest<any>('/admin/products/import', {
+      method: 'POST',
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response;
+  }
+
+  /**
+   * Get product usage analytics
+   */
+  async getProductAnalytics(id: string, timeRange: string = '30d'): Promise<{
+    usage_count: number;
+    purchase_orders: number;
+    companies_using: number;
+    trend_data: Array<{
+      date: string;
+      usage_count: number;
+      purchase_orders: number;
+    }>;
+    top_buyers: Array<{
+      company_id: string;
+      company_name: string;
+      usage_count: number;
+    }>;
+  }> {
+    this.validateRequired({ id }, ['id']);
+
+    const response = await this.makeRequest<any>(`/admin/products/${id}/analytics`, {
+      params: { time_range: timeRange },
+    });
+
+    return response;
+  }
+
+  /**
+   * Update product status
+   */
+  async updateProductStatus(id: string, status: 'active' | 'inactive' | 'deprecated'): Promise<{ success: boolean }> {
+    this.validateRequired({ id, status }, ['id', 'status']);
+
+    const response = await this.makeRequest<{ success: boolean }>(`/admin/products/${id}/status`, {
+      method: 'PUT',
+      data: { status },
+    });
+
+    return response;
+  }
+
+  /**
+   * Get product composition requirements
+   */
+  async getProductComposition(id: string): Promise<{
+    material_breakdown: Record<string, {
+      min_percentage: number;
+      max_percentage: number;
+      required: boolean;
+    }>;
+    origin_data_requirements: {
+      coordinates: 'required' | 'optional' | 'none';
+      batch_tracking: boolean;
+      supplier_verification: boolean;
+      certifications: string[];
+    };
+  }> {
+    this.validateRequired({ id }, ['id']);
+
+    const response = await this.makeRequest<any>(`/admin/products/${id}/composition`);
+    return response;
+  }
+
+  /**
+   * Update product composition requirements
+   */
+  async updateProductComposition(id: string, composition: any): Promise<{ success: boolean }> {
+    this.validateRequired({ id }, ['id']);
+
+    const response = await this.makeRequest<{ success: boolean }>(`/admin/products/${id}/composition`, {
+      method: 'PUT',
+      data: composition,
+    });
+
+    return response;
   }
 }

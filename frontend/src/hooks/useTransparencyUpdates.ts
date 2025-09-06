@@ -36,7 +36,7 @@ export function useTransparencyUpdates({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
 
-  // Mock WebSocket URL - in production this would be from environment
+  // WebSocket URL for real-time transparency updates
   const getWebSocketUrl = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = process.env.REACT_APP_WS_HOST || window.location.host;
@@ -107,42 +107,7 @@ export function useTransparencyUpdates({
         wsRef.current.close();
       }
 
-      // For development, simulate WebSocket with mock updates
-      if (process.env.NODE_ENV === 'development') {
-        // Simulate connection
-        setState(prev => ({
-          ...prev,
-          isConnected: true,
-          connectionError: null,
-        }));
 
-        // Simulate periodic updates
-        const interval = setInterval(() => {
-          const mockUpdate: TransparencyUpdate = {
-            type: Math.random() > 0.5 ? 'score_change' : 'new_confirmation',
-            company_id: companyId,
-            data: {
-              score_change: Math.random() * 2 - 1, // Random change between -1 and 1
-              new_score: 75 + Math.random() * 20, // Random score between 75-95
-            },
-            timestamp: new Date().toISOString(),
-          };
-
-          setState(prev => ({
-            ...prev,
-            lastUpdate: mockUpdate,
-            updateCount: prev.updateCount + 1,
-          }));
-
-          if (onUpdate) {
-            onUpdate(mockUpdate);
-          }
-        }, 10000); // Update every 10 seconds
-
-        // Store interval reference for cleanup
-        wsRef.current = { close: () => clearInterval(interval) } as any;
-        return;
-      }
 
       // Real WebSocket connection
       const ws = new WebSocket(getWebSocketUrl());
