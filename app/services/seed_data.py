@@ -205,6 +205,65 @@ class SeedDataService:
             logger.error("Failed to seed palm oil products", error=str(e))
             raise
     
+    def create_default_admin(self) -> None:
+        """
+        Create a default admin user if none exists.
+        """
+        from app.models.user import User
+        from app.models.company import Company
+        from app.core.auth import hash_password
+        import os
+        
+        # Check if any admin user exists
+        existing_admin = self.db.query(User).filter(User.role == "admin").first()
+        if existing_admin:
+            logger.info("Admin user already exists, skipping creation")
+            return
+        
+        # Get admin configuration from environment variables
+        admin_email = os.getenv("ADMIN_EMAIL", "admin@common.local")
+        admin_password = os.getenv("ADMIN_PASSWORD", "admin123456")
+        admin_name = os.getenv("ADMIN_NAME", "Platform Administrator")
+        company_name = os.getenv("ADMIN_COMPANY_NAME", "Common Platform")
+        
+        try:
+            # Create or get admin company
+            company = self.db.query(Company).filter(Company.email == admin_email).first()
+            if not company:
+                company = Company(
+                    name=company_name,
+                    company_type="brand",
+                    email=admin_email
+                )
+                self.db.add(company)
+                self.db.flush()
+                logger.info("Created admin company", company_name=company_name)
+            
+            # Create admin user
+            hashed_password = hash_password(admin_password)
+            admin_user = User(
+                email=admin_email,
+                hashed_password=hashed_password,
+                full_name=admin_name,
+                role="admin",
+                is_active=True,
+                company_id=company.id
+            )
+            
+            self.db.add(admin_user)
+            self.db.commit()
+            
+            logger.info(
+                "Default admin user created successfully",
+                email=admin_email,
+                company=company_name
+            )
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error("Failed to create default admin user", error=str(e))
+            raise
+
     def seed_all_data(self) -> None:
         """
         Seed all initial data.
@@ -212,5 +271,6 @@ class SeedDataService:
         logger.info("Starting data seeding process")
         
         self.seed_palm_oil_products()
+        self.create_default_admin()
         
         logger.info("Data seeding completed successfully")
