@@ -237,51 +237,12 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     if (!user?.id || wsRef.current) return;
 
     try {
-      // Mock WebSocket URL - in production this would be from environment
+      // WebSocket URL for real-time notifications
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = process.env.REACT_APP_WS_HOST || window.location.host;
       const wsUrl = `${protocol}//${host}/ws/notifications/${user.id}`;
 
-      // For development, simulate WebSocket with mock updates
-      if (process.env.NODE_ENV === 'development') {
-        setState(prev => ({ ...prev, isConnected: true }));
-        
-        // Simulate periodic notification updates
-        const interval = setInterval(() => {
-          const mockUpdate: NotificationUpdate = {
-            type: 'new_notification',
-            notification: {
-              id: `notif-${Date.now()}`,
-              user_id: user.id,
-              company_id: user.company_id || 'company-1',
-              notification_type: 'transparency_updated',
-              title: 'New Transparency Update',
-              message: 'Your transparency score has been updated.',
-              channels: ['in_app'],
-              priority: 'normal',
-              status: 'unread',
-              created_at: new Date().toISOString(),
-              delivery_status: { in_app: 'delivered' },
-            },
-            summary: {
-              ...state.summary!,
-              unread_count: (state.summary?.unread_count || 0) + 1,
-              total_count: (state.summary?.total_count || 0) + 1,
-            },
-            timestamp: new Date().toISOString(),
-          };
 
-          setState(prev => ({
-            ...prev,
-            notifications: [mockUpdate.notification!, ...prev.notifications],
-            summary: mockUpdate.summary,
-            lastUpdate: mockUpdate.timestamp,
-          }));
-        }, 30000); // Update every 30 seconds
-
-        wsRef.current = { close: () => clearInterval(interval) } as any;
-        return;
-      }
 
       // Real WebSocket connection
       const ws = new WebSocket(wsUrl);

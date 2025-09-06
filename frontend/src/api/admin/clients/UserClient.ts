@@ -17,20 +17,15 @@ export class UserClient extends BaseAdminClient {
    * Get paginated list of users with filtering
    */
   async getUsers(filters: UserFilter): Promise<PaginatedResponse<AdminUser>> {
-    try {
-      const { page, per_page } = this.validatePagination(filters.page, filters.per_page);
-      const validatedFilters = { ...filters, page, per_page };
+    const { page, per_page } = this.validatePagination(filters.page, filters.per_page);
+    const validatedFilters = { ...filters, page, per_page };
 
-      const response = await this.makeRequest<PaginatedResponse<AdminUser>>(
-        '/admin/users',
-        { params: validatedFilters }
-      );
+    const response = await this.makeRequest<PaginatedResponse<AdminUser>>(
+      '/admin/users',
+      { params: validatedFilters }
+    );
 
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for users, using mock data');
-      return this.mockProvider.getUsers(filters);
-    }
+    return response;
   }
 
   /**
@@ -39,13 +34,8 @@ export class UserClient extends BaseAdminClient {
   async getUser(id: string): Promise<AdminUser> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      const response = await this.makeRequest<AdminUser>(`/admin/users/${id}`);
-      return response;
-    } catch (error) {
-      console.warn(`Backend not available for user ${id}, using mock data`);
-      return this.mockProvider.getUser(id);
-    }
+    const response = await this.makeRequest<AdminUser>(`/admin/users/${id}`);
+    return response;
   }
 
   /**
@@ -54,17 +44,12 @@ export class UserClient extends BaseAdminClient {
   async createUser(data: UserCreate): Promise<AdminUser> {
     this.validateRequired(data, ['email', 'full_name', 'role', 'company_id']);
 
-    try {
-      const response = await this.makeRequest<AdminUser>('/admin/users', {
-        method: 'POST',
-        data,
-      });
+    const response = await this.makeRequest<AdminUser>('/admin/users', {
+      method: 'POST',
+      data,
+    });
 
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for user creation, using mock data');
-      return this.mockProvider.createUser(data);
-    }
+    return response;
   }
 
   /**
@@ -73,17 +58,12 @@ export class UserClient extends BaseAdminClient {
   async updateUser(id: string, data: UserUpdate): Promise<AdminUser> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      const response = await this.makeRequest<AdminUser>(`/admin/users/${id}`, {
-        method: 'PUT',
-        data,
-      });
+    const response = await this.makeRequest<AdminUser>(`/admin/users/${id}`, {
+      method: 'PUT',
+      data,
+    });
 
-      return response;
-    } catch (error) {
-      console.warn(`Backend not available for user ${id} update, using mock data`);
-      return this.mockProvider.updateUser(id, data);
-    }
+    return response;
   }
 
   /**
@@ -92,16 +72,11 @@ export class UserClient extends BaseAdminClient {
   async deleteUser(id: string): Promise<{ success: boolean }> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      await this.makeRequest(`/admin/users/${id}`, {
-        method: 'DELETE',
-      });
+    const response = await this.makeRequest<{ success: boolean }>(`/admin/users/${id}`, {
+      method: 'DELETE',
+    });
 
-      return { success: true };
-    } catch (error) {
-      console.warn(`Backend not available for user ${id} deletion, using mock data`);
-      return this.mockProvider.deleteUser(id);
-    }
+    return { success: true };
   }
 
   /**
@@ -114,20 +89,15 @@ export class UserClient extends BaseAdminClient {
       throw new Error('At least one user ID is required for bulk operations');
     }
 
-    try {
-      const response = await this.makeRequest<{ success: boolean; affected_count: number }>(
-        '/admin/users/bulk',
-        {
-          method: 'POST',
-          data: operation,
-        }
-      );
+    const response = await this.makeRequest<{ success: boolean; affected_count: number }>(
+      '/admin/users/bulk',
+      {
+        method: 'POST',
+        data: operation,
+      }
+    );
 
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for bulk user operation, using mock data');
-      return this.mockProvider.bulkUserOperation(operation);
-    }
+    return response;
   }
 
   /**
@@ -136,83 +106,51 @@ export class UserClient extends BaseAdminClient {
   async resetUserPassword(id: string, sendEmail: boolean = true): Promise<{ success: boolean; temporary_password?: string }> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      const response = await this.makeRequest<{ success: boolean; temporary_password?: string }>(
-        `/admin/users/${id}/reset-password`,
-        {
-          method: 'POST',
-          data: { send_email: sendEmail },
-        }
-      );
+    const response = await this.makeRequest<{ success: boolean; temporary_password?: string }>(
+      `/admin/users/${id}/reset-password`,
+      {
+        method: 'POST',
+        data: { send_email: sendEmail },
+      }
+    );
 
-      return response;
-    } catch (error) {
-      console.warn(`Backend not available for user ${id} password reset, using mock data`);
-      return {
-        success: true,
-        temporary_password: sendEmail ? undefined : 'temp123456',
-      };
-    }
+    return response;
   }
 
   /**
-   * Enable/disable two-factor authentication for user
+   * Toggle user two-factor authentication
    */
-  async toggleTwoFactor(id: string, enabled: boolean): Promise<{ success: boolean }> {
+  async toggleUserTwoFactor(id: string, enabled: boolean): Promise<{ success: boolean }> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      const response = await this.makeRequest<{ success: boolean }>(
-        `/admin/users/${id}/two-factor`,
-        {
-          method: 'PUT',
-          data: { enabled },
-        }
-      );
+    const response = await this.makeRequest<{ success: boolean }>(
+      `/admin/users/${id}/two-factor`,
+      {
+        method: 'PUT',
+        data: { enabled },
+      }
+    );
 
-      return response;
-    } catch (error) {
-      console.warn(`Backend not available for user ${id} 2FA toggle, using mock data`);
-      return { success: true };
-    }
+    return response;
   }
 
   /**
-   * Get user activity log
+   * Get user login history
    */
-  async getUserActivity(id: string, limit: number = 50): Promise<{
-    activities: Array<{
-      id: string;
-      action: string;
-      resource: string;
-      timestamp: string;
-      ip_address: string;
-      user_agent: string;
-    }>;
-  }> {
+  async getUserLoginHistory(id: string, days: number = 30): Promise<Array<{
+    timestamp: string;
+    ip_address: string;
+    user_agent: string;
+    success: boolean;
+    failure_reason?: string;
+  }>> {
     this.validateRequired({ id }, ['id']);
 
-    try {
-      const response = await this.makeRequest<any>(`/admin/users/${id}/activity`, {
-        params: { limit },
-      });
+    const response = await this.makeRequest<any>(`/admin/users/${id}/login-history`, {
+      params: { days },
+    });
 
-      return response;
-    } catch (error) {
-      console.warn(`Backend not available for user ${id} activity, using mock data`);
-      return {
-        activities: [
-          {
-            id: 'activity-1',
-            action: 'login',
-            resource: 'session',
-            timestamp: new Date().toISOString(),
-            ip_address: '192.168.1.1',
-            user_agent: 'Mozilla/5.0',
-          },
-        ],
-      };
-    }
+    return response;
   }
 
   /**
@@ -223,39 +161,51 @@ export class UserClient extends BaseAdminClient {
     active_users: number;
     inactive_users: number;
     by_role: Record<string, number>;
-    by_company_type: Record<string, number>;
-    recent_logins: number;
+    by_company: Record<string, number>;
     two_factor_enabled: number;
+    recent_logins: number;
+    failed_login_attempts: number;
   }> {
-    try {
-      const response = await this.makeRequest<any>('/admin/users/stats');
-      return response;
-    } catch (error) {
-      console.warn('Backend not available for user stats, using mock data');
-      
-      // Generate mock stats
-      const allUsers = await this.mockProvider.getUsers({
-        page: 1,
-        per_page: 1000,
-      });
+    const response = await this.makeRequest<any>('/admin/users/stats');
+    return response;
+  }
 
-      const users = allUsers.data;
-      
-      return {
-        total_users: users.length,
-        active_users: users.filter(u => u.is_active).length,
-        inactive_users: users.filter(u => !u.is_active).length,
-        by_role: users.reduce((acc, u) => {
-          acc[u.role] = (acc[u.role] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
-        by_company_type: {}, // Would need company data to populate
-        recent_logins: users.filter(u => 
-          u.last_login && 
-          new Date(u.last_login) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-        ).length,
-        two_factor_enabled: users.filter(u => u.two_factor_enabled).length,
-      };
-    }
+  /**
+   * Update user status (activate/deactivate)
+   */
+  async updateUserStatus(id: string, isActive: boolean): Promise<{ success: boolean }> {
+    this.validateRequired({ id }, ['id']);
+
+    const response = await this.makeRequest<{ success: boolean }>(
+      `/admin/users/${id}/status`,
+      {
+        method: 'PUT',
+        data: { is_active: isActive },
+      }
+    );
+
+    return response;
+  }
+
+  /**
+   * Get user activity summary
+   */
+  async getUserActivity(id: string, days: number = 30): Promise<{
+    login_count: number;
+    purchase_orders_created: number;
+    last_activity: string;
+    recent_activities: Array<{
+      type: string;
+      description: string;
+      timestamp: string;
+    }>;
+  }> {
+    this.validateRequired({ id }, ['id']);
+
+    const response = await this.makeRequest<any>(`/admin/users/${id}/activity`, {
+      params: { days },
+    });
+
+    return response;
   }
 }
