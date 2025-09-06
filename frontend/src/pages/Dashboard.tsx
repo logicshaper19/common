@@ -84,9 +84,9 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div>
+    <>
+      {/* Page header - Simple and clean */}
+      <div className="mb-8">
         <h1 className="text-2xl font-bold text-neutral-900">
           Welcome back, {user?.full_name?.split(' ')[0] || 'User'}!
         </h1>
@@ -94,6 +94,8 @@ const Dashboard: React.FC = () => {
           Here's what's happening with your supply chain today.
         </p>
       </div>
+
+      <div className="space-y-6">
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -309,7 +311,8 @@ const Dashboard: React.FC = () => {
           </CardBody>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

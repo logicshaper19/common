@@ -5,6 +5,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -12,12 +13,16 @@ import ConfirmationDemo from './pages/ConfirmationDemo';
 import TransparencyDashboard from './pages/TransparencyDashboard';
 import SupplierOnboardingDashboard from './pages/SupplierOnboardingDashboard';
 import UserManagementDashboard from './components/user/UserManagementDashboard';
+import { ProductCatalogManagement } from './components/admin/ProductCatalogManagement';
+import { UserCompanyManagement } from './components/admin/UserCompanyManagement';
+import { AdminDashboard } from './components/admin/AdminDashboard';
 
 function App() {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <Router>
+    <ToastProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <Router>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
@@ -30,7 +35,7 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Placeholder routes - will be implemented later */}
+            {/* Main application routes using existing components */}
             <Route path="purchase-orders" element={
               <ProtectedRoute>
                 <div className="text-center py-12">
@@ -38,7 +43,7 @@ function App() {
                     Purchase Orders
                   </h2>
                   <p className="text-neutral-600">
-                    This page will be implemented in the next phase.
+                    Purchase order management is available in the admin dashboard.
                   </p>
                 </div>
               </ProtectedRoute>
@@ -46,27 +51,13 @@ function App() {
 
             <Route path="products" element={
               <ProtectedRoute>
-                <div className="text-center py-12">
-                  <h2 className="text-2xl font-semibold text-neutral-900 mb-2">
-                    Products
-                  </h2>
-                  <p className="text-neutral-600">
-                    This page will be implemented in the next phase.
-                  </p>
-                </div>
+                <ProductCatalogManagement />
               </ProtectedRoute>
             } />
 
             <Route path="companies" element={
               <ProtectedRoute requiredRole="admin">
-                <div className="text-center py-12">
-                  <h2 className="text-2xl font-semibold text-neutral-900 mb-2">
-                    Companies
-                  </h2>
-                  <p className="text-neutral-600">
-                    This page will be implemented in the next phase.
-                  </p>
-                </div>
+                <UserCompanyManagement />
               </ProtectedRoute>
             } />
 
@@ -84,14 +75,7 @@ function App() {
 
             <Route path="users" element={
               <ProtectedRoute requiredRole="admin">
-                <div className="text-center py-12">
-                  <h2 className="text-2xl font-semibold text-neutral-900 mb-2">
-                    Users
-                  </h2>
-                  <p className="text-neutral-600">
-                    This page will be implemented in the next phase.
-                  </p>
-                </div>
+                <UserCompanyManagement />
               </ProtectedRoute>
             } />
 
@@ -126,9 +110,10 @@ function App() {
             } />
           </Route>
         </Routes>
-        </Router>
-      </NotificationProvider>
-    </AuthProvider>
+          </Router>
+        </NotificationProvider>
+      </AuthProvider>
+    </ToastProvider>
   );
 }
 

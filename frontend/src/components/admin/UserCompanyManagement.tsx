@@ -216,7 +216,7 @@ export function UserCompanyManagement({ className = '' }: UserCompanyManagementP
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
 
     try {
       setError(null);
