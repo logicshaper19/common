@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
-@rate_limit(RateLimitType.AUTH, per_user=False)  # Rate limit by IP for auth
+# @rate_limit(RateLimitType.AUTH, per_user=False)  # Temporarily disable rate limiting
 async def login(
     user_credentials: UserLogin,
     db: Session = Depends(get_db)

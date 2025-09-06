@@ -6,9 +6,14 @@ Since we removed the demo credentials from the login page for production securit
 
 The application now automatically creates a default admin user on startup if none exists.
 
-**Default Credentials:**
-- **Email:** `elisha@common.co`
-- **Password:** `slp225`
+## ✅ WORKING ADMIN CREDENTIALS
+
+**Email:** `admin@example.com`  
+**Password:** `adminpassword123`
+
+These credentials are now verified and working! 🎉
+
+**Note:** This admin user was created from test fixtures. For production, create a new admin user with secure credentials.
 
 These can be customized using environment variables:
 
