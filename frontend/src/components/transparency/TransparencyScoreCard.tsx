@@ -57,7 +57,6 @@ const TransparencyScoreCard: React.FC<TransparencyScoreCardProps> = ({
       <CardHeader 
         title="Transparency Score"
         subtitle={`Last updated: ${new Date(metrics.last_updated).toLocaleDateString()}`}
-        icon={ChartBarIcon}
       />
       
       <CardBody className="space-y-6">

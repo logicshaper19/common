@@ -217,22 +217,7 @@ const Login: React.FC = () => {
 
             {/* Demo credentials */}
             <div className="mt-6 pt-6 border-t border-neutral-200">
-              <div className="text-center">
-                <p className="text-sm text-neutral-600 mb-3">
-                  Demo Credentials:
-                </p>
-                <div className="space-y-2 text-xs text-neutral-500">
-                  <div className="bg-neutral-50 p-2 rounded">
-                    <strong>Brand User:</strong> brand@example.com / password123
-                  </div>
-                  <div className="bg-neutral-50 p-2 rounded">
-                    <strong>Processor:</strong> processor@example.com / password123
-                  </div>
-                  <div className="bg-neutral-50 p-2 rounded">
-                    <strong>Originator:</strong> originator@example.com / password123
-                  </div>
-                </div>
-              </div>
+
             </div>
           </CardBody>
         </Card>

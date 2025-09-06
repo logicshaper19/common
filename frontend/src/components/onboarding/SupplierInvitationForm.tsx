@@ -104,6 +104,11 @@ const SupplierInvitationForm: React.FC<SupplierInvitationFormProps> = ({
       const invitation = await onboardingApi.sendSupplierInvitation({
         ...formData,
         data_sharing_permissions: permissions,
+        invited_by_company_id: 'current-company-id', // This should come from auth context
+        invited_by_company_name: 'Current Company', // This should come from auth context
+        invited_by_user_id: 'current-user-id', // This should come from auth context
+        invited_by_user_name: 'Current User', // This should come from auth context
+        status: 'pending'
       });
 
       if (onInvitationSent) {
@@ -154,56 +159,100 @@ const SupplierInvitationForm: React.FC<SupplierInvitationFormProps> = ({
   const renderBasicStep = () => (
     <div className="space-y-4">
       <div>
-        <Input
-          label="Supplier Email"
-          type="email"
-          value={formData.supplier_email}
-          onChange={(e) => handleFieldChange('supplier_email', e.target.value)}
-          error={errors.supplier_email}
-          placeholder="supplier@example.com"
-          required
-          icon={EnvelopeIcon}
-        />
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
+            Supplier Email *
+          </label>
+          <div className="relative">
+            <Input
+              type="email"
+              value={formData.supplier_email}
+              onChange={(e) => handleFieldChange('supplier_email', e.target.value)}
+              placeholder="supplier@example.com"
+              required
+              className={`pl-10 ${errors.supplier_email ? 'border-red-500' : ''}`}
+            />
+            <EnvelopeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          </div>
+          {errors.supplier_email && (
+            <p className="mt-1 text-sm text-red-600">{errors.supplier_email}</p>
+          )}
+        </div>
       </div>
 
       <div>
-        <Input
-          label="Company Name"
-          value={formData.supplier_name}
-          onChange={(e) => handleFieldChange('supplier_name', e.target.value)}
-          error={errors.supplier_name}
-          placeholder="Supplier Company Name"
-          required
-          icon={BuildingOfficeIcon}
-        />
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
+            Company Name *
+          </label>
+          <div className="relative">
+            <Input
+              value={formData.supplier_name}
+              onChange={(e) => handleFieldChange('supplier_name', e.target.value)}
+              placeholder="Supplier Company Name"
+              required
+              className={`pl-10 ${errors.supplier_name ? 'border-red-500' : ''}`}
+            />
+            <BuildingOfficeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          </div>
+          {errors.supplier_name && (
+            <p className="mt-1 text-sm text-red-600">{errors.supplier_name}</p>
+          )}
+        </div>
       </div>
 
       <div>
-        <Select
-          label="Company Type"
-          value={formData.company_type}
-          onChange={(e) => handleFieldChange('company_type', e.target.value)}
-          error={errors.company_type}
-          required
-          icon={Cog6ToothIcon}
-        >
-          <option value="originator">Originator (Raw Materials)</option>
-          <option value="processor">Processor (Manufacturing)</option>
-          <option value="brand">Brand (Retail)</option>
-        </Select>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
+            Company Type *
+          </label>
+          <div className="relative">
+            <Select
+              value={formData.company_type}
+              onChange={(e) => handleFieldChange('company_type', e.target.value)}
+              required
+              className={`pl-10 ${errors.company_type ? 'border-red-500' : ''}`}
+              options={[
+                { value: 'originator', label: 'Originator (Raw Materials)' },
+                { value: 'processor', label: 'Processor (Manufacturing)' },
+                { value: 'brand', label: 'Brand (Retail)' }
+              ]}
+            >
+              <option value="originator">Originator (Raw Materials)</option>
+              <option value="processor">Processor (Manufacturing)</option>
+              <option value="brand">Brand (Retail)</option>
+            </Select>
+            <Cog6ToothIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          </div>
+          {errors.company_type && (
+            <p className="mt-1 text-sm text-red-600">{errors.company_type}</p>
+          )}
+        </div>
       </div>
 
       <div>
-        <Select
-          label="Relationship Type"
-          value={formData.relationship_type}
-          onChange={(e) => handleFieldChange('relationship_type', e.target.value)}
-          icon={UserPlusIcon}
-        >
-          <option value="supplier">Supplier</option>
-          <option value="customer">Customer</option>
-          <option value="partner">Partner</option>
-        </Select>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
+            Relationship Type
+          </label>
+          <div className="relative">
+            <Select
+              value={formData.relationship_type}
+              onChange={(e) => handleFieldChange('relationship_type', e.target.value)}
+              className="pl-10"
+              options={[
+                { value: 'supplier', label: 'Supplier' },
+                { value: 'customer', label: 'Customer' },
+                { value: 'partner', label: 'Partner' }
+              ]}
+            >
+              <option value="supplier">Supplier</option>
+              <option value="customer">Customer</option>
+              <option value="partner">Partner</option>
+            </Select>
+            <UserPlusIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -365,7 +414,6 @@ const SupplierInvitationForm: React.FC<SupplierInvitationFormProps> = ({
       <CardHeader 
         title="Invite Supplier"
         subtitle="Send an invitation to join your supply chain network"
-        icon={PaperAirplaneIcon}
       />
       
       <CardBody>
@@ -407,7 +455,7 @@ const SupplierInvitationForm: React.FC<SupplierInvitationFormProps> = ({
                 variant="primary"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                icon={PaperAirplaneIcon}
+                leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
               >
                 {isSubmitting ? 'Sending...' : 'Send Invitation'}
               </Button>

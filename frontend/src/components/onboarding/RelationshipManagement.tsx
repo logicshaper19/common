@@ -284,7 +284,7 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                 <Button
                   variant="primary"
                   onClick={() => setShowInviteForm(true)}
-                  icon={PlusIcon}
+                  leftIcon={<PlusIcon className="h-4 w-4" />}
                 >
                   Invite Your First Supplier
                 </Button>
@@ -360,7 +360,7 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                           setSelectedRelationship(relationship);
                           setShowPermissionsModal(true);
                         }}
-                        icon={Cog6ToothIcon}
+                        leftIcon={<Cog6ToothIcon className="h-4 w-4" />}
                       >
                         Permissions
                       </Button>
@@ -368,7 +368,7 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        icon={ChartBarIcon}
+                        leftIcon={<ChartBarIcon className="h-4 w-4" />}
                       >
                         Analytics
                       </Button>

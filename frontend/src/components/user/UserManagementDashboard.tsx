@@ -137,7 +137,7 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({
           <Button
             variant="outline"
             onClick={() => setShowNotificationCenter(true)}
-            icon={BellIcon}
+            leftIcon={<BellIcon className="h-4 w-4" />}
             className="relative"
           >
             Notifications
@@ -218,7 +218,6 @@ const OverviewTab: React.FC = () => {
         <CardHeader 
           title="Notifications"
           subtitle="Recent activity summary"
-          icon={BellIcon}
         />
         <CardBody>
           {summary ? (
@@ -277,7 +276,6 @@ const OverviewTab: React.FC = () => {
         <CardHeader 
           title="Profile"
           subtitle="Your account information"
-          icon={UserCircleIcon}
         />
         <CardBody>
           <div className="space-y-4">
@@ -317,7 +315,6 @@ const OverviewTab: React.FC = () => {
         <CardHeader 
           title="Quick Actions"
           subtitle="Common tasks and settings"
-          icon={Cog6ToothIcon}
         />
         <CardBody>
           <div className="space-y-3">

@@ -69,13 +69,17 @@ const CompanySettings: React.FC<CompanySettingsProps> = ({
     // Handle nested fields
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
-      setSettings(prev => ({
-        ...prev!,
-        [parent]: {
-          ...prev![parent as keyof CompanySettingsType],
-          [child]: value,
-        },
-      }));
+      setSettings(prev => {
+        if (!prev) return prev;
+        const parentObj = prev[parent as keyof CompanySettingsType];
+        return {
+          ...prev,
+          [parent]: {
+            ...(typeof parentObj === 'object' && parentObj !== null ? parentObj : {}),
+            [child]: value,
+          },
+        };
+      });
     } else {
       setSettings(prev => ({ ...prev!, [field]: value }));
     }
@@ -153,7 +157,6 @@ const CompanySettings: React.FC<CompanySettingsProps> = ({
         <CardHeader 
           title="Company Settings"
           subtitle="Manage your company information and platform configuration"
-          icon={BuildingOfficeIcon}
         />
         
         <CardBody>
@@ -229,13 +232,14 @@ const CompanySettings: React.FC<CompanySettingsProps> = ({
                   label="Company Size"
                   value={settings.company_size}
                   onChange={(e) => updateSetting('company_size', e.target.value)}
-                >
-                  <option value="startup">Startup (1-10 employees)</option>
-                  <option value="small">Small (11-50 employees)</option>
-                  <option value="medium">Medium (51-200 employees)</option>
-                  <option value="large">Large (201-1000 employees)</option>
-                  <option value="enterprise">Enterprise (1000+ employees)</option>
-                </Select>
+                  options={[
+                    { value: 'startup', label: 'Startup (1-10 employees)' },
+                    { value: 'small', label: 'Small (11-50 employees)' },
+                    { value: 'medium', label: 'Medium (51-200 employees)' },
+                    { value: 'large', label: 'Large (201-1000 employees)' },
+                    { value: 'enterprise', label: 'Enterprise (1000+ employees)' }
+                  ]}
+                />
               </div>
               
               <Textarea
@@ -318,25 +322,27 @@ const CompanySettings: React.FC<CompanySettingsProps> = ({
                   label="Default Currency"
                   value={settings.default_currency}
                   onChange={(e) => updateSetting('default_currency', e.target.value)}
-                >
-                  <option value="USD">USD - US Dollar</option>
-                  <option value="EUR">EUR - Euro</option>
-                  <option value="GBP">GBP - British Pound</option>
-                  <option value="CAD">CAD - Canadian Dollar</option>
-                  <option value="AUD">AUD - Australian Dollar</option>
-                </Select>
+                  options={[
+                    { value: 'USD', label: 'USD - US Dollar' },
+                    { value: 'EUR', label: 'EUR - Euro' },
+                    { value: 'GBP', label: 'GBP - British Pound' },
+                    { value: 'CAD', label: 'CAD - Canadian Dollar' },
+                    { value: 'AUD', label: 'AUD - Australian Dollar' }
+                  ]}
+                />
                 
                 <Select
                   label="Default Timezone"
                   value={settings.default_timezone}
                   onChange={(e) => updateSetting('default_timezone', e.target.value)}
-                >
-                  <option value="America/New_York">Eastern Time (ET)</option>
-                  <option value="America/Chicago">Central Time (CT)</option>
-                  <option value="America/Denver">Mountain Time (MT)</option>
-                  <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                  <option value="UTC">UTC</option>
-                </Select>
+                  options={[
+                    { value: 'America/New_York', label: 'Eastern Time (ET)' },
+                    { value: 'America/Chicago', label: 'Central Time (CT)' },
+                    { value: 'America/Denver', label: 'Mountain Time (MT)' },
+                    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+                    { value: 'UTC', label: 'UTC' }
+                  ]}
+                />
               </div>
 
               {/* Branding */}

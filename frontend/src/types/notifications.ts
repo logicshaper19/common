@@ -344,6 +344,9 @@ export interface NotificationFilters {
   search_query?: string;
   related_po_id?: string;
   related_company_id?: string;
+  // Pagination
+  page?: number;
+  per_page?: number;
 }
 
 // Notification pagination

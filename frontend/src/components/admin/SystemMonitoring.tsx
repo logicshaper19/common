@@ -11,7 +11,7 @@ import {
   XCircleIcon,
   ClockIcon,
   ServerIcon,
-  DatabaseIcon,
+  CircleStackIcon as DatabaseIcon,
   CloudIcon,
   ShieldCheckIcon,
   ArrowPathIcon,

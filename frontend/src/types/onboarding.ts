@@ -4,6 +4,9 @@
 
 // Company onboarding types
 export interface CompanyOnboardingData {
+  // Unique identifier
+  id?: string;
+  
   // Basic company information
   company_name: string;
   company_type: 'brand' | 'processor' | 'originator';
