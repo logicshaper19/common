@@ -8,6 +8,7 @@ from .batch import Batch
 from .notification import Notification
 from .audit_event import AuditEvent
 from .sector import Sector, SectorTier, SectorProduct
+from .document import Document, ProxyRelationship, ProxyAction
 # from .data_access import DataAccessPermission, AccessAttempt, DataClassification, DataAccessPolicy
 # from .viral_analytics import NetworkGrowthMetric, ViralCascadeNode
 # from .supplier_invitation import SupplierInvitation
@@ -25,6 +26,9 @@ __all__ = [
     "Sector",
     "SectorTier",
     "SectorProduct",
+    "Document",
+    "ProxyRelationship",
+    "ProxyAction",
     # "DataAccessPermission",
     # "AccessAttempt",
     # "DataClassification",
