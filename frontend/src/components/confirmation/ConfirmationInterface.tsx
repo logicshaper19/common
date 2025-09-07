@@ -297,6 +297,13 @@ const ConfirmationInterface: React.FC<ConfirmationInterfaceProps> = ({
               currentStep={currentStep}
               config={config}
               purchaseOrder={purchaseOrder}
+              onConfirmationEligibilityChange={(canConfirm) => {
+                // Update form state to reflect confirmation eligibility
+                setFormState(prev => ({
+                  ...prev,
+                  canSubmit: canConfirm
+                }));
+              }}
             />
           )}
         </CardBody>

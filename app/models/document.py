@@ -2,7 +2,7 @@
 Document models for file uploads and document management
 """
 import uuid
-from sqlalchemy import Column, String, Integer, Boolean, Text, DateTime, ForeignKey, func
+from sqlalchemy import Column, String, Integer, Boolean, Text, DateTime, ForeignKey, func, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -56,6 +56,12 @@ class Document(Base):
     tier_level = Column(Integer)  # Tier level of uploader
     sector_id = Column(String(50), ForeignKey("sectors.id"))
     
+    # Soft delete and versioning
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    version = Column(Integer, default=1, nullable=False)
+    parent_document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=True)
+
     # Audit fields
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -66,6 +72,21 @@ class Document(Base):
     on_behalf_of_company = relationship("Company", foreign_keys=[on_behalf_of_company_id])
     purchase_order = relationship("PurchaseOrder", foreign_keys=[po_id])
     sector = relationship("Sector", foreign_keys=[sector_id])
+    parent_document = relationship("Document", remote_side=[id], foreign_keys=[parent_document_id])
+
+    # Table arguments for indexes and constraints
+    __table_args__ = (
+        # Performance indexes for common queries
+        Index('idx_document_company_type', 'company_id', 'document_type'),
+        Index('idx_document_po_type', 'po_id', 'document_type'),
+        Index('idx_document_validation_status', 'validation_status'),
+        Index('idx_document_created_at', 'created_at'),
+        Index('idx_document_deleted', 'is_deleted', 'deleted_at'),
+        Index('idx_document_version', 'parent_document_id', 'version'),
+        # Unique constraint to prevent duplicate active documents
+        Index('idx_unique_active_document_per_po_type', 'po_id', 'document_type', 'company_id',
+              unique=True, postgresql_where=(Column('is_deleted') == False)),
+    )
 
 
 class ProxyRelationship(Base):
@@ -111,6 +132,14 @@ class ProxyRelationship(Base):
     revoked_by = relationship("User", foreign_keys=[revoked_by_user_id])
     sector = relationship("Sector", foreign_keys=[sector_id])
 
+    # Table arguments for indexes
+    __table_args__ = (
+        Index('idx_proxy_relationship_active', 'status', 'expires_at'),
+        Index('idx_proxy_relationship_authorizer', 'originator_company_id', 'status'),
+        Index('idx_proxy_relationship_proxy', 'proxy_company_id', 'status'),
+        Index('idx_proxy_relationship_sector', 'sector_id', 'status'),
+    )
+
 
 class ProxyAction(Base):
     """
@@ -143,3 +172,11 @@ class ProxyAction(Base):
     purchase_order = relationship("PurchaseOrder", foreign_keys=[po_id])
     document = relationship("Document", foreign_keys=[document_id])
     performed_by = relationship("User", foreign_keys=[performed_by_user_id])
+
+    # Table arguments for indexes
+    __table_args__ = (
+        Index('idx_proxy_action_document', 'document_id', 'performed_at'),
+        Index('idx_proxy_action_relationship', 'proxy_relationship_id', 'performed_at'),
+        Index('idx_proxy_action_performed_by', 'performed_by_user_id', 'performed_at'),
+        Index('idx_proxy_action_type', 'action_type', 'performed_at'),
+    )

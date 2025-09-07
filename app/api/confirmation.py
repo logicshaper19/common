@@ -4,6 +4,7 @@ Purchase order confirmation API endpoints.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
+from datetime import datetime
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
@@ -68,7 +69,7 @@ def get_confirmation_interface(
 
 
 @router.post("/{purchase_order_id}/confirm", response_model=ConfirmationResponse)
-def confirm_purchase_order(
+async def confirm_purchase_order(
     purchase_order_id: str,
     confirmation_data: PurchaseOrderConfirmation,
     db: Session = Depends(get_db),
@@ -94,7 +95,7 @@ def confirm_purchase_order(
     
     confirmation_service = ConfirmationService(db)
     
-    confirmation_response = confirmation_service.confirm_purchase_order(
+    confirmation_response = await confirmation_service.confirm_purchase_order(
         purchase_order_uuid,
         confirmation_data,
         current_user.company_id
@@ -277,3 +278,98 @@ def get_confirmation_status(
     )
     
     return status_info
+
+
+@router.get("/{purchase_order_id}/document-requirements")
+async def get_document_requirements(
+    purchase_order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get document requirements for a purchase order confirmation.
+
+    Returns the list of required and optional documents based on:
+    - Company type and tier level
+    - Product sector and compliance requirements
+    - Confirmation interface type
+    """
+    try:
+        purchase_order_uuid = UUID(purchase_order_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid purchase order ID format"
+        )
+
+    confirmation_service = ConfirmationService(db)
+
+    # Get interface type first
+    interface_response = confirmation_service.determine_confirmation_interface(
+        purchase_order_uuid,
+        current_user.company_id
+    )
+
+    # Get document requirements
+    requirements = confirmation_service.get_document_requirements_for_po(
+        purchase_order_uuid,
+        interface_response.interface_type,
+        current_user.company_id
+    )
+
+    # Get current document validation status
+    validation_status = await confirmation_service.validate_document_requirements_for_confirmation(
+        purchase_order_uuid,
+        interface_response.interface_type,
+        current_user.company_id
+    )
+
+    return {
+        "purchase_order_id": purchase_order_id,
+        "interface_type": interface_response.interface_type.value,
+        "requirements": requirements,
+        "validation_status": validation_status,
+        "can_confirm": validation_status["all_required_uploaded"]
+    }
+
+
+@router.get("/{purchase_order_id}/document-validation-status")
+async def get_document_validation_status(
+    purchase_order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get current document validation status for a purchase order.
+
+    Returns real-time status of document uploads and validation.
+    """
+    try:
+        purchase_order_uuid = UUID(purchase_order_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid purchase order ID format"
+        )
+
+    confirmation_service = ConfirmationService(db)
+
+    # Get interface type
+    interface_response = confirmation_service.determine_confirmation_interface(
+        purchase_order_uuid,
+        current_user.company_id
+    )
+
+    # Get validation status
+    validation_status = await confirmation_service.validate_document_requirements_for_confirmation(
+        purchase_order_uuid,
+        interface_response.interface_type,
+        current_user.company_id
+    )
+
+    return {
+        "purchase_order_id": purchase_order_id,
+        "validation_status": validation_status,
+        "can_confirm": validation_status["all_required_uploaded"],
+        "last_updated": datetime.utcnow().isoformat()
+    }
