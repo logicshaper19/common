@@ -13,8 +13,8 @@ def test_admin_login():
     
     # Admin credentials
     credentials = {
-        "email": "admin@example.com",
-        "password": "adminpassword123"
+        "email": "elisha@common.co",
+        "password": "slp225admin"
     }
     
     print("🔐 Testing admin login credentials...")

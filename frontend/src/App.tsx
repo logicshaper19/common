@@ -4,6 +4,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './contexts/AuthContext';
+import { SectorProvider } from './contexts/SectorContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/layout/Layout';
@@ -22,7 +23,8 @@ function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <NotificationProvider>
+        <SectorProvider>
+          <NotificationProvider>
           <Router>
         <Routes>
           {/* Public routes */}
@@ -113,7 +115,8 @@ function App() {
           </Route>
         </Routes>
           </Router>
-        </NotificationProvider>
+          </NotificationProvider>
+        </SectorProvider>
       </AuthProvider>
     </ToastProvider>
   );

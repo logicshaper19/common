@@ -93,6 +93,7 @@ async def get_current_user(
     
     # Get user's company
     company = db.query(Company).filter(Company.id == user.company_id).first()
+
     if company is None:
         logger.error("User's company not found", user_id=user_id_str, company_id=str(user.company_id))
         raise HTTPException(

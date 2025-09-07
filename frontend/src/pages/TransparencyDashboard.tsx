@@ -42,7 +42,7 @@ const TransparencyDashboard: React.FC = () => {
     setMetrics: setTransparencyMetrics,
     isUpdating,
     isConnected: isRealTimeConnected,
-  } = useTransparencyMetricsWithUpdates(user?.company_id || '');
+  } = useTransparencyMetricsWithUpdates(user?.company?.id || '');
   const [supplyChainData, setSupplyChainData] = useState<SupplyChainVisualization | null>(null);
   const [gapAnalysis, setGapAnalysis] = useState<GapAnalysisItem[]>([]);
   const [multiClientData, setMultiClientData] = useState<MultiClientDashboardType | null>(null);
@@ -63,14 +63,14 @@ const TransparencyDashboard: React.FC = () => {
   }, [user]);
 
   const loadDashboardData = async () => {
-    if (!user?.company_id) return;
+    if (!user?.company?.id) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
       // Load transparency metrics
-      const metrics = await transparencyApi.getTransparencyMetrics(user.company_id);
+      const metrics = await transparencyApi.getTransparencyMetrics(user.company.id);
       setTransparencyMetrics(metrics);
 
       // Load supply chain visualization (using a mock PO ID)
@@ -78,7 +78,7 @@ const TransparencyDashboard: React.FC = () => {
       setSupplyChainData(visualization);
 
       // Load gap analysis
-      const gaps = await transparencyApi.getGapAnalysis(user.company_id);
+      const gaps = await transparencyApi.getGapAnalysis(user.company.id);
       setGapAnalysis(gaps);
 
       // Load multi-client data if user is a consultant
@@ -100,11 +100,11 @@ const TransparencyDashboard: React.FC = () => {
   };
 
   const handleRecalculate = async () => {
-    if (!user?.company_id) return;
-    
+    if (!user?.company?.id) return;
+
     setIsLoading(true);
     try {
-      await transparencyApi.recalculateTransparency(user.company_id);
+      await transparencyApi.recalculateTransparency(user.company.id);
       await loadDashboardData();
     } catch (err) {
       setError('Failed to recalculate transparency');

@@ -39,6 +39,7 @@ from app.api.origin_data import router as origin_data_router
 from app.api.business_relationships import router as business_relationships_router
 from app.api.batches import router as batches_router
 from app.api.performance import router as performance_router
+from app.api.v1.sectors import router as sectors_router
 from app.services.seed_data import SeedDataService
 
 # Configure logging
@@ -185,22 +186,26 @@ async def api_version_info():
 
 
 # Include routers
+# Health endpoint at root level for monitoring
 app.include_router(health_router, prefix="/health", tags=["Health"])
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-app.include_router(products_router, prefix="/products", tags=["Products"])
-app.include_router(purchase_orders_router, tags=["Purchase Orders"])
-app.include_router(confirmation_router, tags=["Confirmation"])
-app.include_router(traceability_router, tags=["Traceability"])
-app.include_router(transparency_jobs_router, tags=["Transparency Jobs"])
-app.include_router(notifications_router, tags=["Notifications"])
-app.include_router(audit_router, tags=["Audit"])
-app.include_router(data_access_router, tags=["Data Access"])
-app.include_router(transparency_visualization_router, tags=["Transparency Visualization"])
-# app.include_router(viral_analytics_router, tags=["Viral Analytics"])
-app.include_router(origin_data_router, tags=["Origin Data"])
-app.include_router(business_relationships_router, tags=["Business Relationships"])
-app.include_router(batches_router, tags=["Batch Tracking"])
-app.include_router(performance_router, tags=["Performance"])
+
+# V1 API endpoints
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
+app.include_router(purchase_orders_router, prefix="/api/v1", tags=["Purchase Orders"])
+app.include_router(confirmation_router, prefix="/api/v1", tags=["Confirmation"])
+app.include_router(traceability_router, prefix="/api/v1", tags=["Traceability"])
+app.include_router(transparency_jobs_router, prefix="/api/v1", tags=["Transparency Jobs"])
+app.include_router(notifications_router, prefix="/api/v1", tags=["Notifications"])
+app.include_router(audit_router, prefix="/api/v1", tags=["Audit"])
+app.include_router(data_access_router, prefix="/api/v1", tags=["Data Access"])
+app.include_router(transparency_visualization_router, prefix="/api/v1", tags=["Transparency Visualization"])
+# app.include_router(viral_analytics_router, prefix="/api/v1", tags=["Viral Analytics"])
+app.include_router(origin_data_router, prefix="/api/v1", tags=["Origin Data"])
+app.include_router(business_relationships_router, prefix="/api/v1", tags=["Business Relationships"])
+app.include_router(batches_router, prefix="/api/v1", tags=["Batch Tracking"])
+app.include_router(performance_router, prefix="/api/v1", tags=["Performance"])
+app.include_router(sectors_router, prefix="/api/v1", tags=["Sectors"])
 
 
 @app.get("/")

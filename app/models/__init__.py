@@ -7,6 +7,7 @@ from .business_relationship import BusinessRelationship
 from .batch import Batch
 from .notification import Notification
 from .audit_event import AuditEvent
+from .sector import Sector, SectorTier, SectorProduct
 # from .data_access import DataAccessPermission, AccessAttempt, DataClassification, DataAccessPolicy
 # from .viral_analytics import NetworkGrowthMetric, ViralCascadeNode
 # from .supplier_invitation import SupplierInvitation
@@ -21,6 +22,9 @@ __all__ = [
     "Batch",
     "Notification",
     "AuditEvent",
+    "Sector",
+    "SectorTier",
+    "SectorProduct",
     # "DataAccessPermission",
     # "AccessAttempt",
     # "DataClassification",

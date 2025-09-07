@@ -211,7 +211,7 @@ class SeedDataService:
         """
         from app.models.user import User
         from app.models.company import Company
-        from app.core.auth import hash_password
+        from app.core.security import hash_password
         import os
         
         # Check if any admin user exists
@@ -220,11 +220,12 @@ class SeedDataService:
             logger.info("Admin user already exists, skipping creation")
             return
         
-        # Get admin configuration from environment variables
-        admin_email = os.getenv("ADMIN_EMAIL", "elisha@common.co")
-        admin_password = os.getenv("ADMIN_PASSWORD", "slp225")
-        admin_name = os.getenv("ADMIN_NAME", "Elisha")
-        company_name = os.getenv("ADMIN_COMPANY_NAME", "Common Platform")
+        # Get admin configuration from settings
+        from app.core.config import settings
+        admin_email = settings.admin_email
+        admin_password = settings.admin_password
+        admin_name = settings.admin_name
+        company_name = settings.admin_company_name
         
         try:
             # Create or get admin company
