@@ -11,6 +11,9 @@ import Textarea from '../ui/Textarea';
 import MapInput from '../ui/MapInput';
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import Badge from '../ui/Badge';
+import { DocumentUpload } from '../documents/DocumentUpload';
+import { CertificateUpload } from '../documents/CertificateUpload';
+import { useSector } from '../../contexts/SectorContext';
 
 interface OriginatorConfirmationFormProps {
   data: OriginatorConfirmationData;
@@ -28,6 +31,7 @@ const OriginatorConfirmationForm: React.FC<OriginatorConfirmationFormProps> = ({
   purchaseOrder
 }) => {
   const currentStepInfo = config.steps[currentStep];
+  const { userTier, currentSector } = useSector();
 
   // Handle field changes
   const handleFieldChange = (field: string, value: any) => {
@@ -374,31 +378,64 @@ const OriginatorConfirmationForm: React.FC<OriginatorConfirmationFormProps> = ({
             <Card>
               <CardHeader title="Supporting Documentation" />
               <CardBody>
-                <div className="border-2 border-dashed border-neutral-300 rounded-lg p-8 text-center">
-                  <div className="space-y-4">
-                    <div className="mx-auto w-12 h-12 bg-neutral-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-6 h-6 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-neutral-600">Upload supporting documents</p>
-                      <p className="text-sm text-neutral-500 mt-1">
-                        Certificates, test results, harvest records, etc.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-700 bg-primary-100 hover:bg-primary-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                    >
-                      Choose Files
-                    </button>
-                  </div>
+                <div className="space-y-6">
+                  {/* Certificates Section */}
+                  {currentSector?.id === 'palm_oil' && userTier?.isOriginator && (
+                    <CertificateUpload
+                      poId={purchaseOrder.id}
+                      types={['RSPO', 'NDPE']}
+                      required={true}
+                      onUploadComplete={(document) => {
+                        console.log('Certificate uploaded:', document);
+                      }}
+                    />
+                  )}
+
+                  {currentSector?.id === 'apparel' && userTier?.isOriginator && (
+                    <CertificateUpload
+                      poId={purchaseOrder.id}
+                      types={['BCI']}
+                      required={true}
+                      onUploadComplete={(document) => {
+                        console.log('Certificate uploaded:', document);
+                      }}
+                    />
+                  )}
+
+                  {/* Catchment Area Polygon for Mills */}
+                  {userTier?.isOriginator && currentSector?.id === 'palm_oil' && (
+                    <DocumentUpload
+                      poId={purchaseOrder.id}
+                      documentType="catchment_polygon"
+                      required={true}
+                      onUploadComplete={(document) => {
+                        console.log('Catchment polygon uploaded:', document);
+                      }}
+                    />
+                  )}
+
+                  {/* Harvest Records */}
+                  {userTier?.isOriginator && (
+                    <DocumentUpload
+                      poId={purchaseOrder.id}
+                      documentType="harvest_record"
+                      required={false}
+                      onUploadComplete={(document) => {
+                        console.log('Harvest record uploaded:', document);
+                      }}
+                    />
+                  )}
+
+                  {/* Additional Documents */}
+                  <DocumentUpload
+                    poId={purchaseOrder.id}
+                    documentType="audit_report"
+                    required={false}
+                    onUploadComplete={(document) => {
+                      console.log('Audit report uploaded:', document);
+                    }}
+                  />
                 </div>
-                
-                <p className="text-xs text-neutral-500 mt-2">
-                  Supported formats: PDF, JPG, PNG, DOC, XLS. Maximum file size: 10MB per file.
-                </p>
               </CardBody>
             </Card>
           </div>

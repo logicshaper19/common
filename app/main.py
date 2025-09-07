@@ -40,6 +40,7 @@ from app.api.business_relationships import router as business_relationships_rout
 from app.api.batches import router as batches_router
 from app.api.performance import router as performance_router
 from app.api.v1.sectors import router as sectors_router
+from app.api.documents import router as documents_router
 from app.services.seed_data import SeedDataService
 
 # Configure logging
@@ -206,6 +207,7 @@ app.include_router(business_relationships_router, prefix="/api/v1", tags=["Busin
 app.include_router(batches_router, prefix="/api/v1", tags=["Batch Tracking"])
 app.include_router(performance_router, prefix="/api/v1", tags=["Performance"])
 app.include_router(sectors_router, prefix="/api/v1", tags=["Sectors"])
+app.include_router(documents_router, prefix="/api/v1", tags=["Documents"])
 
 
 @app.get("/")
