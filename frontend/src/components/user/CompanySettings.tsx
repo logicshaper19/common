@@ -42,17 +42,17 @@ const CompanySettings: React.FC<CompanySettingsProps> = ({
 
   // Load company settings on mount
   useEffect(() => {
-    if (user?.company_id) {
+    if (user?.company?.id) {
       loadSettings();
     }
-  }, [user?.company_id]);
+  }, [user?.company?.id]);
 
   const loadSettings = async () => {
-    if (!user?.company_id) return;
+    if (!user?.company?.id) return;
 
     setIsLoading(true);
     try {
-      const data = await notificationApi.getCompanySettings(user.company_id);
+      const data = await notificationApi.getCompanySettings(user.company.id);
       setSettings(data);
     } catch (error) {
       console.error('Failed to load company settings:', error);

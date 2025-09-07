@@ -1,7 +1,7 @@
 """
 User model for the Common supply chain platform.
 """
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, func, Index
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, func, Index, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -18,14 +18,19 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
-    role = Column(String(50), nullable=False)  # 'admin', 'buyer', 'seller'
+    role = Column(String(50), nullable=False)  # 'admin', 'buyer', 'seller' (legacy)
     is_active = Column(Boolean, default=True)
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+
+    # Sector-specific fields
+    sector_id = Column(String(50), ForeignKey("sectors.id"), nullable=True)
+    tier_level = Column(Integer, nullable=True)  # Tier level within the sector
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     # company = relationship("Company", back_populates="users")
+    sector = relationship("Sector", back_populates="users")
 
     # Performance indexes for frequently queried fields
     __table_args__ = (
@@ -33,6 +38,8 @@ class User(Base):
         Index('idx_users_company_id', 'company_id'),
         Index('idx_users_role', 'role'),
         Index('idx_users_active', 'is_active'),
+        Index('idx_users_sector_id', 'sector_id'),
+        Index('idx_users_tier_level', 'tier_level'),
         Index('idx_users_company_role', 'company_id', 'role'),
         Index('idx_users_company_active', 'company_id', 'is_active'),
         Index('idx_users_created_at', 'created_at'),

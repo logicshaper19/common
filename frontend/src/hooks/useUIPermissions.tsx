@@ -45,7 +45,7 @@ export function useUIPermissions(): UseUIPermissionsReturn {
       // Fallback to basic permissions based on user role
       const fallbackPermissions: UIPermissions = {
         user_role: user.role,
-        company_id: user.company_id || '',
+        company_id: user.company?.id || '',
         navigation: {
           dashboard: true,
           purchase_orders: user.role !== 'viewer',
@@ -109,7 +109,7 @@ export function useUIPermissions(): UseUIPermissionsReturn {
     if (user.role === 'admin') return true;
     
     // Users can view their own company
-    if (user.company_id === companyId) return true;
+    if (user.company.id === companyId) return true;
     
     // Check if user has permission to view all companies
     return permissions.features.view_all_companies;
@@ -126,12 +126,12 @@ export function useUIPermissions(): UseUIPermissionsReturn {
     if (!permissions.features.edit_purchase_order) return false;
     
     // Buyers can edit their own POs
-    if (user.role === 'buyer' && po.buyer_company_id === user.company_id) {
+    if (user.role === 'buyer' && po.buyer_company_id === user.company.id) {
       return true;
     }
-    
+
     // Sellers can confirm POs (limited editing)
-    if (user.role === 'seller' && po.seller_company_id === user.company_id) {
+    if (user.role === 'seller' && po.seller_company_id === user.company.id) {
       return po.status === 'pending' && permissions.features.confirm_purchase_order;
     }
     

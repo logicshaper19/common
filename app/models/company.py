@@ -1,7 +1,7 @@
 """
 Company model for the Common supply chain platform.
 """
-from sqlalchemy import Column, String, DateTime, func, Index
+from sqlalchemy import Column, String, DateTime, func, Index, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -16,8 +16,12 @@ class Company(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
-    company_type = Column(String(50), nullable=False)  # 'brand', 'processor', 'originator'
+    company_type = Column(String(50), nullable=False)  # 'brand', 'processor', 'originator' (legacy)
     email = Column(String(255), unique=True, nullable=False)
+
+    # Sector-specific fields
+    sector_id = Column(String(50), ForeignKey("sectors.id"), nullable=True)
+    tier_level = Column(Integer, nullable=True)  # Tier level within the sector
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -25,6 +29,7 @@ class Company(Base):
     # users = relationship("User", back_populates="company")
     # purchase_orders_as_buyer = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.buyer_company_id")
     # purchase_orders_as_seller = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.seller_company_id")
+    sector = relationship("Sector", back_populates="companies")
 
     # Performance indexes for frequently queried fields
     __table_args__ = (
@@ -33,4 +38,6 @@ class Company(Base):
         Index('idx_companies_name', 'name'),
         Index('idx_companies_created_at', 'created_at'),
         Index('idx_companies_type_created', 'company_type', 'created_at'),
+        Index('idx_companies_sector_id', 'sector_id'),
+        Index('idx_companies_tier_level', 'tier_level'),
     )

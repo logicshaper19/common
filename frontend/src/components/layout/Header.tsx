@@ -12,6 +12,8 @@ import {
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
+import { SectorSelector } from '../sector/SectorSelector';
+import { TierBadge } from '../sector/TierBadge';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { cn, getInitials } from '../../lib/utils';
 import Button from '../ui/Button';
@@ -66,6 +68,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobileMenuOpen }) => {
                 </h1>
               </div>
             </div>
+          </div>
+
+          {/* Center - Sector selector and tier badge */}
+          <div className="hidden md:flex items-center space-x-4">
+            <SectorSelector />
+            <TierBadge />
           </div>
 
           {/* Right side - Search, notifications, and user menu */}

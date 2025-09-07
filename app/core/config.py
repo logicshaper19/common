@@ -41,7 +41,13 @@ class Settings(BaseSettings):
     # Transparency Calculation
     transparency_degradation_factor: float = Field(default=0.95, alias="TRANSPARENCY_DEGRADATION_FACTOR")
     transparency_calculation_timeout: int = Field(default=30, alias="TRANSPARENCY_CALCULATION_TIMEOUT")
-    
+
+    # Admin User Configuration
+    admin_email: str = Field(default="elisha@common.co", alias="ADMIN_EMAIL")
+    admin_password: str = Field(default="password123", alias="ADMIN_PASSWORD")
+    admin_name: str = Field(default="Elisha", alias="ADMIN_NAME")
+    admin_company_name: str = Field(default="Common Platform", alias="ADMIN_COMPANY_NAME")
+
     @property
     def allowed_origins_list(self) -> List[str]:
         """Convert comma-separated origins string to list."""

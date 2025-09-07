@@ -314,7 +314,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       console.error('Failed to connect to WebSocket:', error);
       setState(prev => ({ ...prev, error: 'Failed to connect' }));
     }
-  }, [user?.id, user?.company_id, state.summary]);
+  }, [user?.id, user?.company?.id, state.summary]);
 
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {

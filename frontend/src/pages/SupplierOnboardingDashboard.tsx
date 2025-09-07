@@ -31,19 +31,19 @@ const SupplierOnboardingDashboard: React.FC = () => {
 
   // Load dashboard data
   useEffect(() => {
-    if (user?.company_id) {
+    if (user?.company?.id) {
       loadDashboardData();
     }
-  }, [user?.company_id]);
+  }, [user?.company?.id]);
 
   const loadDashboardData = async () => {
-    if (!user?.company_id) return;
+    if (!user?.company?.id) return;
 
     setIsLoading(true);
     try {
       const [invitationsData, relationshipsData] = await Promise.all([
-        onboardingApi.getSupplierInvitations(user.company_id),
-        onboardingApi.getBusinessRelationships(user.company_id),
+        onboardingApi.getSupplierInvitations(user.company.id),
+        onboardingApi.getBusinessRelationships(user.company.id),
       ]);
       
       setInvitations(invitationsData);
@@ -373,14 +373,14 @@ const SupplierOnboardingDashboard: React.FC = () => {
             onCancel={() => setActiveTab('overview')}
           />
         )}
-        {activeTab === 'relationships' && user?.company_id && (
+        {activeTab === 'relationships' && user?.company?.id && (
           <RelationshipManagement
-            companyId={user.company_id}
+            companyId={user.company.id}
             onInviteSupplier={() => setActiveTab('invite')}
           />
         )}
-        {activeTab === 'analytics' && user?.company_id && (
-          <ViralCascadeAnalytics companyId={user.company_id} />
+        {activeTab === 'analytics' && user?.company?.id && (
+          <ViralCascadeAnalytics companyId={user.company.id} />
         )}
       </div>
     </div>
