@@ -84,3 +84,6 @@ class PurchaseOrder(Base):
         Index('idx_po_input_materials', 'input_materials'),  # For JSON queries
         Index('idx_po_origin_data', 'origin_data'),  # For JSON queries
     )
+
+    # Relationships
+    compliance_results = relationship("POComplianceResult", back_populates="purchase_order", cascade="all, delete-orphan")

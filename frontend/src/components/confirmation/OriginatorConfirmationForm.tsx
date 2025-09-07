@@ -2,7 +2,7 @@
  * Originator Confirmation Form Component
  * Handles originator-specific confirmation workflow with origin data and location input
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConfirmationConfig, OriginatorConfirmationData } from '../../types/confirmation';
 import { PurchaseOrder } from '../../lib/api';
 import Input from '../ui/Input';
@@ -13,7 +13,12 @@ import { Card, CardHeader, CardBody } from '../ui/Card';
 import Badge from '../ui/Badge';
 import { DocumentUpload } from '../documents/DocumentUpload';
 import { CertificateUpload } from '../documents/CertificateUpload';
+import { DocumentUploadProgress, DocumentRequirement } from '../documents/DocumentUploadProgress';
+import { DocumentRequirementsPanel } from './DocumentRequirementsPanel';
 import { useSector } from '../../contexts/SectorContext';
+import { DocumentValidationService } from '../../services/documentValidation';
+import { documentsApi, Document } from '../../api/documents';
+import { useDocumentState } from '../../hooks/useDocumentState';
 
 interface OriginatorConfirmationFormProps {
   data: OriginatorConfirmationData;
@@ -21,6 +26,8 @@ interface OriginatorConfirmationFormProps {
   currentStep: number;
   config: ConfirmationConfig;
   purchaseOrder: PurchaseOrder;
+  onDocumentValidationChange?: (isValid: boolean, canProceed: boolean) => void;
+  onConfirmationEligibilityChange?: (canConfirm: boolean) => void;
 }
 
 const OriginatorConfirmationForm: React.FC<OriginatorConfirmationFormProps> = ({
@@ -28,10 +35,45 @@ const OriginatorConfirmationForm: React.FC<OriginatorConfirmationFormProps> = ({
   onChange,
   currentStep,
   config,
-  purchaseOrder
+  purchaseOrder,
+  onDocumentValidationChange,
+  onConfirmationEligibilityChange
 }) => {
   const currentStepInfo = config.steps[currentStep];
   const { userTier, currentSector } = useSector();
+
+  // Enhanced document state management using reducer pattern
+  const documentState = useDocumentState();
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedRequirement, setSelectedRequirement] = useState<DocumentRequirement | null>(null);
+
+  // Load document requirements based on sector and tier
+  useEffect(() => {
+    if (currentSector && userTier) {
+      const requirements = DocumentValidationService.getRequirements(
+        currentSector.id,
+        userTier.level
+      );
+      documentState.setRequirements(requirements);
+    }
+  }, [currentSector, userTier, documentState]);
+
+  // Validate documents and notify parent
+  useEffect(() => {
+    if (documentState.requirements.length > 0) {
+      const validation = DocumentValidationService.validateDocuments(
+        documentState.requirements,
+        documentState.uploadedDocuments
+      );
+
+      const canProceed = DocumentValidationService.canProceedWithConfirmation(
+        documentState.requirements,
+        documentState.uploadedDocuments
+      );
+
+      onDocumentValidationChange?.(validation.isValid, canProceed.canProceed);
+    }
+  }, [documentState.requirements, documentState.uploadedDocuments, onDocumentValidationChange]);
 
   // Handle field changes
   const handleFieldChange = (field: string, value: any) => {
@@ -52,6 +94,24 @@ const OriginatorConfirmationForm: React.FC<OriginatorConfirmationFormProps> = ({
   // Handle certification changes
   const handleCertificationChange = (certifications: string[]) => {
     handleNestedFieldChange('origin_data', 'certifications', certifications);
+  };
+
+  // Handle document upload modal
+  const handleUploadDocument = (requirement: DocumentRequirement) => {
+    setSelectedRequirement(requirement);
+    setShowUploadModal(true);
+  };
+
+  // Handle document upload completion - now simplified with reducer
+  const handleDocumentUploaded = (document: Document) => {
+    documentState.addDocument(document);
+    setShowUploadModal(false);
+    setSelectedRequirement(null);
+  };
+
+  // Handle document status change - now managed by reducer
+  const handleDocumentStatusChange = (allRequired: boolean) => {
+    documentState.updateAllRequiredStatus(allRequired);
   };
 
   // Render step content based on current step
@@ -375,69 +435,89 @@ const OriginatorConfirmationForm: React.FC<OriginatorConfirmationFormProps> = ({
       case 'attachments':
         return (
           <div className="space-y-6">
-            <Card>
-              <CardHeader title="Supporting Documentation" />
-              <CardBody>
-                <div className="space-y-6">
-                  {/* Certificates Section */}
-                  {currentSector?.id === 'palm_oil' && userTier?.isOriginator && (
+            {/* Enhanced Document Requirements Panel */}
+            <DocumentRequirementsPanel
+              poId={purchaseOrder.id}
+              onValidationChange={(canConfirm, progress) => {
+                documentState.updateAllRequiredStatus(canConfirm);
+                onConfirmationEligibilityChange?.(canConfirm);
+                onDocumentValidationChange?.(canConfirm, canConfirm);
+              }}
+              onDocumentUpload={(documentType) => {
+                // Track upload progress
+                documentState.updateUploadProgress(documentType, 0);
+                console.log('Document upload initiated for:', documentType);
+              }}
+            />
+
+            {/* Upload Modal */}
+            {showUploadModal && selectedRequirement && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-neutral-900">
+                      Upload {selectedRequirement.name}
+                    </h3>
+                    <button
+                      onClick={() => setShowUploadModal(false)}
+                      className="text-neutral-400 hover:text-neutral-600"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {selectedRequirement.description && (
+                    <p className="text-sm text-neutral-600 mb-4">
+                      {selectedRequirement.description}
+                    </p>
+                  )}
+
+                  {/* Use appropriate upload component based on document type */}
+                  {selectedRequirement.type.includes('certificate') ? (
                     <CertificateUpload
                       poId={purchaseOrder.id}
-                      types={['RSPO', 'NDPE']}
-                      required={true}
-                      onUploadComplete={(document) => {
-                        console.log('Certificate uploaded:', document);
-                      }}
+                      types={selectedRequirement.type === 'rspo_certificate' ? ['RSPO'] :
+                             selectedRequirement.type === 'bci_certificate' ? ['BCI'] : ['CERTIFICATE']}
+                      required={selectedRequirement.required}
+                      onUploadComplete={handleDocumentUploaded}
                     />
-                  )}
-
-                  {currentSector?.id === 'apparel' && userTier?.isOriginator && (
-                    <CertificateUpload
-                      poId={purchaseOrder.id}
-                      types={['BCI']}
-                      required={true}
-                      onUploadComplete={(document) => {
-                        console.log('Certificate uploaded:', document);
-                      }}
-                    />
-                  )}
-
-                  {/* Catchment Area Polygon for Mills */}
-                  {userTier?.isOriginator && currentSector?.id === 'palm_oil' && (
+                  ) : (
                     <DocumentUpload
                       poId={purchaseOrder.id}
-                      documentType="catchment_polygon"
-                      required={true}
-                      onUploadComplete={(document) => {
-                        console.log('Catchment polygon uploaded:', document);
-                      }}
+                      documentType={selectedRequirement.type}
+                      required={selectedRequirement.required}
+                      onUploadComplete={handleDocumentUploaded}
                     />
                   )}
-
-                  {/* Harvest Records */}
-                  {userTier?.isOriginator && (
-                    <DocumentUpload
-                      poId={purchaseOrder.id}
-                      documentType="harvest_record"
-                      required={false}
-                      onUploadComplete={(document) => {
-                        console.log('Harvest record uploaded:', document);
-                      }}
-                    />
-                  )}
-
-                  {/* Additional Documents */}
-                  <DocumentUpload
-                    poId={purchaseOrder.id}
-                    documentType="audit_report"
-                    required={false}
-                    onUploadComplete={(document) => {
-                      console.log('Audit report uploaded:', document);
-                    }}
-                  />
                 </div>
-              </CardBody>
-            </Card>
+              </div>
+            )}
+
+            {/* Progress Summary */}
+            {documentState.requirements.length > 0 && (
+              <Card>
+                <CardBody>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-neutral-900">
+                        Document Upload Status
+                      </h4>
+                      <p className="text-xs text-neutral-500 mt-1">
+                        {documentState.allRequiredUploaded
+                          ? 'All required documents have been uploaded'
+                          : 'Some required documents are still missing'
+                        }
+                      </p>
+                    </div>
+                    <Badge variant={documentState.allRequiredUploaded ? 'success' : 'warning'}>
+                      {documentState.allRequiredUploaded ? 'Complete' : 'Incomplete'}
+                    </Badge>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
           </div>
         );
 

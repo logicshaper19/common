@@ -138,6 +138,7 @@ class ConfirmationResponse(BaseModel):
     confirmed_at: datetime
     transparency_score_updated: bool
     validation_results: Dict[str, Any]
+    compliance_results: Optional[Dict[str, Any]] = None  # Following project plan integration
     next_steps: List[str]
 
 

@@ -16,6 +16,7 @@ from app.schemas.document import (
     DocumentResponse, DocumentCreate, ProxyRelationshipResponse,
     ProxyRelationshipCreate, DocumentListResponse
 )
+from app.exceptions.document_exceptions import DocumentError, map_document_exception_to_http
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -60,11 +61,20 @@ async def upload_document(
             tier_level=tier_level,
             compliance_regulations=regulations_list
         )
-        
+
         return DocumentResponse.from_orm(document)
-        
+
+    except DocumentError as e:
+        raise map_document_exception_to_http(e)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Log unexpected errors and convert to generic DocumentError
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Unexpected error in document upload: {str(e)}")
+
+        from app.exceptions.document_exceptions import DocumentError
+        doc_error = DocumentError(f"Document upload failed: {str(e)}")
+        raise map_document_exception_to_http(doc_error)
 
 
 @router.get("/", response_model=DocumentListResponse)
@@ -146,14 +156,24 @@ async def delete_document(
             document_id=str(document_id),
             user_id=str(current_user.id)
         )
-        
+
         if success:
             return {"message": "Document deleted successfully"}
         else:
-            raise HTTPException(status_code=400, detail="Failed to delete document")
-            
+            from app.exceptions.document_exceptions import DocumentError
+            doc_error = DocumentError("Failed to delete document")
+            raise map_document_exception_to_http(doc_error)
+
+    except DocumentError as e:
+        raise map_document_exception_to_http(e)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Unexpected error in document deletion: {str(e)}")
+
+        from app.exceptions.document_exceptions import DocumentError
+        doc_error = DocumentError(f"Document deletion failed: {str(e)}")
+        raise map_document_exception_to_http(doc_error)
 
 
 # Proxy relationship endpoints

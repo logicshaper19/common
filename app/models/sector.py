@@ -21,6 +21,7 @@ class Sector(Base):
     description = Column(Text)
     is_active = Column(Boolean, default=True)
     regulatory_focus = Column(JSON)  # List of regulations like EUDR, UFLPA
+    compliance_rules = Column(JSON)  # Compliance rule definitions for this sector
     
     # Relationships
     tiers = relationship("SectorTier", back_populates="sector", cascade="all, delete-orphan")
