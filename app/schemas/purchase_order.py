@@ -15,7 +15,10 @@ class PurchaseOrderStatus(str, Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     IN_TRANSIT = "in_transit"
+    SHIPPED = "shipped"  # New status for shipped goods
     DELIVERED = "delivered"
+    RECEIVED = "received"  # New status for received goods
+    AMENDMENT_PENDING = "amendment_pending"  # New status for pending amendments
     CANCELLED = "cancelled"
 
 
