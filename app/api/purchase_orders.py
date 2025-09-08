@@ -19,7 +19,8 @@ from app.schemas.purchase_order import (
     PurchaseOrderFilter,
     TraceabilityRequest,
     TraceabilityResponse,
-    PurchaseOrderStatus
+    PurchaseOrderStatus,
+    SellerConfirmation
 )
 from app.core.logging import get_logger
 from app.core.data_access_middleware import require_po_access, filter_response_data
@@ -247,6 +248,67 @@ def update_purchase_order(
         company_id=str(current_user.company_id)
     )
     
+    return updated_po
+
+
+@router.post("/{purchase_order_id}/seller-confirm", response_model=PurchaseOrderResponse)
+@require_po_access(AccessType.WRITE)
+def seller_confirm_purchase_order(
+    purchase_order_id: str,
+    confirmation: SellerConfirmation,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Seller confirmation of purchase order.
+
+    Only the seller company can confirm the purchase order.
+    This sets confirmed quantities, prices, and delivery details.
+    """
+    from datetime import datetime
+
+    purchase_order_service = PurchaseOrderService(db)
+
+    # Get the PO to verify seller access
+    po = purchase_order_service.get_purchase_order_with_details(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+
+    # Verify user is from seller company
+    if current_user.company_id != po.seller_company["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the seller company can confirm this purchase order"
+        )
+
+    # Create update data from confirmation
+    update_data = PurchaseOrderUpdate(
+        confirmed_quantity=confirmation.confirmed_quantity,
+        confirmed_unit_price=confirmation.confirmed_unit_price,
+        confirmed_delivery_date=confirmation.confirmed_delivery_date,
+        confirmed_delivery_location=confirmation.confirmed_delivery_location,
+        seller_notes=confirmation.seller_notes,
+        status=PurchaseOrderStatus.CONFIRMED  # Auto-confirm when seller confirms
+    )
+
+    # Update the PO
+    updated_po = purchase_order_service.update_purchase_order(
+        purchase_order_id,
+        update_data,
+        current_user.company_id
+    )
+
+    logger.info(
+        "Purchase order confirmed by seller",
+        po_id=purchase_order_id,
+        user_id=str(current_user.id),
+        company_id=str(current_user.company_id),
+        confirmed_quantity=str(confirmation.confirmed_quantity)
+    )
+
     return updated_po
 
 

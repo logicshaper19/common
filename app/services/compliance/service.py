@@ -67,7 +67,7 @@ class ComplianceService:
         
         try:
             # Get the supply chain graph for the PO USING EXISTING LOGIC
-            transparency_result = self.transparency_engine.calculate_transparency(
+            transparency_result = await self.transparency_engine.calculate_transparency(
                 po_id=po_id,
                 force_recalculation=False,
                 include_detailed_analysis=True

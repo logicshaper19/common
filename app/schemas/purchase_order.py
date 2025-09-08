@@ -119,6 +119,26 @@ class PurchaseOrderCreate(BaseModel):
         return v
 
 
+class SellerConfirmation(BaseModel):
+    """Schema for seller confirmation of purchase order."""
+    confirmed_quantity: Decimal = Field(..., gt=0, decimal_places=3)
+    confirmed_unit_price: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
+    confirmed_delivery_date: Optional[date] = None
+    confirmed_delivery_location: Optional[str] = Field(None, min_length=1, max_length=500)
+    seller_notes: Optional[str] = Field(None, max_length=1000)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "confirmed_quantity": "95.000",
+                "confirmed_unit_price": "250.00",
+                "confirmed_delivery_date": "2024-01-15",
+                "confirmed_delivery_location": "Port of Singapore - Warehouse B",
+                "seller_notes": "Can confirm 95% of requested quantity. Delivery 2 days later due to processing requirements."
+            }
+        }
+
+
 class PurchaseOrderUpdate(BaseModel):
     """Purchase order update schema."""
     quantity: Optional[Decimal] = Field(None, gt=0, decimal_places=3)
@@ -130,6 +150,13 @@ class PurchaseOrderUpdate(BaseModel):
     input_materials: Optional[List[Dict[str, Any]]] = None
     origin_data: Optional[Dict[str, Any]] = None
     notes: Optional[str] = Field(None, max_length=1000)
+
+    # Seller confirmation fields
+    confirmed_quantity: Optional[Decimal] = Field(None, gt=0, decimal_places=3)
+    confirmed_unit_price: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
+    confirmed_delivery_date: Optional[date] = None
+    confirmed_delivery_location: Optional[str] = Field(None, min_length=1, max_length=500)
+    seller_notes: Optional[str] = Field(None, max_length=1000)
 
     # Use the same validators as PurchaseOrderCreate
     @field_validator('composition')
@@ -169,6 +196,15 @@ class PurchaseOrderResponse(BaseModel):
     input_materials: Optional[List[Dict[str, Any]]]
     origin_data: Optional[Dict[str, Any]]
     notes: Optional[str]
+
+    # Seller confirmation fields
+    confirmed_quantity: Optional[Decimal]
+    confirmed_unit_price: Optional[Decimal]
+    confirmed_delivery_date: Optional[date]
+    confirmed_delivery_location: Optional[str]
+    seller_notes: Optional[str]
+    seller_confirmed_at: Optional[datetime]
+
     created_at: datetime
     updated_at: datetime
 

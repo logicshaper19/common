@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, and_, or_, desc, asc, text
 from functools import lru_cache
 
-from app.models.supplier_invitation import SupplierInvitation
-from app.models.onboarding_progress import OnboardingProgress
-from app.models.viral_cascade_node import ViralCascadeNode
+from app.models.viral_analytics import (
+    SupplierInvitation,
+    OnboardingProgress,
+    ViralCascadeNode
+)
 from app.models.company import Company
 from ..models.enums import OnboardingStage, InvitationStatus, AnalyticsTimeframe
 

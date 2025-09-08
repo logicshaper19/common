@@ -10,9 +10,11 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
-from app.models.supplier_invitation import SupplierInvitation
-from app.models.onboarding_progress import OnboardingProgress
-from app.models.viral_cascade_node import ViralCascadeNode
+from app.models.viral_analytics import (
+    SupplierInvitation,
+    OnboardingProgress,
+    ViralCascadeNode
+)
 from app.core.logging import get_logger
 from ..models.cascade_metrics import CascadeMetrics, NetworkEffectMetrics, CompanyViralMetrics
 from ..models.enums import InvitationStatus, OnboardingStage, AnalyticsTimeframe, ViralMetricType

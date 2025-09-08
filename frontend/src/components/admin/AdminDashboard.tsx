@@ -17,8 +17,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { adminApi } from '../../api/admin';
 import { AdminDashboardData } from '../../types/admin';
-import { ProductCatalogManagement } from './ProductCatalogManagement';
-import { UserCompanyManagement } from './UserCompanyManagement';
+import { ProductCatalogManagement } from './product-catalog-management';
+import { UserCompanyManagement } from './user-company-management';
 import { SupportTicketSystem } from './SupportTicketSystem';
 import { AuditLogViewer } from './AuditLogViewer';
 import { SystemMonitoring } from './SystemMonitoring';

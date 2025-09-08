@@ -14,6 +14,7 @@ import {
   XMarkIcon,
   BeakerIcon,
   UserPlusIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth, usePermissions } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
@@ -69,6 +70,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       name: 'Supplier Onboarding',
       href: '/onboarding',
       icon: UserPlusIcon,
+    },
+    {
+      name: 'Team',
+      href: '/team',
+      icon: UserGroupIcon,
     },
     {
       name: 'Users',

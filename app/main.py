@@ -42,6 +42,7 @@ from app.api.performance import router as performance_router
 from app.api.v1.sectors import router as sectors_router
 from app.api.documents import router as documents_router
 from app.api.compliance import router as compliance_router
+from app.api.team_invitations import router as team_invitations_router
 from app.services.seed_data import SeedDataService
 
 # Configure logging
@@ -210,6 +211,7 @@ app.include_router(performance_router, prefix="/api/v1", tags=["Performance"])
 app.include_router(sectors_router, prefix="/api/v1", tags=["Sectors"])
 app.include_router(documents_router, prefix="/api/v1", tags=["Documents"])
 app.include_router(compliance_router, prefix="/api/v1", tags=["Compliance"])
+app.include_router(team_invitations_router, prefix="/api/v1/team", tags=["Team Management"])
 
 
 @app.get("/")

@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
 
-from app.services.transparency_engine import TransparencyNode
+from app.services.transparency_engine.domain.models import TransparencyNode
 from app.core.logging import get_logger
 from .models.gap_models import GapType, GapSeverity, GapAnalysis
 

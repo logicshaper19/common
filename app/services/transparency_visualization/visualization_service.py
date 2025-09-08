@@ -9,7 +9,8 @@ from uuid import UUID
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from app.services.transparency_engine import TransparencyCalculationEngine, TransparencyResult
+from app.services.transparency_engine import TransparencyCalculationEngine
+from app.services.transparency_engine.domain.models import TransparencyResult
 from app.core.logging import get_logger
 from .models.visualization_models import SupplyChainVisualization, VisualizationNode, VisualizationEdge
 from .models.gap_models import GapAnalysisResult

@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ProductCatalogManagement } from '../ProductCatalogManagement';
+import { ProductCatalogManagement } from '../product-catalog-management';
 import { adminApi } from '../../../lib/adminApi';
 
 // Mock the admin API

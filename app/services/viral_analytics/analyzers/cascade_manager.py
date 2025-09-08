@@ -10,8 +10,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, desc
 
-from app.models.viral_cascade_node import ViralCascadeNode
-from app.models.supplier_invitation import SupplierInvitation
+from app.models.viral_analytics import ViralCascadeNode, SupplierInvitation
 from app.models.company import Company
 from app.core.logging import get_logger
 from ..models.enums import InvitationStatus, CascadeNodeType, ViralChampionTier

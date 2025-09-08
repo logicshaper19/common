@@ -10,7 +10,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
-from app.services.viral_analytics import ViralAnalyticsService, CascadeMetrics, NetworkEffectMetrics
+from app.services.viral_analytics import ViralAnalyticsService
+from app.services.viral_analytics.models import CascadeMetrics, NetworkEffectMetrics
 from app.models.viral_analytics import (
     SupplierInvitation,
     OnboardingProgress,

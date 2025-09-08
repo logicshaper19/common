@@ -15,11 +15,11 @@ jest.mock('../../../api/admin', () => ({
 }));
 
 // Mock child components
-jest.mock('../ProductCatalogManagement', () => ({
+jest.mock('../product-catalog-management', () => ({
   ProductCatalogManagement: () => <div data-testid="product-catalog">Product Catalog Management</div>,
 }));
 
-jest.mock('../UserCompanyManagement', () => ({
+jest.mock('../user-company-management', () => ({
   UserCompanyManagement: () => <div data-testid="user-company">User Company Management</div>,
 }));
 
