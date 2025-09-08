@@ -95,4 +95,27 @@ class PurchaseOrderService:
         """Delegate to new orchestrator."""
         return self._orchestrator.get_traceability_data(po_id, max_depth)
 
+    # Admin-only methods
+    def list_purchase_orders_admin(self, filters: PurchaseOrderFilter):
+        """
+        List all purchase orders for admin (no company filtering).
+        Admin can see all purchase orders across all companies.
+        """
+        try:
+            return self._orchestrator.list_purchase_orders_admin(filters)
+        except PurchaseOrderError as e:
+            status_code = get_http_status_for_exception(e)
+            raise HTTPException(status_code=status_code, detail=str(e))
+
+    def delete_purchase_order_admin(self, po_id: str) -> bool:
+        """
+        Delete purchase order as admin (no company permission check).
+        Admin can delete any purchase order for administrative purposes.
+        """
+        try:
+            return self._orchestrator.delete_purchase_order_admin(po_id)
+        except PurchaseOrderError as e:
+            status_code = get_http_status_for_exception(e)
+            raise HTTPException(status_code=status_code, detail=str(e))
+
 

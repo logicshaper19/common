@@ -546,3 +546,51 @@ class PurchaseOrderAuditManager:
         except Exception as e:
             logger.error(f"Failed to log amendment rejection: {str(e)}")
             raise PurchaseOrderAuditError(f"Amendment rejection audit failed: {str(e)}")
+
+    def log_admin_deletion(self, po: PurchaseOrder) -> None:
+        """
+        Log purchase order deletion by admin.
+
+        Args:
+            po: Purchase order being deleted
+        """
+        try:
+            # Prepare PO state for audit
+            po_state = self._serialize_po_state(po)
+
+            # Build business context
+            business_context = self._build_business_context(po, "admin_deletion")
+            business_context.update({
+                "deletion_type": "admin_override",
+                "reason": "Administrative deletion"
+            })
+
+            # Log the audit event
+            self.audit_logger.log_event(
+                event_type=AuditEventType.PURCHASE_ORDER_DELETED,
+                severity=AuditEventSeverity.HIGH,
+                entity_type="purchase_order",
+                entity_id=str(po.id),
+                actor_type="admin",
+                actor_id="system",  # Admin user ID would be better but not available here
+                action="admin_delete",
+                old_state=po_state,
+                new_state=None,
+                business_context=business_context,
+                technical_context={
+                    "deletion_method": "admin_override",
+                    "bypass_permissions": True
+                }
+            )
+
+            logger.info(
+                "Admin deletion logged",
+                po_id=str(po.id),
+                buyer_company_id=str(po.buyer_company_id),
+                seller_company_id=str(po.seller_company_id)
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to log admin deletion: {str(e)}")
+            # Don't raise exception for audit failures in admin operations
+            # to avoid blocking administrative actions

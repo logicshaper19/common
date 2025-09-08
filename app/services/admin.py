@@ -23,6 +23,7 @@ from app.schemas.admin import (
     AdminCompanyBulkOperation
 )
 from app.core.logging import get_logger
+from app.core.security import hash_password
 
 logger = get_logger(__name__)
 
@@ -225,15 +226,16 @@ class AdminService:
         if not company:
             raise ValueError(f"Company with ID {user_data.company_id} not found")
         
-        # Create user
+        # Create user with default password
+        default_password = "password123"  # User should change this on first login
         user = User(
             id=uuid.uuid4(),
             email=user_data.email,
+            hashed_password=hash_password(default_password),
             full_name=user_data.full_name,
             role=user_data.role,
             company_id=user_data.company_id,
             is_active=True,
-            is_verified=False,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
@@ -351,7 +353,7 @@ class AdminService:
             company_id=user.company_id,
             company_name=company_name,
             is_active=user.is_active,
-            is_verified=user.is_verified,
+            is_verified=getattr(user, 'is_verified', False),
             has_two_factor=getattr(user, 'has_two_factor', False),
             last_login=getattr(user, 'last_login', None),
             permissions=getattr(user, 'permissions', None),

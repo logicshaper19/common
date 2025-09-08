@@ -144,6 +144,21 @@ class PurchaseOrderService:
         """Get purchase order by ID (for amendment validation)."""
         return self._orchestrator.get_purchase_order_by_id(po_id)
 
+    # Admin-only methods
+    def list_purchase_orders_admin(self, filters):
+        """
+        List all purchase orders for admin (no company filtering).
+        Admin can see all purchase orders across all companies.
+        """
+        return self._orchestrator.list_purchase_orders_admin(filters)
+
+    def delete_purchase_order_admin(self, po_id: str) -> bool:
+        """
+        Delete purchase order as admin (no company permission check).
+        Admin can delete any purchase order for administrative purposes.
+        """
+        return self._orchestrator.delete_purchase_order_admin(po_id)
+
 
 __all__ = [
     "create_purchase_order_service",
