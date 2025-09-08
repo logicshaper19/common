@@ -338,6 +338,15 @@ class PurchaseOrderFilter(BaseModel):
     delivery_date_from: Optional[date] = None
     delivery_date_to: Optional[date] = None
     search: Optional[str] = None  # Search in PO number, notes, or delivery location
+    po_number: Optional[str] = None  # Filter by PO number
+    created_date_from: Optional[date] = None
+    created_date_to: Optional[date] = None
+    min_amount: Optional[float] = None
+    max_amount: Optional[float] = None
+    sort_by: Optional[str] = None  # Field to sort by
+    sort_order: Optional[str] = Field(None, pattern="^(asc|desc)$")  # Sort order
+    limit: Optional[int] = None  # Limit results
+    offset: Optional[int] = None  # Offset for pagination
     page: int = Field(1, ge=1)
     per_page: int = Field(20, ge=1, le=100)
 

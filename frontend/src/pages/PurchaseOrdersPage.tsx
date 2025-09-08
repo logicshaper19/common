@@ -5,15 +5,17 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import PurchaseOrderCard from '../components/purchase-orders/PurchaseOrderCard';
-import { 
-  MagnifyingGlassIcon, 
+import CreatePurchaseOrderModal from '../components/purchase-orders/CreatePurchaseOrderModal';
+import {
+  MagnifyingGlassIcon,
   FunnelIcon,
-  PlusIcon 
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import {
   purchaseOrderApi,
   PurchaseOrderWithDetails,
   PurchaseOrderFilters,
+  PurchaseOrderCreate,
   ProposeChangesRequest,
   ApproveChangesRequest
 } from '../services/purchaseOrderApi';
@@ -43,6 +45,8 @@ export const PurchaseOrdersPage: React.FC = () => {
     per_page: 20
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Load purchase orders
   const loadPurchaseOrders = async () => {
@@ -88,6 +92,22 @@ export const PurchaseOrdersPage: React.FC = () => {
     });
   };
 
+  // Handle purchase order creation
+  const handleCreatePurchaseOrder = async (data: PurchaseOrderCreate) => {
+    setIsCreating(true);
+    try {
+      await purchaseOrderApi.createPurchaseOrder(data);
+      await loadPurchaseOrders(); // Refresh the list
+      showToast({ type: 'success', title: 'Purchase order created successfully' });
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to create purchase order';
+      showToast({ type: 'error', title: errorMessage });
+      throw error; // Re-throw so the modal can handle it
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   // Get purchase orders that need attention
   const pendingAmendments = purchaseOrders.filter(po =>
     po.amendment_status === 'proposed' &&
@@ -118,7 +138,10 @@ export const PurchaseOrdersPage: React.FC = () => {
               Manage your purchase orders and amendments
             </p>
           </div>
-          <Button variant="primary">
+          <Button
+            variant="primary"
+            onClick={() => setShowCreateModal(true)}
+          >
             <PlusIcon className="h-5 w-5 mr-2" />
             Create Purchase Order
           </Button>
@@ -299,6 +322,14 @@ export const PurchaseOrdersPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Create Purchase Order Modal */}
+      <CreatePurchaseOrderModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreatePurchaseOrder}
+        isLoading={isCreating}
+      />
     </div>
   );
 };

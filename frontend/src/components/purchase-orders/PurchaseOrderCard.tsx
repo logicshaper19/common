@@ -172,11 +172,11 @@ export const PurchaseOrderCard: React.FC<PurchaseOrderCardProps> = ({
             </div>
             <div>
               <p className="text-sm text-gray-600">Unit Price</p>
-              <p className="font-medium">${purchaseOrder.unit_price}</p>
+              <p className="font-medium">${typeof purchaseOrder.unit_price === 'string' ? parseFloat(purchaseOrder.unit_price).toFixed(2) : purchaseOrder.unit_price.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Amount</p>
-              <p className="font-medium">${purchaseOrder.total_amount.toFixed(2)}</p>
+              <p className="font-medium">${typeof purchaseOrder.total_amount === 'string' ? parseFloat(purchaseOrder.total_amount).toFixed(2) : purchaseOrder.total_amount.toFixed(2)}</p>
             </div>
           </div>
 

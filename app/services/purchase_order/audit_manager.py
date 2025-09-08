@@ -49,13 +49,14 @@ class PurchaseOrderAuditManager:
             if context:
                 business_context.update(context)
             
-            self.audit_logger.log_po_event(
+            self.audit_logger.log_event(
                 event_type=AuditEventType.PO_CREATED,
-                po_id=po.id,
+                entity_type="purchase_order",
+                entity_id=po.id,
                 action="create",
                 description=f"Purchase order {po.po_number} created",
                 actor_company_id=actor_company_id,
-                new_po_state=po_state,
+                new_values=po_state,
                 business_context=business_context,
                 metadata={
                     "creation_method": "api",
@@ -118,14 +119,15 @@ class PurchaseOrderAuditManager:
             if context:
                 business_context.update(context)
             
-            self.audit_logger.log_po_event(
+            self.audit_logger.log_event(
                 event_type=event_type,
-                po_id=po.id,
+                entity_type="purchase_order",
+                entity_id=po.id,
                 action="update",
                 description=description,
                 actor_company_id=actor_company_id,
-                old_po_state=old_state,
-                new_po_state=new_state,
+                old_values=old_state,
+                new_values=new_state,
                 changed_fields=changed_fields,
                 business_context=business_context,
                 metadata={
@@ -185,13 +187,14 @@ class PurchaseOrderAuditManager:
             if context:
                 business_context.update(context)
             
-            self.audit_logger.log_po_event(
+            self.audit_logger.log_event(
                 event_type=AuditEventType.PO_DELETED,
-                po_id=po.id,
+                entity_type="purchase_order",
+                entity_id=po.id,
                 action="delete",
                 description=description,
                 actor_company_id=actor_company_id,
-                old_po_state=po_state,
+                old_values=po_state,
                 business_context=business_context,
                 metadata={
                     "deletion_method": "api",
@@ -248,9 +251,10 @@ class PurchaseOrderAuditManager:
             if context:
                 business_context.update(context)
             
-            self.audit_logger.log_po_event(
+            self.audit_logger.log_event(
                 event_type=AuditEventType.PO_STATUS_CHANGED,
-                po_id=po.id,
+                entity_type="purchase_order",
+                entity_id=po.id,
                 action="status_change",
                 description=description,
                 actor_company_id=actor_company_id,
@@ -311,9 +315,10 @@ class PurchaseOrderAuditManager:
             if context:
                 business_context.update(context)
             
-            self.audit_logger.log_po_event(
+            self.audit_logger.log_event(
                 event_type=AuditEventType.PO_COMPOSITION_UPDATED,
-                po_id=po.id,
+                entity_type="purchase_order",
+                entity_id=po.id,
                 action="composition_update",
                 description=description,
                 actor_company_id=actor_company_id,

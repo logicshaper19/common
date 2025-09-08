@@ -122,7 +122,11 @@ class PurchaseOrderService:
     def list_purchase_orders(self, filters, current_user_company_id):
         """Delegate to new orchestrator."""
         return self._orchestrator.list_purchase_orders(filters, current_user_company_id)
-    
+
+    def list_purchase_orders_with_details(self, filters, current_user_company_id):
+        """Delegate to new orchestrator for detailed purchase orders."""
+        return self._orchestrator.list_purchase_orders_with_details(filters, current_user_company_id)
+
     def trace_supply_chain(self, request):
         """Delegate to new orchestrator."""
         return self._orchestrator.trace_supply_chain(request)
