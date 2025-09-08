@@ -9,7 +9,7 @@ This service handles all visual styling logic, making it easy to:
 from typing import Dict, Any, Tuple
 from sqlalchemy.orm import Session
 
-from app.services.transparency_engine import TransparencyNode
+from app.services.transparency_engine.domain.models import TransparencyNode
 from app.core.logging import get_logger
 from .models.visualization_models import VisualizationNode, VisualizationEdge
 

@@ -17,12 +17,14 @@ export interface Product {
   origin_data_requirements?: OriginDataRequirements;
   created_at: string;
   updated_at: string;
-  status: 'active' | 'inactive' | 'deprecated';
+  status: ProductStatus;
   usage_count: number;
   last_used?: string;
 }
 
-export type ProductCategory = 'raw_material' | 'processed' | 'finished_good';
+export type ProductCategory = 'raw_material' | 'intermediate_product' | 'finished_product' | 'packaging' | 'service' | 'component';
+
+export type ProductStatus = 'active' | 'inactive' | 'deprecated';
 
 export interface MaterialBreakdown {
   [material: string]: {
@@ -52,13 +54,15 @@ export interface CustomField {
 export interface ProductFilter {
   category?: ProductCategory;
   can_have_composition?: boolean;
-  status?: 'active' | 'inactive' | 'deprecated';
+  status?: ProductStatus;
   search?: string;
   hs_code?: string;
   created_after?: string;
   created_before?: string;
   usage_min?: number;
   usage_max?: number;
+  min_usage_count?: number;
+  default_unit?: string;
   page: number;
   per_page: number;
 }
@@ -82,6 +86,7 @@ export interface ProductCreate {
   default_unit: string;
   hs_code?: string;
   origin_data_requirements?: OriginDataRequirements;
+  status?: ProductStatus;
 }
 
 export interface ProductUpdate {
@@ -93,11 +98,11 @@ export interface ProductUpdate {
   default_unit?: string;
   hs_code?: string;
   origin_data_requirements?: OriginDataRequirements;
-  status?: 'active' | 'inactive' | 'deprecated';
+  status?: ProductStatus;
 }
 
 export interface ProductBulkOperation {
-  operation: 'activate' | 'deactivate' | 'deprecate' | 'delete' | 'export';
+  operation: 'activate' | 'deactivate' | 'deprecate' | 'delete' | 'export' | 'validate';
   product_ids: string[];
   reason?: string;
 }
@@ -107,6 +112,7 @@ export interface ProductValidationResult {
   errors: string[];
   warnings: string[];
   suggestions: string[];
+  details?: any;
 }
 
 // User and Company Management Types
@@ -114,15 +120,18 @@ export interface AdminUser {
   id: string;
   email: string;
   full_name: string;
+  phone?: string;
   role: UserRole;
   company_id: string;
   company_name: string;
+  company_type: CompanyType;
   is_active: boolean;
   last_login?: string;
   created_at: string;
   updated_at: string;
   permissions: string[];
   two_factor_enabled: boolean;
+  has_two_factor: boolean;
   login_attempts: number;
   locked_until?: string;
 }
@@ -138,6 +147,7 @@ export interface Company {
   website?: string;
   address: Address;
   is_active: boolean;
+  is_verified: boolean;
   subscription_tier: SubscriptionTier;
   created_at: string;
   updated_at: string;
@@ -146,9 +156,10 @@ export interface Company {
   transparency_score?: number;
   compliance_status: ComplianceStatus;
   last_activity?: string;
+  country?: string;
 }
 
-export type CompanyType = 'brand' | 'processor' | 'originator' | 'trader' | 'plantation';
+export type CompanyType = 'brand' | 'processor' | 'originator' | 'trader' | 'plantation' | 'manufacturer';
 export type SubscriptionTier = 'free' | 'basic' | 'premium' | 'enterprise';
 export type ComplianceStatus = 'compliant' | 'warning' | 'non_compliant' | 'pending_review';
 
@@ -181,6 +192,8 @@ export interface CompanyFilter {
   subscription_tier?: SubscriptionTier;
   compliance_status?: ComplianceStatus;
   is_active?: boolean;
+  is_verified?: boolean;
+  country?: string;
   created_after?: string;
   created_before?: string;
   min_transparency_score?: number;
@@ -214,8 +227,11 @@ export interface CompanyUpdate {
   website?: string;
   address?: Address;
   is_active?: boolean;
+  is_verified?: boolean;
+  company_type?: CompanyType;
   subscription_tier?: SubscriptionTier;
   compliance_status?: ComplianceStatus;
+  country?: string;
 }
 
 export interface UserBulkOperation {
@@ -226,7 +242,7 @@ export interface UserBulkOperation {
 }
 
 export interface CompanyBulkOperation {
-  operation: 'activate' | 'deactivate' | 'upgrade_tier' | 'downgrade_tier' | 'compliance_review';
+  operation: 'activate' | 'deactivate' | 'upgrade_tier' | 'downgrade_tier' | 'compliance_review' | 'verify';
   company_ids: string[];
   reason?: string;
   new_tier?: SubscriptionTier;

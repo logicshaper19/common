@@ -22,10 +22,9 @@ router = APIRouter()
 @router.get("/sectors", response_model=List[Sector])
 async def get_sectors(
     active_only: bool = True,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
-    """Get all available sectors"""
+    """Get all available sectors (public endpoint)"""
     sector_service = SectorService(db)
     sectors = await sector_service.get_all_sectors(active_only=active_only)
     return sectors

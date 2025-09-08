@@ -10,8 +10,7 @@ from uuid import UUID
 from datetime import date
 from sqlalchemy.orm import Session
 
-from app.models.supplier_invitation import SupplierInvitation
-from app.models.onboarding_progress import OnboardingProgress
+from app.models.viral_analytics import SupplierInvitation, OnboardingProgress
 from app.core.logging import get_logger
 from .trackers.invitation_tracker import InvitationTracker
 from .trackers.onboarding_tracker import OnboardingTracker

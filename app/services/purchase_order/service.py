@@ -228,11 +228,16 @@ class PurchaseOrderOrchestrator:
         try:
             # Prepare update data
             update_data = po_data.model_dump(exclude_unset=True)
-            
+
             # Convert enum to string if status is being updated
             if 'status' in update_data:
                 update_data['status'] = update_data['status'].value
-            
+
+            # Set seller_confirmed_at timestamp if seller confirmation fields are being updated
+            if any(field in update_data for field in ['confirmed_quantity', 'confirmed_unit_price', 'confirmed_delivery_date', 'confirmed_delivery_location', 'seller_notes']):
+                from datetime import datetime
+                update_data['seller_confirmed_at'] = datetime.utcnow()
+
             # Recalculate total if quantity or unit_price changed
             if 'quantity' in update_data or 'unit_price' in update_data:
                 new_quantity = update_data.get('quantity', purchase_order.quantity)

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
-from app.models.supplier_invitation import SupplierInvitation
+from app.models.viral_analytics import SupplierInvitation
 from app.models.company import Company
 from app.core.logging import get_logger
 from ..models.enums import InvitationStatus, OnboardingStage

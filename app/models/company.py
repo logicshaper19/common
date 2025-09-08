@@ -30,6 +30,7 @@ class Company(Base):
     # purchase_orders_as_buyer = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.buyer_company_id")
     # purchase_orders_as_seller = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.seller_company_id")
     sector = relationship("Sector", back_populates="companies")
+    team_invitations = relationship("TeamInvitation", back_populates="company")
 
     # Performance indexes for frequently queried fields
     __table_args__ = (

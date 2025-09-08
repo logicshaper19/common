@@ -45,6 +45,14 @@ class PurchaseOrder(Base):
     # Additional notes
     notes = Column(Text)
 
+    # Seller Confirmation Details
+    confirmed_quantity = Column(Numeric(12, 3))  # What seller can actually deliver
+    confirmed_unit_price = Column(Numeric(12, 2))  # Seller's confirmed price
+    confirmed_delivery_date = Column(Date)  # Seller's confirmed delivery date
+    confirmed_delivery_location = Column(String(500))  # Seller's confirmed delivery location
+    seller_notes = Column(Text)  # Seller's confirmation notes/conditions
+    seller_confirmed_at = Column(DateTime(timezone=True))  # When seller confirmed
+
     # Transparency Scores (cached for performance)
     transparency_to_mill = Column(Numeric(5, 4))  # TTM score (0.0000 to 1.0000)
     transparency_to_plantation = Column(Numeric(5, 4))  # TTP score (0.0000 to 1.0000)

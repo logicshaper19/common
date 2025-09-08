@@ -15,9 +15,10 @@ import ConfirmationDemo from './pages/ConfirmationDemo';
 import TransparencyDashboard from './pages/TransparencyDashboard';
 import SupplierOnboardingDashboard from './pages/SupplierOnboardingDashboard';
 import UserManagementDashboard from './components/user/UserManagementDashboard';
-import { ProductCatalogManagement } from './components/admin/ProductCatalogManagement';
-import { UserCompanyManagement } from './components/admin/UserCompanyManagement';
+import { ProductCatalogManagement } from './components/admin/product-catalog-management';
+import { UserCompanyManagement } from './components/admin/user-company-management';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import TeamManagement from './pages/TeamManagement';
 
 function App() {
   return (
@@ -74,6 +75,12 @@ function App() {
             <Route path="onboarding" element={
               <ProtectedRoute>
                 <SupplierOnboardingDashboard />
+              </ProtectedRoute>
+            } />
+
+            <Route path="team" element={
+              <ProtectedRoute>
+                <TeamManagement />
               </ProtectedRoute>
             } />
 
