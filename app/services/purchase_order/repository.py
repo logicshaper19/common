@@ -294,7 +294,143 @@ class PurchaseOrderRepository:
         )
         
         return purchase_orders, total_count
-    
+
+    def list_with_filters_detailed(
+        self,
+        filters: PurchaseOrderFilter,
+        user_company_id: UUID
+    ) -> Tuple[List[PurchaseOrderWithDetails], int]:
+        """
+        List purchase orders with related entity details and filters.
+
+        Args:
+            filters: Filter criteria
+            user_company_id: Current user's company ID for access control
+
+        Returns:
+            Tuple of (purchase orders with details list, total count)
+        """
+        # Base query with access control and joined entities
+        query = self.db.query(PurchaseOrder).options(
+            joinedload(PurchaseOrder.buyer_company),
+            joinedload(PurchaseOrder.seller_company),
+            joinedload(PurchaseOrder.product)
+        ).filter(
+            or_(
+                PurchaseOrder.buyer_company_id == user_company_id,
+                PurchaseOrder.seller_company_id == user_company_id
+            )
+        )
+
+        # Apply filters (same as list_with_filters)
+        if filters.status:
+            query = query.filter(PurchaseOrder.status.in_([s.value for s in filters.status]))
+
+        if filters.buyer_company_id:
+            query = query.filter(PurchaseOrder.buyer_company_id == filters.buyer_company_id)
+
+        if filters.seller_company_id:
+            query = query.filter(PurchaseOrder.seller_company_id == filters.seller_company_id)
+
+        if filters.product_id:
+            query = query.filter(PurchaseOrder.product_id == filters.product_id)
+
+        if filters.po_number:
+            query = query.filter(PurchaseOrder.po_number.ilike(f"%{filters.po_number}%"))
+
+        if filters.delivery_date_from:
+            query = query.filter(PurchaseOrder.delivery_date >= filters.delivery_date_from)
+
+        if filters.delivery_date_to:
+            query = query.filter(PurchaseOrder.delivery_date <= filters.delivery_date_to)
+
+        if filters.created_date_from:
+            query = query.filter(PurchaseOrder.created_at >= filters.created_date_from)
+
+        if filters.created_date_to:
+            query = query.filter(PurchaseOrder.created_at <= filters.created_date_to)
+
+        if filters.min_amount:
+            query = query.filter(PurchaseOrder.total_amount >= filters.min_amount)
+
+        if filters.max_amount:
+            query = query.filter(PurchaseOrder.total_amount <= filters.max_amount)
+
+        # Get total count before pagination
+        total_count = query.count()
+
+        # Apply sorting
+        if filters.sort_by:
+            sort_column = getattr(PurchaseOrder, filters.sort_by, None)
+            if sort_column:
+                if filters.sort_order == "desc":
+                    query = query.order_by(desc(sort_column))
+                else:
+                    query = query.order_by(asc(sort_column))
+        else:
+            # Default sort by creation date descending
+            query = query.order_by(desc(PurchaseOrder.created_at))
+
+        # Apply pagination
+        if filters.limit:
+            query = query.limit(filters.limit)
+
+        if filters.offset:
+            query = query.offset(filters.offset)
+
+        # Execute query
+        purchase_orders = query.all()
+
+        # Convert to PurchaseOrderWithDetails
+        detailed_pos = []
+        for po in purchase_orders:
+            detailed_po = PurchaseOrderWithDetails(
+                id=po.id,
+                po_number=po.po_number,
+                buyer_company={
+                    "id": po.buyer_company.id,
+                    "name": po.buyer_company.name,
+                    "company_type": po.buyer_company.company_type,
+                    "email": po.buyer_company.email
+                },
+                seller_company={
+                    "id": po.seller_company.id,
+                    "name": po.seller_company.name,
+                    "company_type": po.seller_company.company_type,
+                    "email": po.seller_company.email
+                },
+                product={
+                    "id": po.product.id,
+                    "common_product_id": po.product.common_product_id,
+                    "name": po.product.name,
+                    "category": po.product.category,
+                    "default_unit": po.product.default_unit
+                },
+                quantity=po.quantity,
+                unit_price=po.unit_price,
+                total_amount=po.total_amount,
+                unit=po.unit,
+                delivery_date=po.delivery_date,
+                delivery_location=po.delivery_location,
+                status=PurchaseOrderStatus(po.status),
+                composition=po.composition,
+                input_materials=po.input_materials,
+                origin_data=po.origin_data,
+                notes=po.notes,
+                created_at=po.created_at,
+                updated_at=po.updated_at
+            )
+            detailed_pos.append(detailed_po)
+
+        logger.info(
+            "Listed purchase orders with details",
+            user_company_id=str(user_company_id),
+            total_count=total_count,
+            returned_count=len(detailed_pos)
+        )
+
+        return detailed_pos, total_count
+
     def get_by_po_number(self, po_number: str) -> Optional[PurchaseOrder]:
         """
         Get purchase order by PO number.
