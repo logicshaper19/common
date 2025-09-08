@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:common="http://www.mulesoft.org/schema/mule/common"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+        http://www.mulesoft.org/schema/mule/common http://www.mulesoft.org/schema/mule/common/current/mule-common.xsd">
+
+    <!-- Common Connector Configuration -->
+    <common:config name="Common_Config" doc:name="Common Config">
+        <common:connection 
+            baseUrl="${common.api.baseUrl}"
+            clientId="${common.api.clientId}"
+            clientSecret="${common.api.clientSecret}"
+            companyId="${common.api.companyId}"
+            timeout="30"
+            maxRetries="3"
+            debugMode="false" />
+    </common:config>
+
+    <!-- HTTP Listener Configuration -->
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <!-- Flow 1: Create Purchase Order from SAP Data -->
+    <flow name="create-purchase-order-from-sap" doc:id="create-po-flow">
+        <http:listener doc:name="POST /purchase-orders" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders" 
+                      allowedMethods="POST"/>
+        
+        <!-- Transform SAP data to Common API format -->
+        <ee:transform doc:name="SAP to Common PO Transform">
+            <ee:message>
+                <ee:set-payload resource="dataweave/sap-to-common-po.dwl" />
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="buyerCompanyId">${common.api.companyId}</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        
+        <!-- Create purchase order in Common -->
+        <common:create-purchase-order doc:name="Create Purchase Order" 
+                                    config-ref="Common_Config"
+                                    buyerCompanyId="#[payload.buyer_company_id]"
+                                    sellerCompanyId="#[payload.seller_company_id]"
+                                    productId="#[payload.product_id]"
+                                    quantity="#[payload.quantity]"
+                                    unitPrice="#[payload.unit_price]"
+                                    unit="#[payload.unit]"
+                                    deliveryDate="#[payload.delivery_date]"
+                                    deliveryLocation="#[payload.delivery_location]"
+                                    notes="#[payload.notes]"
+                                    composition="#[payload.composition]"
+                                    inputMaterials="#[payload.input_materials]"
+                                    originData="#[payload.origin_data]"/>
+        
+        <!-- Transform response back to SAP format -->
+        <ee:transform doc:name="Common to SAP Response Transform">
+            <ee:message>
+                <ee:set-payload resource="dataweave/common-to-sap-po.dwl" />
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Return success response -->
+        <ee:transform doc:name="Success Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    message: "Purchase order created successfully",
+    common_po_id: payload.COMMON_PO_ID,
+    sap_po_number: payload.EBELN
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Error handling -->
+        <error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate">
+                <ee:transform doc:name="Error Response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    message: "Failed to create purchase order: " ++ error.description,
+    error_type: error.errorType.identifier
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+    <!-- Flow 2: Amendment Workflow - Propose Changes -->
+    <flow name="propose-amendment" doc:id="propose-amendment-flow">
+        <http:listener doc:name="PUT /purchase-orders/{id}/propose-changes" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders/{id}/propose-changes" 
+                      allowedMethods="PUT"/>
+        
+        <!-- Extract purchase order ID from path -->
+        <set-variable value="#[attributes.uriParams.id]" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+        
+        <!-- Validate request payload -->
+        <ee:transform doc:name="Validate Amendment Request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    proposed_quantity: payload.proposed_quantity,
+    proposed_quantity_unit: payload.proposed_quantity_unit default "kg",
+    amendment_reason: payload.amendment_reason
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Propose changes using Common connector -->
+        <common:propose-changes doc:name="Propose Changes" 
+                              config-ref="Common_Config"
+                              purchaseOrderId="#[vars.purchaseOrderId]"
+                              proposedQuantity="#[payload.proposed_quantity]"
+                              proposedQuantityUnit="#[payload.proposed_quantity_unit]"
+                              amendmentReason="#[payload.amendment_reason]"/>
+        
+        <!-- Return amendment response -->
+        <ee:transform doc:name="Amendment Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: payload.success,
+    message: payload.message,
+    amendment_status: payload.amendment_status,
+    purchase_order_id: payload.purchase_order_id
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Error handling -->
+        <error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate">
+                <ee:transform doc:name="Error Response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    message: "Failed to propose amendment: " ++ error.description,
+    error_type: error.errorType.identifier
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+    <!-- Flow 3: Amendment Workflow - Approve Changes -->
+    <flow name="approve-amendment" doc:id="approve-amendment-flow">
+        <http:listener doc:name="PUT /purchase-orders/{id}/approve-changes" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders/{id}/approve-changes" 
+                      allowedMethods="PUT"/>
+        
+        <!-- Extract purchase order ID from path -->
+        <set-variable value="#[attributes.uriParams.id]" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+        
+        <!-- Approve or reject changes using Common connector -->
+        <common:approve-changes doc:name="Approve Changes" 
+                              config-ref="Common_Config"
+                              purchaseOrderId="#[vars.purchaseOrderId]"
+                              approve="#[payload.approve]"
+                              buyerNotes="#[payload.buyer_notes]"/>
+        
+        <!-- Return approval response -->
+        <ee:transform doc:name="Approval Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: payload.success,
+    message: payload.message,
+    amendment_status: payload.amendment_status,
+    purchase_order_id: payload.purchase_order_id
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Error handling -->
+        <error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate">
+                <ee:transform doc:name="Error Response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    message: "Failed to approve amendment: " ++ error.description,
+    error_type: error.errorType.identifier
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+
+    <!-- Flow 4: Sync Purchase Orders to SAP -->
+    <flow name="sync-purchase-orders-to-sap" doc:id="sync-po-to-sap-flow">
+        <scheduler doc:name="Scheduler" >
+            <scheduling-strategy >
+                <fixed-frequency frequency="300000"/> <!-- Every 5 minutes -->
+            </scheduling-strategy>
+        </scheduler>
+        
+        <!-- Get purchase orders that need ERP sync -->
+        <common:list-purchase-orders doc:name="List Purchase Orders" 
+                                   config-ref="Common_Config"
+                                   status="confirmed"
+                                   page="1"
+                                   perPage="100"/>
+        
+        <!-- Filter orders that need sync -->
+        <ee:transform doc:name="Filter Orders Needing Sync">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload filter ($.erp_sync_status == "pending" or $.erp_sync_status == "failed")]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Process each purchase order -->
+        <foreach doc:name="For Each Purchase Order" collection="#[payload]">
+            <ee:transform doc:name="Transform to SAP Format">
+                <ee:message>
+                    <ee:set-payload resource="dataweave/common-to-sap-po.dwl" />
+                </ee:message>
+            </ee:transform>
+            
+            <!-- Send to SAP (placeholder - replace with actual SAP connector) -->
+            <logger level="INFO" doc:name="Log SAP Sync" message="Syncing PO #[payload.COMMON_PO_ID] to SAP: #[payload.EBELN]"/>
+            
+            <!-- Here you would typically use an SAP connector to send the data -->
+            <!-- <sap:send-idoc config-ref="SAP_Config" doc:name="Send to SAP"/> -->
+        </foreach>
+        
+        <!-- Error handling -->
+        <error-handler>
+            <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue">
+                <logger level="ERROR" doc:name="Log Sync Error" message="Failed to sync purchase orders to SAP: #[error.description]"/>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+</mule>

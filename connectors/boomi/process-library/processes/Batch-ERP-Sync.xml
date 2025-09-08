@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bns:Process xmlns:bns="http://www.boomi.com/process/annotation"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.boomi.com/process/annotation http://www.boomi.com/process/annotation.xsd">
+    
+    <bns:ProcessDefinition>
+        <bns:Name>Batch ERP Sync</bns:Name>
+        <bns:Description>Synchronizes purchase orders between Common and ERP systems in batches</bns:Description>
+        <bns:Version>1.0.0</bns:Version>
+        <bns:Category>Common API</bns:Category>
+        <bns:SubCategory>ERP Synchronization</bns:SubCategory>
+        
+        <!-- Process Flow -->
+        <bns:ProcessFlow>
+            <!-- Start Shape -->
+            <bns:StartShape id="start">
+                <bns:Name>Start</bns:Name>
+                <bns:Description>Batch sync process entry point</bns:Description>
+            </bns:StartShape>
+            
+            <!-- Initialize Batch Process -->
+            <bns:DataProcessShape id="initializeBatch">
+                <bns:Name>Initialize Batch Process</bns:Name>
+                <bns:Description>Initializes batch processing parameters</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonBuilder;
+import java.text.SimpleDateFormat;
+
+// Initialize batch processing parameters
+def batchId = UUID.randomUUID().toString()
+def startTime = new Date()
+def batchSize = Integer.parseInt(dataContext.getProperty("batchSize") ?: "100")
+def syncDirection = dataContext.getProperty("syncDirection") ?: "COMMON_TO_ERP"
+def erpSystem = dataContext.getProperty("erpSystem") ?: "SAP"
+
+// Set batch properties
+dataContext.setProperty("batchId", batchId)
+dataContext.setProperty("startTime", startTime.format("yyyy-MM-dd'T'HH:mm:ss'Z'"))
+dataContext.setProperty("processedCount", "0")
+dataContext.setProperty("successCount", "0")
+dataContext.setProperty("errorCount", "0")
+
+// Log batch initialization
+logger.info("Batch sync initialized - ID: " + batchId + ", Direction: " + syncDirection + ", ERP: " + erpSystem)
+
+// Create initialization response
+def response = new JsonBuilder([
+    batch_id: batchId,
+    sync_direction: syncDirection,
+    erp_system: erpSystem,
+    batch_size: batchSize,
+    status: "initialized",
+    start_time: startTime.format("yyyy-MM-dd'T'HH:mm:ss'Z'")
+])
+
+return response.toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Get Purchase Orders for Sync -->
+            <bns:ConnectorShape id="getPurchaseOrders">
+                <bns:Name>Get Purchase Orders</bns:Name>
+                <bns:Description>Retrieves purchase orders that need synchronization</bns:Description>
+                <bns:ConnectionName>Common API Connection</bns:ConnectionName>
+                <bns:Operation>
+                    <bns:Method>GET</bns:Method>
+                    <bns:Path>/api/v1/purchase-orders</bns:Path>
+                    <bns:QueryParameters>
+                        <bns:Parameter name="status" value="confirmed"/>
+                        <bns:Parameter name="erp_sync_status" value="pending,failed"/>
+                        <bns:Parameter name="per_page" value="{batchSize}"/>
+                        <bns:Parameter name="page" value="1"/>
+                    </bns:QueryParameters>
+                    <bns:Headers>
+                        <bns:Header name="Accept" value="application/json"/>
+                    </bns:Headers>
+                </bns:Operation>
+                <bns:ResponseHandling>
+                    <bns:SuccessStatusCodes>200</bns:SuccessStatusCodes>
+                    <bns:ErrorHandling>
+                        <bns:OnError>CONTINUE_TO_ERROR_HANDLER</bns:OnError>
+                    </bns:ErrorHandling>
+                </bns:ResponseHandling>
+            </bns:ConnectorShape>
+            
+            <!-- Process Purchase Orders -->
+            <bns:DataProcessShape id="processPurchaseOrders">
+                <bns:Name>Process Purchase Orders</bns:Name>
+                <bns:Description>Processes each purchase order for ERP sync</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Parse API response
+def jsonSlurper = new JsonSlurper()
+def apiResponse = jsonSlurper.parseText(dataContext.getStream(0).getText())
+
+// Extract purchase orders
+def purchaseOrders = apiResponse.data ?: []
+def totalCount = purchaseOrders.size()
+
+// Update processed count
+dataContext.setProperty("totalCount", totalCount.toString())
+
+// Log processing start
+logger.info("Processing " + totalCount + " purchase orders for ERP sync")
+
+// Create batch processing data
+def batchData = [
+    batch_id: dataContext.getProperty("batchId"),
+    total_count: totalCount,
+    purchase_orders: purchaseOrders,
+    sync_direction: dataContext.getProperty("syncDirection"),
+    erp_system: dataContext.getProperty("erpSystem")
+]
+
+return new JsonBuilder(batchData).toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Split for Individual Processing -->
+            <bns:SplitterShape id="splitPurchaseOrders">
+                <bns:Name>Split Purchase Orders</bns:Name>
+                <bns:Description>Splits purchase orders for individual processing</bns:Description>
+                <bns:SplitType>JSON_ARRAY</bns:SplitType>
+                <bns:SplitPath>purchase_orders</bns:SplitPath>
+                <bns:PreserveHeaders>true</bns:PreserveHeaders>
+            </bns:SplitterShape>
+            
+            <!-- Transform to ERP Format -->
+            <bns:MapShape id="transformToERP">
+                <bns:Name>Transform to ERP Format</bns:Name>
+                <bns:Description>Transforms Common PO data to ERP format</bns:Description>
+                <bns:MapName>Common-to-SAP-PO-Map</bns:MapName>
+                <bns:ErrorHandling>
+                    <bns:OnError>CONTINUE_TO_ERROR_HANDLER</bns:OnError>
+                </bns:ErrorHandling>
+            </bns:MapShape>
+            
+            <!-- Send to ERP System -->
+            <bns:DataProcessShape id="sendToERP">
+                <bns:Name>Send to ERP System</bns:Name>
+                <bns:Description>Sends transformed data to ERP system</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Get ERP system type
+def erpSystem = dataContext.getProperty("erpSystem")
+def purchaseOrderData = dataContext.getStream(0).getText()
+
+// Simulate ERP system integration
+// In real implementation, this would call actual ERP APIs or file systems
+def success = true
+def errorMessage = null
+
+try {
+    // Simulate processing time
+    Thread.sleep(100)
+    
+    // Simulate occasional failures for testing
+    if (Math.random() < 0.05) { // 5% failure rate
+        success = false
+        errorMessage = "Simulated ERP connection timeout"
+    }
+    
+    if (success) {
+        // Increment success count
+        def successCount = Integer.parseInt(dataContext.getProperty("successCount") ?: "0")
+        dataContext.setProperty("successCount", (successCount + 1).toString())
+        
+        logger.info("Successfully sent PO to " + erpSystem)
+    } else {
+        // Increment error count
+        def errorCount = Integer.parseInt(dataContext.getProperty("errorCount") ?: "0")
+        dataContext.setProperty("errorCount", (errorCount + 1).toString())
+        
+        logger.error("Failed to send PO to " + erpSystem + ": " + errorMessage)
+    }
+    
+} catch (Exception e) {
+    success = false
+    errorMessage = e.getMessage()
+    
+    // Increment error count
+    def errorCount = Integer.parseInt(dataContext.getProperty("errorCount") ?: "0")
+    dataContext.setProperty("errorCount", (errorCount + 1).toString())
+    
+    logger.error("Exception sending PO to " + erpSystem + ": " + errorMessage)
+}
+
+// Increment processed count
+def processedCount = Integer.parseInt(dataContext.getProperty("processedCount") ?: "0")
+dataContext.setProperty("processedCount", (processedCount + 1).toString())
+
+// Create response
+def response = new JsonBuilder([
+    success: success,
+    erp_system: erpSystem,
+    error_message: errorMessage,
+    timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
+])
+
+return response.toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Update Sync Status -->
+            <bns:DataProcessShape id="updateSyncStatus">
+                <bns:Name>Update Sync Status</bns:Name>
+                <bns:Description>Updates ERP sync status in Common</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Parse the processing result
+def jsonSlurper = new JsonSlurper()
+def result = jsonSlurper.parseText(dataContext.getStream(0).getText())
+
+// Get purchase order ID from document properties
+def purchaseOrderId = dataContext.getDocumentProperty("purchase_order_id")
+
+// Determine sync status
+def syncStatus = result.success ? "synced" : "failed"
+def errorMessage = result.error_message
+
+// Create status update payload
+def statusUpdate = [
+    erp_sync_status: syncStatus,
+    erp_sync_error: errorMessage,
+    last_erp_sync_at: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
+]
+
+// Set update data for API call
+dataContext.setProperty("statusUpdateData", new JsonBuilder(statusUpdate).toString())
+dataContext.setProperty("purchaseOrderId", purchaseOrderId)
+
+return new JsonBuilder([
+    purchase_order_id: purchaseOrderId,
+    sync_status: syncStatus,
+    updated: true
+]).toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Aggregate Results -->
+            <bns:AggregatorShape id="aggregateResults">
+                <bns:Name>Aggregate Results</bns:Name>
+                <bns:Description>Aggregates individual processing results</bns:Description>
+                <bns:AggregationType>COLLECT_ALL</bns:AggregationType>
+                <bns:Timeout>300000</bns:Timeout>
+            </bns:AggregatorShape>
+            
+            <!-- Generate Batch Summary -->
+            <bns:DataProcessShape id="generateSummary">
+                <bns:Name>Generate Batch Summary</bns:Name>
+                <bns:Description>Generates batch processing summary</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonBuilder;
+
+// Get batch processing metrics
+def batchId = dataContext.getProperty("batchId")
+def startTime = dataContext.getProperty("startTime")
+def totalCount = Integer.parseInt(dataContext.getProperty("totalCount") ?: "0")
+def processedCount = Integer.parseInt(dataContext.getProperty("processedCount") ?: "0")
+def successCount = Integer.parseInt(dataContext.getProperty("successCount") ?: "0")
+def errorCount = Integer.parseInt(dataContext.getProperty("errorCount") ?: "0")
+def endTime = new Date()
+
+// Calculate processing time
+def startTimeDate = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", startTime)
+def processingTimeMs = endTime.time - startTimeDate.time
+def processingTimeSeconds = Math.round(processingTimeMs / 1000.0)
+
+// Calculate success rate
+def successRate = totalCount > 0 ? Math.round((successCount / totalCount) * 100.0) : 0
+
+// Create batch summary
+def summary = new JsonBuilder([
+    batch_id: batchId,
+    status: "completed",
+    start_time: startTime,
+    end_time: endTime.format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+    processing_time_seconds: processingTimeSeconds,
+    metrics: [
+        total_count: totalCount,
+        processed_count: processedCount,
+        success_count: successCount,
+        error_count: errorCount,
+        success_rate_percent: successRate
+    ],
+    sync_direction: dataContext.getProperty("syncDirection"),
+    erp_system: dataContext.getProperty("erpSystem")
+])
+
+// Log batch completion
+logger.info("Batch sync completed - ID: " + batchId + 
+           ", Processed: " + processedCount + "/" + totalCount + 
+           ", Success Rate: " + successRate + "%")
+
+return summary.toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Error Handler -->
+            <bns:DataProcessShape id="errorHandler">
+                <bns:Name>Batch Error Handler</bns:Name>
+                <bns:Description>Handles batch processing errors</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonBuilder;
+
+// Get error information
+def errorMessage = dataContext.getProperty("ERROR_MESSAGE") ?: "Unknown batch error occurred"
+def errorType = dataContext.getProperty("ERROR_TYPE") ?: "BATCH_ERROR"
+def batchId = dataContext.getProperty("batchId") ?: "unknown"
+
+// Create error response
+def errorResponse = new JsonBuilder([
+    batch_id: batchId,
+    status: "failed",
+    error: [
+        type: errorType,
+        message: errorMessage
+    ],
+    timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
+])
+
+// Log batch error
+logger.error("Batch sync failed - ID: " + batchId + ", Error: " + errorMessage)
+
+return errorResponse.toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- End Shape -->
+            <bns:EndShape id="end">
+                <bns:Name>End</bns:Name>
+                <bns:Description>Batch process completion</bns:Description>
+            </bns:EndShape>
+        </bns:ProcessFlow>
+        
+        <!-- Process Connections -->
+        <bns:ProcessConnections>
+            <bns:Connection from="start" to="initializeBatch"/>
+            <bns:Connection from="initializeBatch" to="getPurchaseOrders"/>
+            <bns:Connection from="getPurchaseOrders" to="processPurchaseOrders" condition="SUCCESS"/>
+            <bns:Connection from="getPurchaseOrders" to="errorHandler" condition="ERROR"/>
+            <bns:Connection from="processPurchaseOrders" to="splitPurchaseOrders"/>
+            <bns:Connection from="splitPurchaseOrders" to="transformToERP"/>
+            <bns:Connection from="transformToERP" to="sendToERP" condition="SUCCESS"/>
+            <bns:Connection from="transformToERP" to="updateSyncStatus" condition="ERROR"/>
+            <bns:Connection from="sendToERP" to="updateSyncStatus"/>
+            <bns:Connection from="updateSyncStatus" to="aggregateResults"/>
+            <bns:Connection from="aggregateResults" to="generateSummary"/>
+            <bns:Connection from="generateSummary" to="end"/>
+            <bns:Connection from="errorHandler" to="end"/>
+        </bns:ProcessConnections>
+        
+        <!-- Process Properties -->
+        <bns:ProcessProperties>
+            <bns:Property name="batchSize" value="100" description="Number of records to process per batch"/>
+            <bns:Property name="syncDirection" value="COMMON_TO_ERP" description="Sync direction (COMMON_TO_ERP or ERP_TO_COMMON)"/>
+            <bns:Property name="erpSystem" value="SAP" description="Target ERP system (SAP, Oracle, etc.)"/>
+            <bns:Property name="timeout" value="300000" description="Process timeout in milliseconds"/>
+            <bns:Property name="retryAttempts" value="3" description="Number of retry attempts for failed records"/>
+            <bns:Property name="logLevel" value="INFO" description="Logging level"/>
+            <bns:Property name="auditEnabled" value="true" description="Enable audit logging"/>
+            <bns:Property name="parallelProcessing" value="true" description="Enable parallel processing"/>
+            <bns:Property name="maxConcurrency" value="5" description="Maximum concurrent processes"/>
+        </bns:ProcessProperties>
+        
+        <!-- Scheduling Configuration -->
+        <bns:SchedulingConfiguration>
+            <bns:ScheduleType>CRON</bns:ScheduleType>
+            <bns:CronExpression>0 */15 * * * ?</bns:CronExpression>
+            <bns:Description>Run every 15 minutes</bns:Description>
+            <bns:Timezone>UTC</bns:Timezone>
+            <bns:Enabled>true</bns:Enabled>
+        </bns:SchedulingConfiguration>
+        
+        <!-- Input/Output Definitions -->
+        <bns:InputDefinition>
+            <bns:Name>Batch Configuration</bns:Name>
+            <bns:Description>Optional batch configuration parameters</bns:Description>
+            <bns:ContentType>application/json</bns:ContentType>
+            <bns:Schema>
+                <bns:JsonSchema><![CDATA[
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "batch_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+        },
+        "sync_direction": {
+            "type": "string",
+            "enum": ["COMMON_TO_ERP", "ERP_TO_COMMON"],
+            "default": "COMMON_TO_ERP"
+        },
+        "erp_system": {
+            "type": "string",
+            "enum": ["SAP", "Oracle", "Generic"],
+            "default": "SAP"
+        },
+        "filter_criteria": {
+            "type": "object"
+        }
+    }
+}
+                ]]></bns:JsonSchema>
+            </bns:Schema>
+        </bns:InputDefinition>
+        
+        <bns:OutputDefinition>
+            <bns:Name>Batch Summary</bns:Name>
+            <bns:Description>Batch processing summary and metrics</bns:Description>
+            <bns:ContentType>application/json</bns:ContentType>
+            <bns:Schema>
+                <bns:JsonSchema><![CDATA[
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "batch_id": {
+            "type": "string"
+        },
+        "status": {
+            "type": "string",
+            "enum": ["completed", "failed", "partial"]
+        },
+        "start_time": {
+            "type": "string"
+        },
+        "end_time": {
+            "type": "string"
+        },
+        "processing_time_seconds": {
+            "type": "integer"
+        },
+        "metrics": {
+            "type": "object",
+            "properties": {
+                "total_count": {"type": "integer"},
+                "processed_count": {"type": "integer"},
+                "success_count": {"type": "integer"},
+                "error_count": {"type": "integer"},
+                "success_rate_percent": {"type": "integer"}
+            }
+        },
+        "sync_direction": {
+            "type": "string"
+        },
+        "erp_system": {
+            "type": "string"
+        },
+        "error": {
+            "type": "object"
+        }
+    }
+}
+                ]]></bns:JsonSchema>
+            </bns:Schema>
+        </bns:OutputDefinition>
+    </bns:ProcessDefinition>
+</bns:Process>

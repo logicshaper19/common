@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bns:Process xmlns:bns="http://www.boomi.com/process/annotation"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.boomi.com/process/annotation http://www.boomi.com/process/annotation.xsd">
+    
+    <bns:ProcessDefinition>
+        <bns:Name>Create Purchase Order</bns:Name>
+        <bns:Description>Creates a new purchase order in the Common platform</bns:Description>
+        <bns:Version>1.0.0</bns:Version>
+        <bns:Category>Common API</bns:Category>
+        <bns:SubCategory>Purchase Orders</bns:SubCategory>
+        
+        <!-- Process Flow -->
+        <bns:ProcessFlow>
+            <!-- Start Shape -->
+            <bns:StartShape id="start">
+                <bns:Name>Start</bns:Name>
+                <bns:Description>Process entry point</bns:Description>
+            </bns:StartShape>
+            
+            <!-- Data Validation -->
+            <bns:DataProcessShape id="validate">
+                <bns:Name>Validate Input Data</bns:Name>
+                <bns:Description>Validates purchase order input data</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import java.util.Properties;
+import java.io.InputStream;
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Parse input JSON
+def jsonSlurper = new JsonSlurper()
+def inputData = jsonSlurper.parseText(dataContext.getStream(0).getText())
+
+// Validation rules
+def errors = []
+
+// Required fields validation
+if (!inputData.buyer_company_id) {
+    errors.add("buyer_company_id is required")
+}
+if (!inputData.seller_company_id) {
+    errors.add("seller_company_id is required")
+}
+if (!inputData.product_id) {
+    errors.add("product_id is required")
+}
+if (!inputData.quantity || inputData.quantity <= 0) {
+    errors.add("quantity must be a positive number")
+}
+if (!inputData.unit_price || inputData.unit_price <= 0) {
+    errors.add("unit_price must be a positive number")
+}
+if (!inputData.unit) {
+    errors.add("unit is required")
+}
+if (!inputData.delivery_date) {
+    errors.add("delivery_date is required")
+}
+if (!inputData.delivery_location) {
+    errors.add("delivery_location is required")
+}
+
+// UUID validation
+def uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+if (inputData.buyer_company_id && !inputData.buyer_company_id.matches(uuidPattern)) {
+    errors.add("buyer_company_id must be a valid UUID")
+}
+if (inputData.seller_company_id && !inputData.seller_company_id.matches(uuidPattern)) {
+    errors.add("seller_company_id must be a valid UUID")
+}
+if (inputData.product_id && !inputData.product_id.matches(uuidPattern)) {
+    errors.add("product_id must be a valid UUID")
+}
+
+// Date validation
+if (inputData.delivery_date) {
+    try {
+        Date.parse("yyyy-MM-dd", inputData.delivery_date)
+    } catch (Exception e) {
+        errors.add("delivery_date must be in YYYY-MM-DD format")
+    }
+}
+
+// If validation errors, throw exception
+if (errors.size() > 0) {
+    def errorResponse = new JsonBuilder([
+        success: false,
+        message: "Validation failed",
+        errors: errors
+    ])
+    throw new RuntimeException("Validation failed: " + errorResponse.toString())
+}
+
+// Set validated data to dynamic process property
+dataContext.setProperty("validatedData", new JsonBuilder(inputData).toString())
+
+// Return success indicator
+return new JsonBuilder([
+    success: true,
+    message: "Validation passed"
+]).toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- HTTP Request to Common API -->
+            <bns:ConnectorShape id="createPO">
+                <bns:Name>Create PO in Common API</bns:Name>
+                <bns:Description>Sends HTTP POST request to create purchase order</bns:Description>
+                <bns:ConnectionName>Common API Connection</bns:ConnectionName>
+                <bns:Operation>
+                    <bns:Method>POST</bns:Method>
+                    <bns:Path>/api/v1/purchase-orders</bns:Path>
+                    <bns:RequestBody>{validatedData}</bns:RequestBody>
+                    <bns:Headers>
+                        <bns:Header name="Content-Type" value="application/json"/>
+                        <bns:Header name="Accept" value="application/json"/>
+                    </bns:Headers>
+                </bns:Operation>
+                <bns:ResponseHandling>
+                    <bns:SuccessStatusCodes>200,201</bns:SuccessStatusCodes>
+                    <bns:ErrorHandling>
+                        <bns:OnError>CONTINUE_TO_ERROR_HANDLER</bns:OnError>
+                    </bns:ErrorHandling>
+                </bns:ResponseHandling>
+            </bns:ConnectorShape>
+            
+            <!-- Success Response Processing -->
+            <bns:DataProcessShape id="processSuccess">
+                <bns:Name>Process Success Response</bns:Name>
+                <bns:Description>Processes successful purchase order creation</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Parse API response
+def jsonSlurper = new JsonSlurper()
+def apiResponse = jsonSlurper.parseText(dataContext.getStream(0).getText())
+
+// Create success response
+def successResponse = new JsonBuilder([
+    success: true,
+    message: "Purchase order created successfully",
+    purchase_order: apiResponse,
+    timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+    process_id: dataContext.getExecutionId()
+])
+
+// Log success
+logger.info("Purchase order created successfully: " + apiResponse.id)
+
+return successResponse.toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Error Handler -->
+            <bns:DataProcessShape id="errorHandler">
+                <bns:Name>Error Handler</bns:Name>
+                <bns:Description>Handles errors and creates error response</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Get error information
+def errorMessage = dataContext.getProperty("ERROR_MESSAGE") ?: "Unknown error occurred"
+def errorType = dataContext.getProperty("ERROR_TYPE") ?: "UNKNOWN_ERROR"
+def httpStatus = dataContext.getProperty("HTTP_STATUS_CODE") ?: "500"
+
+// Try to parse error response if available
+def errorDetails = null
+try {
+    if (dataContext.getStream(0)) {
+        def jsonSlurper = new JsonSlurper()
+        errorDetails = jsonSlurper.parseText(dataContext.getStream(0).getText())
+    }
+} catch (Exception e) {
+    // Ignore parsing errors
+}
+
+// Create error response
+def errorResponse = new JsonBuilder([
+    success: false,
+    message: "Failed to create purchase order",
+    error: [
+        type: errorType,
+        message: errorMessage,
+        http_status: httpStatus,
+        details: errorDetails
+    ],
+    timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+    process_id: dataContext.getExecutionId()
+])
+
+// Log error
+logger.error("Purchase order creation failed: " + errorMessage)
+
+return errorResponse.toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- End Shape -->
+            <bns:EndShape id="end">
+                <bns:Name>End</bns:Name>
+                <bns:Description>Process completion</bns:Description>
+            </bns:EndShape>
+        </bns:ProcessFlow>
+        
+        <!-- Process Connections -->
+        <bns:ProcessConnections>
+            <bns:Connection from="start" to="validate"/>
+            <bns:Connection from="validate" to="createPO"/>
+            <bns:Connection from="createPO" to="processSuccess" condition="SUCCESS"/>
+            <bns:Connection from="createPO" to="errorHandler" condition="ERROR"/>
+            <bns:Connection from="processSuccess" to="end"/>
+            <bns:Connection from="errorHandler" to="end"/>
+        </bns:ProcessConnections>
+        
+        <!-- Process Properties -->
+        <bns:ProcessProperties>
+            <bns:Property name="timeout" value="30000" description="Process timeout in milliseconds"/>
+            <bns:Property name="retryAttempts" value="3" description="Number of retry attempts"/>
+            <bns:Property name="logLevel" value="INFO" description="Logging level"/>
+            <bns:Property name="auditEnabled" value="true" description="Enable audit logging"/>
+        </bns:ProcessProperties>
+        
+        <!-- Input/Output Definitions -->
+        <bns:InputDefinition>
+            <bns:Name>Purchase Order Data</bns:Name>
+            <bns:Description>Purchase order creation data in JSON format</bns:Description>
+            <bns:ContentType>application/json</bns:ContentType>
+            <bns:Schema>
+                <bns:JsonSchema><![CDATA[
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": [
+        "buyer_company_id",
+        "seller_company_id", 
+        "product_id",
+        "quantity",
+        "unit_price",
+        "unit",
+        "delivery_date",
+        "delivery_location"
+    ],
+    "properties": {
+        "buyer_company_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "seller_company_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "product_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "quantity": {
+            "type": "number",
+            "minimum": 0.01
+        },
+        "unit_price": {
+            "type": "number",
+            "minimum": 0.01
+        },
+        "unit": {
+            "type": "string",
+            "minLength": 1
+        },
+        "delivery_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "delivery_location": {
+            "type": "string",
+            "minLength": 1
+        },
+        "notes": {
+            "type": "string"
+        },
+        "composition": {
+            "type": "object"
+        },
+        "input_materials": {
+            "type": "array"
+        },
+        "origin_data": {
+            "type": "object"
+        }
+    }
+}
+                ]]></bns:JsonSchema>
+            </bns:Schema>
+        </bns:InputDefinition>
+        
+        <bns:OutputDefinition>
+            <bns:Name>Purchase Order Response</bns:Name>
+            <bns:Description>Purchase order creation response</bns:Description>
+            <bns:ContentType>application/json</bns:ContentType>
+            <bns:Schema>
+                <bns:JsonSchema><![CDATA[
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "success": {
+            "type": "boolean"
+        },
+        "message": {
+            "type": "string"
+        },
+        "purchase_order": {
+            "type": "object"
+        },
+        "error": {
+            "type": "object"
+        },
+        "timestamp": {
+            "type": "string"
+        },
+        "process_id": {
+            "type": "string"
+        }
+    }
+}
+                ]]></bns:JsonSchema>
+            </bns:Schema>
+        </bns:OutputDefinition>
+    </bns:ProcessDefinition>
+</bns:Process>

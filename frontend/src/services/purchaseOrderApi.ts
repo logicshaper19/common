@@ -25,7 +25,22 @@ export interface PurchaseOrder {
   confirmed_delivery_location?: string;
   seller_notes?: string;
   seller_confirmed_at?: string;
-  
+
+  // Amendment fields (Phase 1 MVP)
+  proposed_quantity?: number;
+  proposed_quantity_unit?: string;
+  amendment_reason?: string;
+  amendment_status?: 'none' | 'proposed' | 'approved' | 'rejected';
+  amendment_count?: number;
+  last_amended_at?: string;
+
+  // ERP integration fields (Phase 2)
+  erp_integration_enabled?: boolean;
+  erp_sync_status?: 'not_required' | 'pending' | 'synced' | 'failed';
+  erp_sync_attempts?: number;
+  last_erp_sync_at?: string;
+  erp_sync_error?: string;
+
   created_at: string;
   updated_at: string;
 }
@@ -102,13 +117,32 @@ export interface PurchaseOrderUpdate {
   input_materials?: any[];
   origin_data?: any;
   notes?: string;
-  
+
   // Seller confirmation fields
   confirmed_quantity?: number;
   confirmed_unit_price?: number;
   confirmed_delivery_date?: string;
   confirmed_delivery_location?: string;
   seller_notes?: string;
+}
+
+// Amendment interfaces
+export interface ProposeChangesRequest {
+  proposed_quantity: number;
+  proposed_quantity_unit: string;
+  amendment_reason: string;
+}
+
+export interface ApproveChangesRequest {
+  approve: boolean;
+  buyer_notes?: string;
+}
+
+export interface AmendmentResponse {
+  success: boolean;
+  message: string;
+  amendment_status: 'none' | 'proposed' | 'approved' | 'rejected';
+  purchase_order_id: string;
 }
 
 export const purchaseOrderApi = {
@@ -160,6 +194,17 @@ export const purchaseOrderApi = {
   // Get traceability information for a purchase order
   getTraceability: async (id: string): Promise<any> => {
     const response = await apiClient.get(`/purchase-orders/${id}/traceability`);
+    return response.data;
+  },
+
+  // Amendment API functions
+  proposeChanges: async (id: string, proposal: ProposeChangesRequest): Promise<AmendmentResponse> => {
+    const response = await apiClient.put(`/purchase-orders/${id}/propose-changes`, proposal);
+    return response.data;
+  },
+
+  approveChanges: async (id: string, approval: ApproveChangesRequest): Promise<AmendmentResponse> => {
+    const response = await apiClient.put(`/purchase-orders/${id}/approve-changes`, approval);
     return response.data;
   }
 };

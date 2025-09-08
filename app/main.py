@@ -44,6 +44,7 @@ from app.api.documents import router as documents_router
 from app.api.compliance import router as compliance_router
 from app.api.team_invitations import router as team_invitations_router
 from app.api.amendments import router as amendments_router
+from app.api.erp_sync import router as erp_sync_router
 from app.services.seed_data import SeedDataService
 
 # Configure logging
@@ -214,6 +215,7 @@ app.include_router(documents_router, prefix="/api/v1", tags=["Documents"])
 app.include_router(compliance_router, prefix="/api/v1", tags=["Compliance"])
 app.include_router(team_invitations_router, prefix="/api/v1/team", tags=["Team Management"])
 app.include_router(amendments_router, prefix="/api/v1", tags=["Amendments"])
+app.include_router(erp_sync_router, prefix="/api/v1", tags=["ERP Sync"])
 
 
 @app.get("/")

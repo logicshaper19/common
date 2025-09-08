@@ -385,6 +385,31 @@ class NotificationManager:
                     new_status=data["new_status"],
                     changed_by_user_id=data["changed_by_company_id"]  # This should be user_id
                 )
+            elif notification_type == "amendment_proposed":
+                # For now, log the amendment proposal notification
+                logger.info(
+                    "Amendment proposal notification",
+                    po_id=data["po_id"],
+                    po_number=data["po_number"],
+                    proposed_quantity=data["proposed_quantity"],
+                    reason=data["amendment_reason"]
+                )
+            elif notification_type == "amendment_approved":
+                # For now, log the amendment approval notification
+                logger.info(
+                    "Amendment approval notification",
+                    po_id=data["po_id"],
+                    po_number=data["po_number"],
+                    new_quantity=data["new_quantity"]
+                )
+            elif notification_type == "amendment_rejected":
+                # For now, log the amendment rejection notification
+                logger.info(
+                    "Amendment rejection notification",
+                    po_id=data["po_id"],
+                    po_number=data["po_number"],
+                    buyer_notes=data.get("buyer_notes")
+                )
             # Add other notification types as needed
             
         except ImportError:
@@ -401,3 +426,148 @@ class NotificationManager:
                 error=str(e)
             )
             raise
+
+    # Phase 1 MVP Amendment Notification Methods
+
+    def notify_amendment_proposed(
+        self,
+        po: PurchaseOrder,
+        proposer,
+        proposal,
+        context: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Send notification for amendment proposal.
+
+        Args:
+            po: Purchase order with proposed amendment
+            proposer: User who proposed the amendment
+            proposal: Amendment proposal data
+            context: Additional context
+        """
+        try:
+            logger.info(
+                "Sending amendment proposal notification",
+                po_id=str(po.id),
+                po_number=po.po_number,
+                proposer_id=str(proposer.id)
+            )
+
+            # Notify buyer about the amendment proposal
+            notification_data = {
+                "po_id": str(po.id),
+                "po_number": po.po_number,
+                "proposer_company_id": str(proposer.company_id),
+                "proposed_quantity": str(proposal.proposed_quantity),
+                "proposed_unit": proposal.proposed_quantity_unit,
+                "amendment_reason": proposal.amendment_reason,
+                "original_quantity": str(po.quantity),
+                "original_unit": po.unit
+            }
+
+            if context:
+                notification_data.update(context)
+
+            self._send_notification(
+                notification_type="amendment_proposed",
+                recipient_company_id=po.buyer_company_id,
+                data=notification_data
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to send amendment proposal notification: {str(e)}")
+            raise PurchaseOrderNotificationError(f"Amendment proposal notification failed: {str(e)}")
+
+    def notify_amendment_approved(
+        self,
+        po: PurchaseOrder,
+        approver,
+        approval,
+        context: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Send notification for amendment approval.
+
+        Args:
+            po: Purchase order with approved amendment
+            approver: User who approved the amendment
+            approval: Approval data
+            context: Additional context
+        """
+        try:
+            logger.info(
+                "Sending amendment approval notification",
+                po_id=str(po.id),
+                po_number=po.po_number,
+                approver_id=str(approver.id)
+            )
+
+            # Notify seller about the amendment approval
+            notification_data = {
+                "po_id": str(po.id),
+                "po_number": po.po_number,
+                "approver_company_id": str(approver.company_id),
+                "buyer_notes": approval.buyer_notes,
+                "new_quantity": str(po.quantity),
+                "new_unit": po.unit
+            }
+
+            if context:
+                notification_data.update(context)
+
+            self._send_notification(
+                notification_type="amendment_approved",
+                recipient_company_id=po.seller_company_id,
+                data=notification_data
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to send amendment approval notification: {str(e)}")
+            raise PurchaseOrderNotificationError(f"Amendment approval notification failed: {str(e)}")
+
+    def notify_amendment_rejected(
+        self,
+        po: PurchaseOrder,
+        rejector,
+        approval,
+        context: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Send notification for amendment rejection.
+
+        Args:
+            po: Purchase order with rejected amendment
+            rejector: User who rejected the amendment
+            approval: Rejection data
+            context: Additional context
+        """
+        try:
+            logger.info(
+                "Sending amendment rejection notification",
+                po_id=str(po.id),
+                po_number=po.po_number,
+                rejector_id=str(rejector.id)
+            )
+
+            # Notify seller about the amendment rejection
+            notification_data = {
+                "po_id": str(po.id),
+                "po_number": po.po_number,
+                "rejector_company_id": str(rejector.company_id),
+                "buyer_notes": approval.buyer_notes,
+                "original_quantity": str(po.quantity),
+                "original_unit": po.unit
+            }
+
+            if context:
+                notification_data.update(context)
+
+            self._send_notification(
+                notification_type="amendment_rejected",
+                recipient_company_id=po.seller_company_id,
+                data=notification_data
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to send amendment rejection notification: {str(e)}")
+            raise PurchaseOrderNotificationError(f"Amendment rejection notification failed: {str(e)}")

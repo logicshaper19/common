@@ -1,8 +1,8 @@
 """
 Company model for the Common supply chain platform.
 """
-from sqlalchemy import Column, String, DateTime, func, Index, Integer, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, DateTime, func, Index, Integer, ForeignKey, Boolean
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
 
@@ -22,6 +22,17 @@ class Company(Base):
     # Sector-specific fields
     sector_id = Column(String(50), ForeignKey("sectors.id"), nullable=True)
     tier_level = Column(Integer, nullable=True)  # Tier level within the sector
+
+    # Phase 2 ERP Integration Settings
+    erp_integration_enabled = Column(Boolean, default=False)  # Whether ERP integration is enabled
+    erp_system_type = Column(String(50))  # 'sap', 'oracle', 'netsuite', 'custom', etc.
+    erp_api_endpoint = Column(String(500))  # ERP API endpoint URL
+    erp_webhook_url = Column(String(500))  # Webhook URL for ERP notifications
+    erp_sync_frequency = Column(String(20), default='real_time')  # 'real_time', 'hourly', 'daily'
+    erp_last_sync_at = Column(DateTime(timezone=True))  # Last successful ERP sync
+    erp_sync_enabled = Column(Boolean, default=False)  # Whether ERP sync is currently enabled
+    erp_configuration = Column(JSONB)  # Flexible ERP configuration storage
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -41,4 +52,8 @@ class Company(Base):
         Index('idx_companies_type_created', 'company_type', 'created_at'),
         Index('idx_companies_sector_id', 'sector_id'),
         Index('idx_companies_tier_level', 'tier_level'),
+        # Phase 2 ERP Integration indexes
+        Index('idx_companies_erp_enabled', 'erp_integration_enabled'),
+        Index('idx_companies_erp_sync_enabled', 'erp_sync_enabled'),
+        Index('idx_companies_erp_system_type', 'erp_system_type'),
     )

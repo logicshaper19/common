@@ -22,6 +22,22 @@ class PurchaseOrderStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class AmendmentStatus(str, Enum):
+    """Amendment status enumeration for Phase 1 MVP."""
+    NONE = "none"
+    PROPOSED = "proposed"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class ERPSyncStatus(str, Enum):
+    """ERP sync status enumeration for Phase 2."""
+    NOT_REQUIRED = "not_required"
+    PENDING = "pending"
+    SYNCED = "synced"
+    FAILED = "failed"
+
+
 class PurchaseOrderCreate(BaseModel):
     """Purchase order creation schema."""
     buyer_company_id: UUID
@@ -122,6 +138,55 @@ class PurchaseOrderCreate(BaseModel):
         return v
 
 
+# Phase 1 MVP Amendment Schemas
+class ProposeChangesRequest(BaseModel):
+    """Schema for Phase 1 MVP amendment proposal by seller."""
+    proposed_quantity: Decimal = Field(..., gt=0, decimal_places=3, description="Seller's proposed quantity")
+    proposed_quantity_unit: str = Field(..., min_length=1, max_length=20, description="Unit for proposed quantity")
+    amendment_reason: str = Field(..., min_length=1, max_length=1000, description="Reason for the amendment")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "proposed_quantity": "95.000",
+                "proposed_quantity_unit": "MT",
+                "amendment_reason": "Due to processing constraints, we can only deliver 95 MT instead of 100 MT. Quality will remain the same."
+            }
+        }
+
+
+class ApproveChangesRequest(BaseModel):
+    """Schema for buyer approval/rejection of amendment."""
+    approve: bool = Field(..., description="Whether to approve (True) or reject (False) the amendment")
+    buyer_notes: Optional[str] = Field(None, max_length=1000, description="Optional notes from buyer")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "approve": True,
+                "buyer_notes": "Approved. 95 MT is acceptable for this order."
+            }
+        }
+
+
+class AmendmentResponse(BaseModel):
+    """Response schema for amendment operations."""
+    success: bool
+    message: str
+    amendment_status: AmendmentStatus
+    purchase_order_id: UUID
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "Amendment proposal submitted successfully",
+                "amendment_status": "proposed",
+                "purchase_order_id": "123e4567-e89b-12d3-a456-426614174000"
+            }
+        }
+
+
 class SellerConfirmation(BaseModel):
     """Schema for seller confirmation of purchase order."""
     confirmed_quantity: Decimal = Field(..., gt=0, decimal_places=3)
@@ -207,6 +272,24 @@ class PurchaseOrderResponse(BaseModel):
     confirmed_delivery_location: Optional[str]
     seller_notes: Optional[str]
     seller_confirmed_at: Optional[datetime]
+
+    # Phase 1 MVP Amendment fields
+    proposed_quantity: Optional[Decimal]
+    proposed_quantity_unit: Optional[str]
+    amendment_reason: Optional[str]
+    amendment_status: AmendmentStatus
+
+    # Amendment tracking fields
+    has_pending_amendments: bool
+    amendment_count: int
+    last_amended_at: Optional[datetime]
+
+    # Phase 2 ERP Integration fields (included but not used in Phase 1)
+    erp_integration_enabled: bool
+    erp_sync_status: ERPSyncStatus
+    erp_sync_attempts: int
+    last_erp_sync_at: Optional[datetime]
+    erp_sync_error: Optional[str]
 
     created_at: datetime
     updated_at: datetime

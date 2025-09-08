@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bns:Connection xmlns:bns="http://www.boomi.com/connector/annotation" 
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xsi:schemaLocation="http://www.boomi.com/connector/annotation http://www.boomi.com/connector/annotation.xsd">
+    
+    <bns:ConnectionDefinition>
+        <bns:Name>Common API Connection</bns:Name>
+        <bns:Description>HTTP Client connection to Common Supply Chain Transparency Platform API</bns:Description>
+        <bns:Version>1.0.0</bns:Version>
+        <bns:Type>HTTP_CLIENT</bns:Type>
+        
+        <!-- Connection Properties -->
+        <bns:Properties>
+            <bns:Property>
+                <bns:Name>baseUrl</bns:Name>
+                <bns:DisplayName>Base URL</bns:DisplayName>
+                <bns:Description>Common API base URL</bns:Description>
+                <bns:Type>STRING</bns:Type>
+                <bns:Required>true</bns:Required>
+                <bns:DefaultValue>https://api.common.co</bns:DefaultValue>
+                <bns:Validation>
+                    <bns:Pattern>^https?://.*</bns:Pattern>
+                    <bns:ErrorMessage>Base URL must be a valid HTTP/HTTPS URL</bns:ErrorMessage>
+                </bns:Validation>
+            </bns:Property>
+            
+            <bns:Property>
+                <bns:Name>clientId</bns:Name>
+                <bns:DisplayName>Client ID</bns:DisplayName>
+                <bns:Description>OAuth 2.0 Client ID for authentication</bns:Description>
+                <bns:Type>STRING</bns:Type>
+                <bns:Required>true</bns:Required>
+                <bns:Secure>false</bns:Secure>
+            </bns:Property>
+            
+            <bns:Property>
+                <bns:Name>clientSecret</bns:Name>
+                <bns:DisplayName>Client Secret</bns:DisplayName>
+                <bns:Description>OAuth 2.0 Client Secret for authentication</bns:Description>
+                <bns:Type>PASSWORD</bns:Type>
+                <bns:Required>true</bns:Required>
+                <bns:Secure>true</bns:Secure>
+            </bns:Property>
+            
+            <bns:Property>
+                <bns:Name>companyId</bns:Name>
+                <bns:DisplayName>Company ID</bns:DisplayName>
+                <bns:Description>Company UUID for data filtering</bns:Description>
+                <bns:Type>STRING</bns:Type>
+                <bns:Required>true</bns:Required>
+                <bns:Validation>
+                    <bns:Pattern>^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$</bns:Pattern>
+                    <bns:ErrorMessage>Company ID must be a valid UUID</bns:ErrorMessage>
+                </bns:Validation>
+            </bns:Property>
+            
+            <bns:Property>
+                <bns:Name>timeout</bns:Name>
+                <bns:DisplayName>Timeout (seconds)</bns:DisplayName>
+                <bns:Description>Request timeout in seconds</bns:Description>
+                <bns:Type>INTEGER</bns:Type>
+                <bns:Required>false</bns:Required>
+                <bns:DefaultValue>30</bns:DefaultValue>
+                <bns:Validation>
+                    <bns:MinValue>5</bns:MinValue>
+                    <bns:MaxValue>300</bns:MaxValue>
+                </bns:Validation>
+            </bns:Property>
+            
+            <bns:Property>
+                <bns:Name>maxRetries</bns:Name>
+                <bns:DisplayName>Max Retries</bns:DisplayName>
+                <bns:Description>Maximum number of retry attempts</bns:Description>
+                <bns:Type>INTEGER</bns:Type>
+                <bns:Required>false</bns:Required>
+                <bns:DefaultValue>3</bns:DefaultValue>
+                <bns:Validation>
+                    <bns:MinValue>0</bns:MinValue>
+                    <bns:MaxValue>10</bns:MaxValue>
+                </bns:Validation>
+            </bns:Property>
+            
+            <bns:Property>
+                <bns:Name>environment</bns:Name>
+                <bns:DisplayName>Environment</bns:DisplayName>
+                <bns:Description>Environment identifier for logging and monitoring</bns:Description>
+                <bns:Type>STRING</bns:Type>
+                <bns:Required>false</bns:Required>
+                <bns:DefaultValue>production</bns:DefaultValue>
+                <bns:Options>
+                    <bns:Option value="development">Development</bns:Option>
+                    <bns:Option value="staging">Staging</bns:Option>
+                    <bns:Option value="production">Production</bns:Option>
+                </bns:Options>
+            </bns:Property>
+        </bns:Properties>
+        
+        <!-- Authentication Configuration -->
+        <bns:Authentication>
+            <bns:Type>OAUTH2_CLIENT_CREDENTIALS</bns:Type>
+            <bns:TokenUrl>{baseUrl}/api/v1/auth/token</bns:TokenUrl>
+            <bns:ClientId>{clientId}</bns:ClientId>
+            <bns:ClientSecret>{clientSecret}</bns:ClientSecret>
+            <bns:Scope>api:read api:write</bns:Scope>
+            <bns:TokenRefreshBuffer>300</bns:TokenRefreshBuffer>
+        </bns:Authentication>
+        
+        <!-- HTTP Configuration -->
+        <bns:HttpConfiguration>
+            <bns:ConnectionTimeout>{timeout}000</bns:ConnectionTimeout>
+            <bns:ReadTimeout>{timeout}000</bns:ReadTimeout>
+            <bns:MaxConnections>20</bns:MaxConnections>
+            <bns:MaxConnectionsPerRoute>10</bns:MaxConnectionsPerRoute>
+            <bns:KeepAlive>true</bns:KeepAlive>
+            <bns:FollowRedirects>true</bns:FollowRedirects>
+            
+            <!-- Default Headers -->
+            <bns:DefaultHeaders>
+                <bns:Header name="Content-Type" value="application/json"/>
+                <bns:Header name="Accept" value="application/json"/>
+                <bns:Header name="User-Agent" value="Common-Boomi-Connector/1.0.0"/>
+                <bns:Header name="X-Environment" value="{environment}"/>
+                <bns:Header name="X-Company-ID" value="{companyId}"/>
+            </bns:DefaultHeaders>
+        </bns:HttpConfiguration>
+        
+        <!-- Retry Configuration -->
+        <bns:RetryConfiguration>
+            <bns:MaxRetries>{maxRetries}</bns:MaxRetries>
+            <bns:InitialDelay>1000</bns:InitialDelay>
+            <bns:MaxDelay>30000</bns:MaxDelay>
+            <bns:BackoffMultiplier>2.0</bns:BackoffMultiplier>
+            <bns:RetryableStatusCodes>
+                <bns:StatusCode>429</bns:StatusCode>
+                <bns:StatusCode>500</bns:StatusCode>
+                <bns:StatusCode>502</bns:StatusCode>
+                <bns:StatusCode>503</bns:StatusCode>
+                <bns:StatusCode>504</bns:StatusCode>
+            </bns:RetryableStatusCodes>
+        </bns:RetryConfiguration>
+        
+        <!-- Connection Test -->
+        <bns:ConnectionTest>
+            <bns:Method>GET</bns:Method>
+            <bns:Path>/api/v1/health</bns:Path>
+            <bns:ExpectedStatusCode>200</bns:ExpectedStatusCode>
+            <bns:ExpectedResponsePattern>.*"status":\s*"healthy".*</bns:ExpectedResponsePattern>
+        </bns:ConnectionTest>
+        
+        <!-- Monitoring Configuration -->
+        <bns:Monitoring>
+            <bns:HealthCheckInterval>300000</bns:HealthCheckInterval>
+            <bns:MetricsEnabled>true</bns:MetricsEnabled>
+            <bns:LoggingEnabled>true</bns:LoggingEnabled>
+            <bns:PerformanceTrackingEnabled>true</bns:PerformanceTrackingEnabled>
+        </bns:Monitoring>
+        
+        <!-- Error Handling -->
+        <bns:ErrorHandling>
+            <bns:ErrorMapping>
+                <bns:StatusCode>400</bns:StatusCode>
+                <bns:ErrorType>VALIDATION_ERROR</bns:ErrorType>
+                <bns:Message>Invalid request data</bns:Message>
+                <bns:Recoverable>false</bns:Recoverable>
+            </bns:ErrorMapping>
+            <bns:ErrorMapping>
+                <bns:StatusCode>401</bns:StatusCode>
+                <bns:ErrorType>AUTHENTICATION_ERROR</bns:ErrorType>
+                <bns:Message>Authentication failed</bns:Message>
+                <bns:Recoverable>true</bns:Recoverable>
+            </bns:ErrorMapping>
+            <bns:ErrorMapping>
+                <bns:StatusCode>403</bns:StatusCode>
+                <bns:ErrorType>AUTHORIZATION_ERROR</bns:ErrorType>
+                <bns:Message>Access denied</bns:Message>
+                <bns:Recoverable>false</bns:Recoverable>
+            </bns:ErrorMapping>
+            <bns:ErrorMapping>
+                <bns:StatusCode>404</bns:StatusCode>
+                <bns:ErrorType>NOT_FOUND_ERROR</bns:ErrorType>
+                <bns:Message>Resource not found</bns:Message>
+                <bns:Recoverable>false</bns:Recoverable>
+            </bns:ErrorMapping>
+            <bns:ErrorMapping>
+                <bns:StatusCode>429</bns:StatusCode>
+                <bns:ErrorType>RATE_LIMIT_ERROR</bns:ErrorType>
+                <bns:Message>Rate limit exceeded</bns:Message>
+                <bns:Recoverable>true</bns:Recoverable>
+            </bns:ErrorMapping>
+            <bns:ErrorMapping>
+                <bns:StatusCode>500</bns:StatusCode>
+                <bns:ErrorType>SERVER_ERROR</bns:ErrorType>
+                <bns:Message>Internal server error</bns:Message>
+                <bns:Recoverable>true</bns:Recoverable>
+            </bns:ErrorMapping>
+        </bns:ErrorHandling>
+    </bns:ConnectionDefinition>
+</bns:Connection>

@@ -59,6 +59,19 @@ class PurchaseOrder(Base):
     amendment_count = Column(Integer, default=0)  # Total number of amendments
     last_amended_at = Column(DateTime(timezone=True))  # When last amendment was applied
 
+    # Phase 1 MVP Amendment Fields
+    proposed_quantity = Column(Numeric(12, 3))  # Seller's proposed quantity change
+    proposed_quantity_unit = Column(String(20))  # Unit for proposed quantity
+    amendment_reason = Column(Text)  # Reason for the proposed amendment
+    amendment_status = Column(String(20), default='none')  # 'none', 'proposed', 'approved', 'rejected'
+
+    # Phase 2 ERP Integration Fields (ready but not used in Phase 1)
+    erp_integration_enabled = Column(Boolean, default=False)  # Whether this PO should sync to ERP
+    erp_sync_status = Column(String(20), default='not_required')  # 'not_required', 'pending', 'synced', 'failed'
+    erp_sync_attempts = Column(Integer, default=0)  # Number of sync attempts
+    last_erp_sync_at = Column(DateTime(timezone=True))  # When last ERP sync was attempted
+    erp_sync_error = Column(Text)  # Last ERP sync error message
+
     # Transparency Scores (cached for performance)
     transparency_to_mill = Column(Numeric(5, 4))  # TTM score (0.0000 to 1.0000)
     transparency_to_plantation = Column(Numeric(5, 4))  # TTP score (0.0000 to 1.0000)

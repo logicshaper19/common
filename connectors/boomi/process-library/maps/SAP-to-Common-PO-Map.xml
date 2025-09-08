@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bns:Map xmlns:bns="http://www.boomi.com/map/annotation"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://www.boomi.com/map/annotation http://www.boomi.com/map/annotation.xsd">
+    
+    <bns:MapDefinition>
+        <bns:Name>SAP to Common PO Map</bns:Name>
+        <bns:Description>Maps SAP purchase order data to Common API format</bns:Description>
+        <bns:Version>1.0.0</bns:Version>
+        <bns:Category>Data Transformation</bns:Category>
+        <bns:SubCategory>SAP Integration</bns:SubCategory>
+        
+        <!-- Source Schema (SAP Purchase Order) -->
+        <bns:SourceSchema>
+            <bns:Name>SAP Purchase Order</bns:Name>
+            <bns:Description>SAP purchase order structure</bns:Description>
+            <bns:Type>XML</bns:Type>
+            <bns:Schema><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="PurchaseOrder">
+        <xs:complexType>
+            <xs:sequence>
+                <!-- Header Fields -->
+                <xs:element name="EBELN" type="xs:string" minOccurs="0"/>  <!-- PO Number -->
+                <xs:element name="BUKRS" type="xs:string" minOccurs="1"/>  <!-- Company Code -->
+                <xs:element name="LIFNR" type="xs:string" minOccurs="1"/>  <!-- Vendor Number -->
+                <xs:element name="BEDAT" type="xs:string" minOccurs="0"/>  <!-- Document Date -->
+                <xs:element name="EKORG" type="xs:string" minOccurs="0"/>  <!-- Purchasing Organization -->
+                <xs:element name="EKGRP" type="xs:string" minOccurs="0"/>  <!-- Purchasing Group -->
+                
+                <!-- Item Fields -->
+                <xs:element name="EBELP" type="xs:string" minOccurs="0"/>  <!-- Item Number -->
+                <xs:element name="MATNR" type="xs:string" minOccurs="1"/>  <!-- Material Number -->
+                <xs:element name="MENGE" type="xs:decimal" minOccurs="1"/> <!-- Quantity -->
+                <xs:element name="MEINS" type="xs:string" minOccurs="1"/>  <!-- Unit of Measure -->
+                <xs:element name="NETPR" type="xs:decimal" minOccurs="1"/> <!-- Net Price -->
+                <xs:element name="PEINH" type="xs:decimal" minOccurs="0"/> <!-- Price Unit -->
+                <xs:element name="WERKS" type="xs:string" minOccurs="1"/>  <!-- Plant -->
+                <xs:element name="EINDT" type="xs:string" minOccurs="1"/>  <!-- Delivery Date -->
+                <xs:element name="TXZOL" type="xs:string" minOccurs="0"/>  <!-- Short Text -->
+                
+                <!-- Additional Fields -->
+                <xs:element name="COMPOSITION" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Component" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="Name" type="xs:string"/>
+                                        <xs:element name="Percentage" type="xs:decimal"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                
+                <xs:element name="INPUT_MATERIALS" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Material" maxOccurs="unbounded">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="MATNR" type="xs:string"/>
+                                        <xs:element name="MENGE" type="xs:decimal"/>
+                                        <xs:element name="MEINS" type="xs:string"/>
+                                        <xs:element name="CHARG" type="xs:string" minOccurs="0"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                
+                <xs:element name="ORIGIN_DATA" minOccurs="0">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="LATITUDE" type="xs:decimal" minOccurs="0"/>
+                            <xs:element name="LONGITUDE" type="xs:decimal" minOccurs="0"/>
+                            <xs:element name="CERTIFICATIONS" type="xs:string" minOccurs="0"/>
+                            <xs:element name="HARVEST_DATE" type="xs:string" minOccurs="0"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>
+            ]]></bns:Schema>
+        </bns:SourceSchema>
+        
+        <!-- Target Schema (Common API Purchase Order) -->
+        <bns:TargetSchema>
+            <bns:Name>Common API Purchase Order</bns:Name>
+            <bns:Description>Common API purchase order creation format</bns:Description>
+            <bns:Type>JSON</bns:Type>
+            <bns:Schema><![CDATA[
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": [
+        "buyer_company_id",
+        "seller_company_id",
+        "product_id",
+        "quantity",
+        "unit_price",
+        "unit",
+        "delivery_date",
+        "delivery_location"
+    ],
+    "properties": {
+        "buyer_company_id": {"type": "string"},
+        "seller_company_id": {"type": "string"},
+        "product_id": {"type": "string"},
+        "quantity": {"type": "number"},
+        "unit_price": {"type": "number"},
+        "unit": {"type": "string"},
+        "delivery_date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "delivery_location": {"type": "string"},
+        "notes": {"type": "string"},
+        "po_number": {"type": "string"},
+        "composition": {"type": "object"},
+        "input_materials": {"type": "array"},
+        "origin_data": {"type": "object"}
+    }
+}
+            ]]></bns:Schema>
+        </bns:TargetSchema>
+        
+        <!-- Field Mappings -->
+        <bns:FieldMappings>
+            <!-- Required Field Mappings -->
+            <bns:FieldMapping>
+                <bns:SourceField>BUKRS</bns:SourceField>
+                <bns:TargetField>buyer_company_id</bns:TargetField>
+                <bns:MappingType>LOOKUP</bns:MappingType>
+                <bns:LookupTable>SAP_COMPANY_TO_COMMON_UUID</bns:LookupTable>
+                <bns:Description>Maps SAP company code to Common company UUID</bns:Description>
+                <bns:Required>true</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>LIFNR</bns:SourceField>
+                <bns:TargetField>seller_company_id</bns:TargetField>
+                <bns:MappingType>LOOKUP</bns:MappingType>
+                <bns:LookupTable>SAP_VENDOR_TO_COMMON_UUID</bns:LookupTable>
+                <bns:Description>Maps SAP vendor number to Common company UUID</bns:Description>
+                <bns:Required>true</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>MATNR</bns:SourceField>
+                <bns:TargetField>product_id</bns:TargetField>
+                <bns:MappingType>LOOKUP</bns:MappingType>
+                <bns:LookupTable>SAP_MATERIAL_TO_COMMON_UUID</bns:LookupTable>
+                <bns:Description>Maps SAP material number to Common product UUID</bns:Description>
+                <bns:Required>true</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>MENGE</bns:SourceField>
+                <bns:TargetField>quantity</bns:TargetField>
+                <bns:MappingType>DIRECT</bns:MappingType>
+                <bns:DataType>DECIMAL</bns:DataType>
+                <bns:Description>Direct mapping of quantity</bns:Description>
+                <bns:Required>true</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>NETPR</bns:SourceField>
+                <bns:TargetField>unit_price</bns:TargetField>
+                <bns:MappingType>CALCULATION</bns:MappingType>
+                <bns:Formula>NETPR / (PEINH || 1)</bns:Formula>
+                <bns:DataType>DECIMAL</bns:DataType>
+                <bns:Description>Calculates unit price considering price unit</bns:Description>
+                <bns:Required>true</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>MEINS</bns:SourceField>
+                <bns:TargetField>unit</bns:TargetField>
+                <bns:MappingType>LOOKUP</bns:MappingType>
+                <bns:LookupTable>SAP_UOM_TO_COMMON_UNIT</bns:LookupTable>
+                <bns:DefaultValue>kg</bns:DefaultValue>
+                <bns:Description>Maps SAP unit of measure to Common unit</bns:Description>
+                <bns:Required>true</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>EINDT</bns:SourceField>
+                <bns:TargetField>delivery_date</bns:TargetField>
+                <bns:MappingType>DATE_CONVERSION</bns:MappingType>
+                <bns:SourceFormat>yyyyMMdd</bns:SourceFormat>
+                <bns:TargetFormat>yyyy-MM-dd</bns:TargetFormat>
+                <bns:Description>Converts SAP date format to ISO date format</bns:Description>
+                <bns:Required>true</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>WERKS</bns:SourceField>
+                <bns:TargetField>delivery_location</bns:TargetField>
+                <bns:MappingType>LOOKUP</bns:MappingType>
+                <bns:LookupTable>SAP_PLANT_TO_LOCATION</bns:LookupTable>
+                <bns:DefaultValue>WERKS</bns:DefaultValue>
+                <bns:Description>Maps SAP plant to delivery location</bns:Description>
+                <bns:Required>true</bns:Required>
+            </bns:FieldMapping>
+            
+            <!-- Optional Field Mappings -->
+            <bns:FieldMapping>
+                <bns:SourceField>EBELN</bns:SourceField>
+                <bns:TargetField>po_number</bns:TargetField>
+                <bns:MappingType>DIRECT</bns:MappingType>
+                <bns:Description>Direct mapping of PO number</bns:Description>
+                <bns:Required>false</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>TXZOL</bns:SourceField>
+                <bns:TargetField>notes</bns:TargetField>
+                <bns:MappingType>DIRECT</bns:MappingType>
+                <bns:Description>Direct mapping of short text to notes</bns:Description>
+                <bns:Required>false</bns:Required>
+            </bns:FieldMapping>
+            
+            <!-- Complex Field Mappings -->
+            <bns:FieldMapping>
+                <bns:SourceField>COMPOSITION</bns:SourceField>
+                <bns:TargetField>composition</bns:TargetField>
+                <bns:MappingType>CUSTOM_SCRIPT</bns:MappingType>
+                <bns:Script><![CDATA[
+// Transform SAP composition structure to Common format
+def composition = [:]
+if (source.COMPOSITION?.Component) {
+    source.COMPOSITION.Component.each { component ->
+        composition[component.Name] = component.Percentage
+    }
+}
+return composition.isEmpty() ? null : composition
+                ]]></bns:Script>
+                <bns:Description>Transforms composition data structure</bns:Description>
+                <bns:Required>false</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>INPUT_MATERIALS</bns:SourceField>
+                <bns:TargetField>input_materials</bns:TargetField>
+                <bns:MappingType>CUSTOM_SCRIPT</bns:MappingType>
+                <bns:Script><![CDATA[
+// Transform SAP input materials to Common format
+def inputMaterials = []
+if (source.INPUT_MATERIALS?.Material) {
+    source.INPUT_MATERIALS.Material.each { material ->
+        inputMaterials.add([
+            material_id: lookupValue("SAP_MATERIAL_TO_COMMON_UUID", material.MATNR),
+            quantity: material.MENGE,
+            unit: lookupValue("SAP_UOM_TO_COMMON_UNIT", material.MEINS, "kg"),
+            batch_number: material.CHARG ?: null
+        ])
+    }
+}
+return inputMaterials.isEmpty() ? null : inputMaterials
+                ]]></bns:Script>
+                <bns:Description>Transforms input materials data structure</bns:Description>
+                <bns:Required>false</bns:Required>
+            </bns:FieldMapping>
+            
+            <bns:FieldMapping>
+                <bns:SourceField>ORIGIN_DATA</bns:SourceField>
+                <bns:TargetField>origin_data</bns:TargetField>
+                <bns:MappingType>CUSTOM_SCRIPT</bns:MappingType>
+                <bns:Script><![CDATA[
+// Transform SAP origin data to Common format
+if (!source.ORIGIN_DATA) return null
+
+def originData = [:]
+
+// Coordinates
+if (source.ORIGIN_DATA.LATITUDE && source.ORIGIN_DATA.LONGITUDE) {
+    originData.coordinates = [
+        latitude: source.ORIGIN_DATA.LATITUDE,
+        longitude: source.ORIGIN_DATA.LONGITUDE
+    ]
+}
+
+// Certifications
+if (source.ORIGIN_DATA.CERTIFICATIONS) {
+    originData.certifications = source.ORIGIN_DATA.CERTIFICATIONS.split(",").collect { it.trim() }
+}
+
+// Harvest date
+if (source.ORIGIN_DATA.HARVEST_DATE) {
+    try {
+        def date = Date.parse("yyyyMMdd", source.ORIGIN_DATA.HARVEST_DATE)
+        originData.harvest_date = date.format("yyyy-MM-dd")
+    } catch (Exception e) {
+        // Invalid date format, skip
+    }
+}
+
+return originData.isEmpty() ? null : originData
+                ]]></bns:Script>
+                <bns:Description>Transforms origin data structure</bns:Description>
+                <bns:Required>false</bns:Required>
+            </bns:FieldMapping>
+        </bns:FieldMappings>
+        
+        <!-- Lookup Tables -->
+        <bns:LookupTables>
+            <bns:LookupTable name="SAP_COMPANY_TO_COMMON_UUID">
+                <bns:Description>Maps SAP company codes to Common company UUIDs</bns:Description>
+                <bns:Entries>
+                    <bns:Entry key="1000" value="company-uuid-1000"/>
+                    <bns:Entry key="2000" value="company-uuid-2000"/>
+                    <bns:Entry key="3000" value="company-uuid-3000"/>
+                </bns:Entries>
+            </bns:LookupTable>
+            
+            <bns:LookupTable name="SAP_VENDOR_TO_COMMON_UUID">
+                <bns:Description>Maps SAP vendor numbers to Common company UUIDs</bns:Description>
+                <bns:Entries>
+                    <bns:Entry key="VENDOR001" value="vendor-uuid-001"/>
+                    <bns:Entry key="VENDOR002" value="vendor-uuid-002"/>
+                    <bns:Entry key="VENDOR003" value="vendor-uuid-003"/>
+                </bns:Entries>
+            </bns:LookupTable>
+            
+            <bns:LookupTable name="SAP_MATERIAL_TO_COMMON_UUID">
+                <bns:Description>Maps SAP material numbers to Common product UUIDs</bns:Description>
+                <bns:Entries>
+                    <bns:Entry key="MATERIAL001" value="product-uuid-001"/>
+                    <bns:Entry key="MATERIAL002" value="product-uuid-002"/>
+                    <bns:Entry key="MATERIAL003" value="product-uuid-003"/>
+                </bns:Entries>
+            </bns:LookupTable>
+            
+            <bns:LookupTable name="SAP_UOM_TO_COMMON_UNIT">
+                <bns:Description>Maps SAP units of measure to Common units</bns:Description>
+                <bns:Entries>
+                    <bns:Entry key="KG" value="kg"/>
+                    <bns:Entry key="G" value="g"/>
+                    <bns:Entry key="LB" value="lb"/>
+                    <bns:Entry key="OZ" value="oz"/>
+                    <bns:Entry key="L" value="l"/>
+                    <bns:Entry key="ML" value="ml"/>
+                    <bns:Entry key="GAL" value="gal"/>
+                    <bns:Entry key="PC" value="piece"/>
+                    <bns:Entry key="EA" value="each"/>
+                </bns:Entries>
+            </bns:LookupTable>
+            
+            <bns:LookupTable name="SAP_PLANT_TO_LOCATION">
+                <bns:Description>Maps SAP plants to delivery locations</bns:Description>
+                <bns:Entries>
+                    <bns:Entry key="PLANT001" value="Warehouse A - New York"/>
+                    <bns:Entry key="PLANT002" value="Warehouse B - Los Angeles"/>
+                    <bns:Entry key="PLANT003" value="Warehouse C - Chicago"/>
+                </bns:Entries>
+            </bns:LookupTable>
+        </bns:LookupTables>
+        
+        <!-- Validation Rules -->
+        <bns:ValidationRules>
+            <bns:ValidationRule>
+                <bns:Field>buyer_company_id</bns:Field>
+                <bns:Rule>NOT_NULL</bns:Rule>
+                <bns:ErrorMessage>Buyer company ID is required</bns:ErrorMessage>
+            </bns:ValidationRule>
+            
+            <bns:ValidationRule>
+                <bns:Field>seller_company_id</bns:Field>
+                <bns:Rule>NOT_NULL</bns:Rule>
+                <bns:ErrorMessage>Seller company ID is required</bns:ErrorMessage>
+            </bns:ValidationRule>
+            
+            <bns:ValidationRule>
+                <bns:Field>product_id</bns:Field>
+                <bns:Rule>NOT_NULL</bns:Rule>
+                <bns:ErrorMessage>Product ID is required</bns:ErrorMessage>
+            </bns:ValidationRule>
+            
+            <bns:ValidationRule>
+                <bns:Field>quantity</bns:Field>
+                <bns:Rule>GREATER_THAN</bns:Rule>
+                <bns:Value>0</bns:Value>
+                <bns:ErrorMessage>Quantity must be greater than 0</bns:ErrorMessage>
+            </bns:ValidationRule>
+            
+            <bns:ValidationRule>
+                <bns:Field>unit_price</bns:Field>
+                <bns:Rule>GREATER_THAN</bns:Rule>
+                <bns:Value>0</bns:Value>
+                <bns:ErrorMessage>Unit price must be greater than 0</bns:ErrorMessage>
+            </bns:ValidationRule>
+            
+            <bns:ValidationRule>
+                <bns:Field>delivery_date</bns:Field>
+                <bns:Rule>DATE_FORMAT</bns:Rule>
+                <bns:Pattern>yyyy-MM-dd</bns:Pattern>
+                <bns:ErrorMessage>Delivery date must be in YYYY-MM-DD format</bns:ErrorMessage>
+            </bns:ValidationRule>
+        </bns:ValidationRules>
+        
+        <!-- Transformation Properties -->
+        <bns:TransformationProperties>
+            <bns:Property name="strictMode" value="false" description="Enable strict validation mode"/>
+            <bns:Property name="skipUnknownFields" value="true" description="Skip unknown source fields"/>
+            <bns:Property name="logTransformations" value="true" description="Log field transformations"/>
+            <bns:Property name="defaultTimezone" value="UTC" description="Default timezone for date conversions"/>
+        </bns:TransformationProperties>
+    </bns:MapDefinition>
+</bns:Map>

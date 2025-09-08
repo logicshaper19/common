@@ -131,6 +131,19 @@ class PurchaseOrderService:
         """Delegate to new orchestrator."""
         return self._orchestrator.get_traceability_data(po_id, max_depth)
 
+    # Phase 1 MVP Amendment Methods
+    def propose_changes(self, po_id: str, proposal, current_user):
+        """Delegate to new orchestrator."""
+        return self._orchestrator.propose_changes(po_id, proposal, current_user)
+
+    def approve_changes(self, po_id: str, approval, current_user):
+        """Delegate to new orchestrator."""
+        return self._orchestrator.approve_changes(po_id, approval, current_user)
+
+    def get_purchase_order(self, po_id: str):
+        """Get purchase order by ID (for amendment validation)."""
+        return self._orchestrator.get_purchase_order_by_id(po_id)
+
 
 __all__ = [
     "create_purchase_order_service",
