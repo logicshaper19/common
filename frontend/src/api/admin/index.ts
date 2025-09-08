@@ -5,6 +5,7 @@
 import { ProductClient } from './clients/ProductClient';
 import { UserClient } from './clients/UserClient';
 import { CompanyClient } from './clients/CompanyClient';
+import { PurchaseOrderClient } from './clients/PurchaseOrderClient';
 import { TicketClient } from './clients/TicketClient';
 import { AuditClient } from './clients/AuditClient';
 import { SystemClient } from './clients/SystemClient';
@@ -25,6 +26,7 @@ export class AdminApiClient {
   public readonly products = new ProductClient();
   public readonly users = new UserClient();
   public readonly companies = new CompanyClient();
+  public readonly purchaseOrders = new PurchaseOrderClient();
   public readonly tickets = new TicketClient();
   public readonly audit = new AuditClient();
   public readonly system = new SystemClient();

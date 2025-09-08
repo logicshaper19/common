@@ -7,6 +7,7 @@ import {
   ChartBarIcon,
   CubeIcon,
   UserGroupIcon,
+  ShoppingCartIcon,
   LifebuoyIcon,
   DocumentTextIcon,
   CogIcon,
@@ -19,6 +20,7 @@ import { adminApi } from '../../api/admin';
 import { AdminDashboardData } from '../../types/admin';
 import { ProductCatalogManagement } from './product-catalog-management';
 import { UserCompanyManagement } from './user-company-management';
+import { PurchaseOrderManagement } from './purchase-order-management';
 import { SupportTicketSystem } from './SupportTicketSystem';
 import { AuditLogViewer } from './AuditLogViewer';
 import { SystemMonitoring } from './SystemMonitoring';
@@ -28,7 +30,7 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ className = '' }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'users' | 'support' | 'audit' | 'system'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'users' | 'purchase-orders' | 'support' | 'audit' | 'system'>('overview');
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +126,17 @@ export function AdminDashboard({ className = '' }: AdminDashboardProps) {
           >
             <UserGroupIcon className="h-5 w-5 inline mr-2" />
             Users & Companies
+          </button>
+          <button
+            onClick={() => setActiveTab('purchase-orders')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'purchase-orders'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <ShoppingCartIcon className="h-5 w-5 inline mr-2" />
+            Purchase Orders
           </button>
           <button
             onClick={() => setActiveTab('support')}
@@ -419,6 +432,9 @@ export function AdminDashboard({ className = '' }: AdminDashboardProps) {
 
       {/* Users & Companies Tab */}
       {activeTab === 'users' && <UserCompanyManagement />}
+
+      {/* Purchase Orders Tab */}
+      {activeTab === 'purchase-orders' && <PurchaseOrderManagement />}
 
       {/* Support Tab */}
       {activeTab === 'support' && <SupportTicketSystem />}

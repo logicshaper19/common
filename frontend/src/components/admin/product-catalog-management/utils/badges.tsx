@@ -60,7 +60,9 @@ export function getStatusBadge(status: ProductStatus) {
     },
   };
 
-  const { style, icon: Icon, label } = config[status];
+  // Fallback to 'active' if status is undefined or not in config
+  const statusConfig = config[status] || config.active;
+  const { style, icon: Icon, label } = statusConfig;
 
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${style}`}>

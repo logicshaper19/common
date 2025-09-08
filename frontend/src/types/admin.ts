@@ -17,14 +17,14 @@ export interface Product {
   origin_data_requirements?: OriginDataRequirements;
   created_at: string;
   updated_at: string;
-  status: ProductStatus;
-  usage_count: number;
+  status?: ProductStatus;
+  usage_count?: number;
   last_used?: string;
 }
 
 export type ProductCategory = 'raw_material' | 'intermediate_product' | 'finished_product' | 'packaging' | 'service' | 'component';
 
-export type ProductStatus = 'active' | 'inactive' | 'deprecated';
+export type ProductStatus = 'active' | 'inactive' | 'deprecated' | 'pending_approval';
 
 export interface MaterialBreakdown {
   [material: string]: {

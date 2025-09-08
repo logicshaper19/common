@@ -73,7 +73,7 @@ export function ProductViewModal({ isOpen, onClose, product }: ProductViewModalP
                   <div>
                     <label className="block text-sm font-medium text-gray-500">Status</label>
                     <div className="mt-1">
-                      {getStatusBadge(product.status)}
+                      {getStatusBadge(product.status || 'active')}
                     </div>
                   </div>
                   <div>

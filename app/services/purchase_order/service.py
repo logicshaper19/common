@@ -623,3 +623,66 @@ class PurchaseOrderOrchestrator:
                 po_id=str(po.id),
                 error=str(e)
             )
+
+    # Admin-only methods
+    def list_purchase_orders_admin(self, filters: PurchaseOrderFilter) -> Tuple[List[PurchaseOrder], int]:
+        """
+        List all purchase orders for admin (no company filtering).
+        Admin can see all purchase orders across all companies.
+
+        Args:
+            filters: Filter criteria
+
+        Returns:
+            Tuple of (purchase orders list, total count)
+        """
+        logger.info("Admin listing all purchase orders", filters=filters.model_dump())
+        return self.repository.list_with_filters_admin(filters)
+
+    def delete_purchase_order_admin(self, po_id: str) -> bool:
+        """
+        Delete purchase order as admin (no company permission check).
+        Admin can delete any purchase order for administrative purposes.
+
+        Args:
+            po_id: Purchase order UUID string
+
+        Returns:
+            True if deleted successfully
+
+        Raises:
+            PurchaseOrderNotFoundError: If purchase order not found
+            PurchaseOrderError: If deletion fails
+        """
+        try:
+            uuid_obj = UUID(po_id)
+        except ValueError:
+            raise PurchaseOrderNotFoundError(po_id)
+
+        logger.info("Admin deleting purchase order", po_id=po_id)
+
+        try:
+            # Get the purchase order first to log details
+            po = self.repository.get_by_id(uuid_obj)
+            if not po:
+                raise PurchaseOrderNotFoundError(po_id)
+
+            # Delete the purchase order (admin bypass)
+            success = self.repository.delete_admin(uuid_obj)
+
+            if success:
+                logger.info(
+                    "Purchase order deleted by admin",
+                    po_id=po_id,
+                    buyer_company_id=str(po.buyer_company_id),
+                    seller_company_id=str(po.seller_company_id)
+                )
+
+                # Log audit event
+                self.audit_manager.log_admin_deletion(po)
+
+            return success
+
+        except Exception as e:
+            logger.error("Failed to delete purchase order (admin)", po_id=po_id, error=str(e))
+            raise PurchaseOrderError(f"Failed to delete purchase order: {str(e)}")

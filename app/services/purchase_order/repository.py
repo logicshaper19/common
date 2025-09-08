@@ -421,3 +421,81 @@ class PurchaseOrderRepository:
             "total_value": float(total_value),
             "recent_count": recent_count
         }
+
+    # Admin-only methods
+    def list_with_filters_admin(self, filters: PurchaseOrderFilter) -> Tuple[List[PurchaseOrder], int]:
+        """
+        List purchase orders with filters for admin (no company filtering).
+        Admin can see all purchase orders across all companies.
+
+        Args:
+            filters: Filter criteria
+
+        Returns:
+            Tuple of (purchase orders list, total count)
+        """
+        query = self.db.query(PurchaseOrder)
+
+        # Apply filters (no company filtering for admin)
+        if filters.status:
+            query = query.filter(PurchaseOrder.status == filters.status)
+
+        if filters.buyer_company_id:
+            query = query.filter(PurchaseOrder.buyer_company_id == filters.buyer_company_id)
+
+        if filters.seller_company_id:
+            query = query.filter(PurchaseOrder.seller_company_id == filters.seller_company_id)
+
+        if filters.product_id:
+            query = query.filter(PurchaseOrder.product_id == filters.product_id)
+
+        if filters.search:
+            search_term = f"%{filters.search}%"
+            query = query.filter(
+                or_(
+                    PurchaseOrder.po_number.ilike(search_term),
+                    PurchaseOrder.notes.ilike(search_term)
+                )
+            )
+
+        # Get total count
+        total_count = query.count()
+
+        # Apply pagination
+        offset = (filters.page - 1) * filters.per_page
+        purchase_orders = query.order_by(PurchaseOrder.created_at.desc()).offset(offset).limit(filters.per_page).all()
+
+        logger.info(
+            "Listed purchase orders for admin",
+            total_count=total_count,
+            page=filters.page,
+            per_page=filters.per_page
+        )
+
+        return purchase_orders, total_count
+
+    def delete_admin(self, po_id: UUID) -> bool:
+        """
+        Delete purchase order as admin (no company permission check).
+
+        Args:
+            po_id: Purchase order UUID
+
+        Returns:
+            True if deleted successfully
+        """
+        try:
+            po = self.db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+            if not po:
+                return False
+
+            self.db.delete(po)
+            self.db.commit()
+
+            logger.info("Purchase order deleted by admin", po_id=str(po_id))
+            return True
+
+        except Exception as e:
+            self.db.rollback()
+            logger.error("Failed to delete purchase order (admin)", po_id=str(po_id), error=str(e))
+            raise

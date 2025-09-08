@@ -120,10 +120,10 @@ export function ProductTable({
                 </div>
               </td>
               <td className="px-6 py-4">
-                {getStatusBadge(product.status)}
+                {getStatusBadge(product.status || 'active')}
               </td>
               <td className="px-6 py-4 text-sm text-gray-900">
-                <div>{product.usage_count} times</div>
+                <div>{product.usage_count || 0} times</div>
                 {product.last_used && (
                   <div className="text-xs text-gray-500">
                     Last: {formatTimeAgo(product.last_used)}
