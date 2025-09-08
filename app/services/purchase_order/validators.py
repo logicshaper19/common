@@ -358,25 +358,42 @@ class PurchaseOrderValidator:
         allowed_transitions = {
             PurchaseOrderStatus.DRAFT.value: [
                 PurchaseOrderStatus.PENDING.value,
+                PurchaseOrderStatus.AMENDMENT_PENDING.value,
                 PurchaseOrderStatus.CANCELLED.value
             ],
             PurchaseOrderStatus.PENDING.value: [
                 PurchaseOrderStatus.CONFIRMED.value,
+                PurchaseOrderStatus.AMENDMENT_PENDING.value,
                 PurchaseOrderStatus.CANCELLED.value,
                 PurchaseOrderStatus.DRAFT.value  # Allow back to draft for corrections
             ],
-            PurchaseOrderStatus.CONFIRMED.value: [
-                PurchaseOrderStatus.IN_PROGRESS.value,
+            PurchaseOrderStatus.AMENDMENT_PENDING.value: [
+                PurchaseOrderStatus.DRAFT.value,
+                PurchaseOrderStatus.PENDING.value,
+                PurchaseOrderStatus.CONFIRMED.value,
                 PurchaseOrderStatus.CANCELLED.value
             ],
-            PurchaseOrderStatus.IN_PROGRESS.value: [
+            PurchaseOrderStatus.CONFIRMED.value: [
+                PurchaseOrderStatus.IN_TRANSIT.value,
+                PurchaseOrderStatus.SHIPPED.value,
+                PurchaseOrderStatus.AMENDMENT_PENDING.value,
+                PurchaseOrderStatus.CANCELLED.value
+            ],
+            PurchaseOrderStatus.IN_TRANSIT.value: [
+                PurchaseOrderStatus.SHIPPED.value,
                 PurchaseOrderStatus.DELIVERED.value,
                 PurchaseOrderStatus.CANCELLED.value
             ],
-            PurchaseOrderStatus.DELIVERED.value: [
-                PurchaseOrderStatus.COMPLETED.value
+            PurchaseOrderStatus.SHIPPED.value: [
+                PurchaseOrderStatus.DELIVERED.value,
+                PurchaseOrderStatus.RECEIVED.value,
+                PurchaseOrderStatus.CANCELLED.value
             ],
-            PurchaseOrderStatus.COMPLETED.value: [],  # Terminal state
+            PurchaseOrderStatus.DELIVERED.value: [
+                PurchaseOrderStatus.RECEIVED.value,
+                PurchaseOrderStatus.CANCELLED.value
+            ],
+            PurchaseOrderStatus.RECEIVED.value: [],  # Terminal state
             PurchaseOrderStatus.CANCELLED.value: []   # Terminal state
         }
         

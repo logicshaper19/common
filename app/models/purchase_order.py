@@ -1,7 +1,7 @@
 """
 Purchase Order model for the Common supply chain platform.
 """
-from sqlalchemy import Column, String, DateTime, ForeignKey, Numeric, Date, func, Text, Index
+from sqlalchemy import Column, String, DateTime, ForeignKey, Numeric, Date, func, Text, Index, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -53,6 +53,12 @@ class PurchaseOrder(Base):
     seller_notes = Column(Text)  # Seller's confirmation notes/conditions
     seller_confirmed_at = Column(DateTime(timezone=True))  # When seller confirmed
 
+    # Amendment tracking fields
+    quantity_received = Column(Numeric(12, 3))  # Actual quantity received (for post-delivery amendments)
+    has_pending_amendments = Column(Boolean, default=False)  # Quick lookup for pending amendments
+    amendment_count = Column(Integer, default=0)  # Total number of amendments
+    last_amended_at = Column(DateTime(timezone=True))  # When last amendment was applied
+
     # Transparency Scores (cached for performance)
     transparency_to_mill = Column(Numeric(5, 4))  # TTM score (0.0000 to 1.0000)
     transparency_to_plantation = Column(Numeric(5, 4))  # TTP score (0.0000 to 1.0000)
@@ -67,6 +73,7 @@ class PurchaseOrder(Base):
     buyer_company = relationship("Company", foreign_keys=[buyer_company_id])
     seller_company = relationship("Company", foreign_keys=[seller_company_id])
     product = relationship("Product")
+    amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
 
     # Performance indexes for frequently queried fields and transparency calculations
     __table_args__ = (
