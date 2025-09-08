@@ -22,31 +22,31 @@ export const AmendmentStatusBadge: React.FC<AmendmentStatusBadgeProps> = ({
     switch (status) {
       case 'none':
         return {
-          variant: 'gray' as const,
+          variant: 'neutral' as const,
           label: 'No Amendments',
           icon: MinusCircleIcon
         };
       case 'proposed':
         return {
-          variant: 'yellow' as const,
+          variant: 'warning' as const,
           label: 'Amendment Proposed',
           icon: ClockIcon
         };
       case 'approved':
         return {
-          variant: 'green' as const,
+          variant: 'success' as const,
           label: 'Amendment Approved',
           icon: CheckCircleIcon
         };
       case 'rejected':
         return {
-          variant: 'red' as const,
+          variant: 'error' as const,
           label: 'Amendment Rejected',
           icon: XCircleIcon
         };
       default:
         return {
-          variant: 'gray' as const,
+          variant: 'neutral' as const,
           label: 'Unknown Status',
           icon: MinusCircleIcon
         };

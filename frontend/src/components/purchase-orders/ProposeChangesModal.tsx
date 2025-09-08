@@ -160,7 +160,7 @@ export const ProposeChangesModal: React.FC<ProposeChangesModalProps> = ({
                       type="number"
                       value={formData.proposed_quantity}
                       onChange={(e) => handleInputChange('proposed_quantity', parseFloat(e.target.value) || 0)}
-                      error={errors.proposed_quantity}
+                      errorMessage={errors.proposed_quantity}
                       min="0"
                       step="0.01"
                       required
@@ -173,18 +173,19 @@ export const ProposeChangesModal: React.FC<ProposeChangesModalProps> = ({
                       label="Unit"
                       value={formData.proposed_quantity_unit}
                       onChange={(e) => handleInputChange('proposed_quantity_unit', e.target.value)}
-                      error={errors.proposed_quantity_unit}
+                      errorMessage={errors.proposed_quantity_unit}
                       required
                       disabled={isLoading}
-                    >
-                      <option value="">Select unit</option>
-                      <option value="kg">Kilograms (kg)</option>
-                      <option value="lbs">Pounds (lbs)</option>
-                      <option value="tons">Tons</option>
-                      <option value="units">Units</option>
-                      <option value="boxes">Boxes</option>
-                      <option value="pallets">Pallets</option>
-                    </Select>
+                      options={[
+                        { label: 'Select unit', value: '' },
+                        { label: 'Kilograms (kg)', value: 'kg' },
+                        { label: 'Pounds (lbs)', value: 'lbs' },
+                        { label: 'Tons', value: 'tons' },
+                        { label: 'Units', value: 'units' },
+                        { label: 'Boxes', value: 'boxes' },
+                        { label: 'Pallets', value: 'pallets' }
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -211,7 +212,7 @@ export const ProposeChangesModal: React.FC<ProposeChangesModalProps> = ({
                     label="Reason for Amendment"
                     value={formData.amendment_reason}
                     onChange={(e) => handleInputChange('amendment_reason', e.target.value)}
-                    error={errors.amendment_reason}
+                    errorMessage={errors.amendment_reason}
                     placeholder="Please explain why you need to change the order quantity..."
                     rows={4}
                     required
@@ -237,7 +238,7 @@ export const ProposeChangesModal: React.FC<ProposeChangesModalProps> = ({
                   type="submit"
                   variant="primary"
                   disabled={isLoading}
-                  loading={isLoading}
+                  isLoading={isLoading}
                 >
                   {isLoading ? 'Proposing Changes...' : 'Propose Changes'}
                 </Button>

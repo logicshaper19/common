@@ -37,8 +37,8 @@ export const PurchaseOrderCard: React.FC<PurchaseOrderCardProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // Determine user's role in this PO
-  const isBuyer = user?.company_id === purchaseOrder.buyer_company_id;
-  const isSeller = user?.company_id === purchaseOrder.seller_company_id;
+  const isBuyer = user?.company?.id === purchaseOrder.buyer_company_id;
+  const isSeller = user?.company?.id === purchaseOrder.seller_company_id;
 
   // Determine what actions are available
   const canProposeChanges = isSeller && 
@@ -54,10 +54,10 @@ export const PurchaseOrderCard: React.FC<PurchaseOrderCardProps> = ({
     setIsLoading(true);
     try {
       await onProposeChanges(purchaseOrder.id, proposal);
-      showToast('Amendment proposal submitted successfully', 'success');
+      showToast({ type: 'success', title: 'Amendment proposal submitted successfully' });
       onRefresh?.();
     } catch (error) {
-      showToast('Failed to submit amendment proposal', 'error');
+      showToast({ type: 'error', title: 'Failed to submit amendment proposal' });
       throw error;
     } finally {
       setIsLoading(false);
@@ -70,13 +70,13 @@ export const PurchaseOrderCard: React.FC<PurchaseOrderCardProps> = ({
     setIsLoading(true);
     try {
       await onApproveChanges(purchaseOrder.id, approval);
-      showToast(
-        approval.approve ? 'Amendment approved successfully' : 'Amendment rejected',
-        approval.approve ? 'success' : 'info'
-      );
+      showToast({
+        type: approval.approve ? 'success' : 'info',
+        title: approval.approve ? 'Amendment approved successfully' : 'Amendment rejected'
+      });
       onRefresh?.();
     } catch (error) {
-      showToast('Failed to process amendment decision', 'error');
+      showToast({ type: 'error', title: 'Failed to process amendment decision' });
       throw error;
     } finally {
       setIsLoading(false);
@@ -85,11 +85,11 @@ export const PurchaseOrderCard: React.FC<PurchaseOrderCardProps> = ({
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'yellow';
-      case 'CONFIRMED': return 'green';
-      case 'CANCELLED': return 'red';
-      case 'DELIVERED': return 'blue';
-      default: return 'gray';
+      case 'PENDING': return 'warning';
+      case 'CONFIRMED': return 'success';
+      case 'CANCELLED': return 'error';
+      case 'DELIVERED': return 'primary';
+      default: return 'neutral';
     }
   };
 
