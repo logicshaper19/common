@@ -10,10 +10,12 @@ import {
   FunnelIcon,
   PlusIcon 
 } from '@heroicons/react/24/outline';
-import { 
-  purchaseOrderApi, 
-  PurchaseOrderWithDetails, 
-  PurchaseOrderFilters 
+import {
+  purchaseOrderApi,
+  PurchaseOrderWithDetails,
+  PurchaseOrderFilters,
+  ProposeChangesRequest,
+  ApproveChangesRequest
 } from '../services/purchaseOrderApi';
 import { useAmendments } from '../hooks/useAmendments';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,7 +24,16 @@ import { useToast } from '../contexts/ToastContext';
 export const PurchaseOrdersPage: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { proposeChanges, approveChanges } = useAmendments();
+  const { proposeChanges: proposeChangesHook, approveChanges: approveChangesHook } = useAmendments();
+
+  // Wrapper functions to handle the return values
+  const handleProposeChanges = async (id: string, proposal: ProposeChangesRequest): Promise<void> => {
+    await proposeChangesHook(id, proposal);
+  };
+
+  const handleApproveChanges = async (id: string, approval: ApproveChangesRequest): Promise<void> => {
+    await approveChangesHook(id, approval);
+  };
   
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,7 +55,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to load purchase orders';
       setError(errorMessage);
-      showToast(errorMessage, 'error');
+      showToast({ type: 'error', title: errorMessage });
     } finally {
       setIsLoading(false);
     }
@@ -78,14 +89,14 @@ export const PurchaseOrdersPage: React.FC = () => {
   };
 
   // Get purchase orders that need attention
-  const pendingAmendments = purchaseOrders.filter(po => 
-    po.amendment_status === 'proposed' && 
-    user?.company_id === po.buyer_company_id
+  const pendingAmendments = purchaseOrders.filter(po =>
+    po.amendment_status === 'proposed' &&
+    user?.company?.id === po.buyer_company_id
   );
 
-  const myProposedAmendments = purchaseOrders.filter(po => 
-    po.amendment_status === 'proposed' && 
-    user?.company_id === po.seller_company_id
+  const myProposedAmendments = purchaseOrders.filter(po =>
+    po.amendment_status === 'proposed' &&
+    user?.company?.id === po.seller_company_id
   );
 
   if (isLoading && purchaseOrders.length === 0) {
@@ -175,13 +186,14 @@ export const PurchaseOrdersPage: React.FC = () => {
                   label="Status"
                   value={filters.status || ''}
                   onChange={(e) => handleFilterChange('status', e.target.value)}
-                >
-                  <option value="">All Statuses</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="CONFIRMED">Confirmed</option>
-                  <option value="DELIVERED">Delivered</option>
-                  <option value="CANCELLED">Cancelled</option>
-                </Select>
+                  options={[
+                    { label: 'All Statuses', value: '' },
+                    { label: 'Pending', value: 'PENDING' },
+                    { label: 'Confirmed', value: 'CONFIRMED' },
+                    { label: 'Delivered', value: 'DELIVERED' },
+                    { label: 'Cancelled', value: 'CANCELLED' }
+                  ]}
+                />
 
                 <Input
                   label="Delivery Date From"
@@ -252,8 +264,8 @@ export const PurchaseOrdersPage: React.FC = () => {
                   <PurchaseOrderCard
                     key={po.id}
                     purchaseOrder={po}
-                    onProposeChanges={proposeChanges}
-                    onApproveChanges={approveChanges}
+                    onProposeChanges={handleProposeChanges}
+                    onApproveChanges={handleApproveChanges}
                     onRefresh={loadPurchaseOrders}
                   />
                 ))}
@@ -271,8 +283,8 @@ export const PurchaseOrdersPage: React.FC = () => {
                 <PurchaseOrderCard
                   key={po.id}
                   purchaseOrder={po}
-                  onProposeChanges={proposeChanges}
-                  onApproveChanges={approveChanges}
+                  onProposeChanges={handleProposeChanges}
+                  onApproveChanges={handleApproveChanges}
                   onRefresh={loadPurchaseOrders}
                 />
               ))}

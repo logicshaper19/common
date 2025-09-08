@@ -234,7 +234,7 @@ export const ApproveChangesModal: React.FC<ApproveChangesModalProps> = ({
                   label={decision === 'reject' ? 'Reason for Rejection (Required)' : 'Additional Notes (Optional)'}
                   value={buyerNotes}
                   onChange={(e) => setBuyerNotes(e.target.value)}
-                  error={errors.buyerNotes}
+                  errorMessage={errors.buyerNotes}
                   placeholder={
                     decision === 'reject'
                       ? 'Please explain why you are rejecting this amendment...'
@@ -258,9 +258,9 @@ export const ApproveChangesModal: React.FC<ApproveChangesModalProps> = ({
                 </Button>
                 <Button
                   type="submit"
-                  variant={decision === 'approve' ? 'primary' : 'danger'}
+                  variant={decision === 'approve' ? 'primary' : 'error'}
                   disabled={isLoading || !decision}
-                  loading={isLoading}
+                  isLoading={isLoading}
                 >
                   {isLoading 
                     ? 'Processing...' 

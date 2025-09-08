@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navigation: NavigationItem[] = [
     {
       name: 'Dashboard',
-      href: '/',
+      href: '/dashboard',
       icon: HomeIcon,
     },
     {
