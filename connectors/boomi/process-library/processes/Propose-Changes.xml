@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bns:Process xmlns:bns="http://www.boomi.com/process/annotation"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.boomi.com/process/annotation http://www.boomi.com/process/annotation.xsd">
+    
+    <bns:ProcessDefinition>
+        <bns:Name>Propose Changes</bns:Name>
+        <bns:Description>Proposes amendments to an existing purchase order</bns:Description>
+        <bns:Version>1.0.0</bns:Version>
+        <bns:Category>Common API</bns:Category>
+        <bns:SubCategory>Amendment Workflow</bns:SubCategory>
+        
+        <!-- Process Flow -->
+        <bns:ProcessFlow>
+            <!-- Start Shape -->
+            <bns:StartShape id="start">
+                <bns:Name>Start</bns:Name>
+                <bns:Description>Amendment proposal entry point</bns:Description>
+            </bns:StartShape>
+            
+            <!-- Extract Purchase Order ID -->
+            <bns:DataProcessShape id="extractPOId">
+                <bns:Name>Extract PO ID</bns:Name>
+                <bns:Description>Extracts purchase order ID from input</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Parse input JSON
+def jsonSlurper = new JsonSlurper()
+def inputData = jsonSlurper.parseText(dataContext.getStream(0).getText())
+
+// Extract and validate purchase order ID
+def purchaseOrderId = inputData.purchase_order_id
+if (!purchaseOrderId) {
+    throw new RuntimeException("purchase_order_id is required")
+}
+
+// UUID validation
+def uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+if (!purchaseOrderId.matches(uuidPattern)) {
+    throw new RuntimeException("purchase_order_id must be a valid UUID")
+}
+
+// Set PO ID as dynamic process property
+dataContext.setProperty("purchaseOrderId", purchaseOrderId)
+
+// Return the input data for next step
+return new JsonBuilder(inputData).toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Validate Amendment Data -->
+            <bns:DataProcessShape id="validateAmendment">
+                <bns:Name>Validate Amendment Data</bns:Name>
+                <bns:Description>Validates amendment proposal data</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Parse input JSON
+def jsonSlurper = new JsonSlurper()
+def inputData = jsonSlurper.parseText(dataContext.getStream(0).getText())
+
+// Validation rules
+def errors = []
+
+// Required fields validation
+if (!inputData.proposed_quantity || inputData.proposed_quantity <= 0) {
+    errors.add("proposed_quantity must be a positive number")
+}
+if (!inputData.proposed_quantity_unit) {
+    errors.add("proposed_quantity_unit is required")
+}
+if (!inputData.amendment_reason) {
+    errors.add("amendment_reason is required")
+}
+
+// Business rules validation
+if (inputData.amendment_reason && inputData.amendment_reason.length() < 10) {
+    errors.add("amendment_reason must be at least 10 characters long")
+}
+
+// If validation errors, throw exception
+if (errors.size() > 0) {
+    def errorResponse = new JsonBuilder([
+        success: false,
+        message: "Amendment validation failed",
+        errors: errors
+    ])
+    throw new RuntimeException("Validation failed: " + errorResponse.toString())
+}
+
+// Create amendment request payload
+def amendmentRequest = [
+    proposed_quantity: inputData.proposed_quantity,
+    proposed_quantity_unit: inputData.proposed_quantity_unit,
+    amendment_reason: inputData.amendment_reason
+]
+
+// Set validated data to dynamic process property
+dataContext.setProperty("amendmentData", new JsonBuilder(amendmentRequest).toString())
+
+// Return success indicator
+return new JsonBuilder([
+    success: true,
+    message: "Amendment validation passed"
+]).toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- HTTP Request to Propose Changes -->
+            <bns:ConnectorShape id="proposeChanges">
+                <bns:Name>Propose Changes API Call</bns:Name>
+                <bns:Description>Sends HTTP PUT request to propose changes</bns:Description>
+                <bns:ConnectionName>Common API Connection</bns:ConnectionName>
+                <bns:Operation>
+                    <bns:Method>PUT</bns:Method>
+                    <bns:Path>/api/v1/purchase-orders/{purchaseOrderId}/propose-changes</bns:Path>
+                    <bns:RequestBody>{amendmentData}</bns:RequestBody>
+                    <bns:Headers>
+                        <bns:Header name="Content-Type" value="application/json"/>
+                        <bns:Header name="Accept" value="application/json"/>
+                    </bns:Headers>
+                </bns:Operation>
+                <bns:ResponseHandling>
+                    <bns:SuccessStatusCodes>200</bns:SuccessStatusCodes>
+                    <bns:ErrorHandling>
+                        <bns:OnError>CONTINUE_TO_ERROR_HANDLER</bns:OnError>
+                    </bns:ErrorHandling>
+                </bns:ResponseHandling>
+            </bns:ConnectorShape>
+            
+            <!-- Send Notification -->
+            <bns:DataProcessShape id="sendNotification">
+                <bns:Name>Send Amendment Notification</bns:Name>
+                <bns:Description>Sends notification about proposed amendment</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Parse API response
+def jsonSlurper = new JsonSlurper()
+def apiResponse = jsonSlurper.parseText(dataContext.getStream(0).getText())
+
+// Get purchase order ID
+def purchaseOrderId = dataContext.getProperty("purchaseOrderId")
+
+// Create notification payload
+def notification = [
+    type: "amendment_proposed",
+    purchase_order_id: purchaseOrderId,
+    amendment_status: apiResponse.amendment_status,
+    message: "Amendment has been proposed and is pending approval",
+    timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+    process_id: dataContext.getExecutionId()
+]
+
+// Log notification
+logger.info("Amendment proposed for PO: " + purchaseOrderId)
+
+// Set notification data for potential email/webhook sending
+dataContext.setProperty("notificationData", new JsonBuilder(notification).toString())
+
+// Return the API response
+return new JsonBuilder(apiResponse).toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Success Response Processing -->
+            <bns:DataProcessShape id="processSuccess">
+                <bns:Name>Process Success Response</bns:Name>
+                <bns:Description>Processes successful amendment proposal</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Parse API response
+def jsonSlurper = new JsonSlurper()
+def apiResponse = jsonSlurper.parseText(dataContext.getStream(0).getText())
+
+// Create success response
+def successResponse = new JsonBuilder([
+    success: true,
+    message: "Amendment proposed successfully",
+    amendment_response: apiResponse,
+    timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+    process_id: dataContext.getExecutionId()
+])
+
+// Log success
+logger.info("Amendment proposed successfully for PO: " + apiResponse.purchase_order_id)
+
+return successResponse.toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- Error Handler -->
+            <bns:DataProcessShape id="errorHandler">
+                <bns:Name>Error Handler</bns:Name>
+                <bns:Description>Handles errors and creates error response</bns:Description>
+                <bns:ProcessType>GROOVY_SCRIPT</bns:ProcessType>
+                <bns:Script><![CDATA[
+import groovy.json.JsonSlurper;
+import groovy.json.JsonBuilder;
+
+// Get error information
+def errorMessage = dataContext.getProperty("ERROR_MESSAGE") ?: "Unknown error occurred"
+def errorType = dataContext.getProperty("ERROR_TYPE") ?: "UNKNOWN_ERROR"
+def httpStatus = dataContext.getProperty("HTTP_STATUS_CODE") ?: "500"
+def purchaseOrderId = dataContext.getProperty("purchaseOrderId")
+
+// Try to parse error response if available
+def errorDetails = null
+try {
+    if (dataContext.getStream(0)) {
+        def jsonSlurper = new JsonSlurper()
+        errorDetails = jsonSlurper.parseText(dataContext.getStream(0).getText())
+    }
+} catch (Exception e) {
+    // Ignore parsing errors
+}
+
+// Create error response
+def errorResponse = new JsonBuilder([
+    success: false,
+    message: "Failed to propose amendment",
+    purchase_order_id: purchaseOrderId,
+    error: [
+        type: errorType,
+        message: errorMessage,
+        http_status: httpStatus,
+        details: errorDetails
+    ],
+    timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+    process_id: dataContext.getExecutionId()
+])
+
+// Log error
+logger.error("Amendment proposal failed for PO " + purchaseOrderId + ": " + errorMessage)
+
+return errorResponse.toString()
+                ]]></bns:Script>
+            </bns:DataProcessShape>
+            
+            <!-- End Shape -->
+            <bns:EndShape id="end">
+                <bns:Name>End</bns:Name>
+                <bns:Description>Process completion</bns:Description>
+            </bns:EndShape>
+        </bns:ProcessFlow>
+        
+        <!-- Process Connections -->
+        <bns:ProcessConnections>
+            <bns:Connection from="start" to="extractPOId"/>
+            <bns:Connection from="extractPOId" to="validateAmendment"/>
+            <bns:Connection from="validateAmendment" to="proposeChanges"/>
+            <bns:Connection from="proposeChanges" to="sendNotification" condition="SUCCESS"/>
+            <bns:Connection from="proposeChanges" to="errorHandler" condition="ERROR"/>
+            <bns:Connection from="sendNotification" to="processSuccess"/>
+            <bns:Connection from="processSuccess" to="end"/>
+            <bns:Connection from="errorHandler" to="end"/>
+        </bns:ProcessConnections>
+        
+        <!-- Process Properties -->
+        <bns:ProcessProperties>
+            <bns:Property name="timeout" value="30000" description="Process timeout in milliseconds"/>
+            <bns:Property name="retryAttempts" value="3" description="Number of retry attempts"/>
+            <bns:Property name="logLevel" value="INFO" description="Logging level"/>
+            <bns:Property name="auditEnabled" value="true" description="Enable audit logging"/>
+            <bns:Property name="notificationEnabled" value="true" description="Enable notifications"/>
+        </bns:ProcessProperties>
+        
+        <!-- Input/Output Definitions -->
+        <bns:InputDefinition>
+            <bns:Name>Amendment Proposal Data</bns:Name>
+            <bns:Description>Amendment proposal data in JSON format</bns:Description>
+            <bns:ContentType>application/json</bns:ContentType>
+            <bns:Schema>
+                <bns:JsonSchema><![CDATA[
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": [
+        "purchase_order_id",
+        "proposed_quantity",
+        "proposed_quantity_unit",
+        "amendment_reason"
+    ],
+    "properties": {
+        "purchase_order_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "proposed_quantity": {
+            "type": "number",
+            "minimum": 0.01
+        },
+        "proposed_quantity_unit": {
+            "type": "string",
+            "minLength": 1
+        },
+        "amendment_reason": {
+            "type": "string",
+            "minLength": 10
+        }
+    }
+}
+                ]]></bns:JsonSchema>
+            </bns:Schema>
+        </bns:InputDefinition>
+        
+        <bns:OutputDefinition>
+            <bns:Name>Amendment Response</bns:Name>
+            <bns:Description>Amendment proposal response</bns:Description>
+            <bns:ContentType>application/json</bns:ContentType>
+            <bns:Schema>
+                <bns:JsonSchema><![CDATA[
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "success": {
+            "type": "boolean"
+        },
+        "message": {
+            "type": "string"
+        },
+        "amendment_response": {
+            "type": "object"
+        },
+        "purchase_order_id": {
+            "type": "string"
+        },
+        "error": {
+            "type": "object"
+        },
+        "timestamp": {
+            "type": "string"
+        },
+        "process_id": {
+            "type": "string"
+        }
+    }
+}
+                ]]></bns:JsonSchema>
+            </bns:Schema>
+        </bns:OutputDefinition>
+    </bns:ProcessDefinition>
+</bns:Process>

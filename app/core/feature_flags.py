@@ -14,6 +14,12 @@ class FeatureFlag(Enum):
     ENABLE_SECTOR_MIGRATION = "ENABLE_SECTOR_MIGRATION"
     ENABLE_SECTOR_PRODUCTS = "ENABLE_SECTOR_PRODUCTS"
 
+    # Amendment system feature flags
+    ENABLE_PHASE_1_AMENDMENTS = "ENABLE_PHASE_1_AMENDMENTS"
+    ENABLE_PHASE_2_ERP_AMENDMENTS = "ENABLE_PHASE_2_ERP_AMENDMENTS"
+    ENABLE_AMENDMENT_NOTIFICATIONS = "ENABLE_AMENDMENT_NOTIFICATIONS"
+    ENABLE_AMENDMENT_AUDIT = "ENABLE_AMENDMENT_AUDIT"
+
 
 class FeatureFlagManager:
     """Manages feature flags for the application"""
@@ -31,6 +37,12 @@ class FeatureFlagManager:
             FeatureFlag.ENABLE_TIER_PERMISSIONS.value: False,
             FeatureFlag.ENABLE_SECTOR_MIGRATION.value: True,  # Enable migration by default
             FeatureFlag.ENABLE_SECTOR_PRODUCTS.value: False,
+
+            # Amendment system defaults
+            FeatureFlag.ENABLE_PHASE_1_AMENDMENTS.value: True,  # Phase 1 enabled by default
+            FeatureFlag.ENABLE_PHASE_2_ERP_AMENDMENTS.value: False,  # Phase 2 disabled by default
+            FeatureFlag.ENABLE_AMENDMENT_NOTIFICATIONS.value: True,
+            FeatureFlag.ENABLE_AMENDMENT_AUDIT.value: True,
         }
         
         # Load from environment with defaults
@@ -82,6 +94,27 @@ def is_sector_migration_enabled() -> bool:
 def is_sector_products_enabled() -> bool:
     """Check if sector-specific products are enabled"""
     return feature_flags.is_enabled(FeatureFlag.ENABLE_SECTOR_PRODUCTS)
+
+
+# Amendment system feature flag functions
+def is_phase_1_amendments_enabled() -> bool:
+    """Check if Phase 1 MVP amendments are enabled"""
+    return feature_flags.is_enabled(FeatureFlag.ENABLE_PHASE_1_AMENDMENTS)
+
+
+def is_phase_2_erp_amendments_enabled() -> bool:
+    """Check if Phase 2 ERP amendments are enabled"""
+    return feature_flags.is_enabled(FeatureFlag.ENABLE_PHASE_2_ERP_AMENDMENTS)
+
+
+def is_amendment_notifications_enabled() -> bool:
+    """Check if amendment notifications are enabled"""
+    return feature_flags.is_enabled(FeatureFlag.ENABLE_AMENDMENT_NOTIFICATIONS)
+
+
+def is_amendment_audit_enabled() -> bool:
+    """Check if amendment audit logging is enabled"""
+    return feature_flags.is_enabled(FeatureFlag.ENABLE_AMENDMENT_AUDIT)
 
 
 # Utility functions for backward compatibility
@@ -162,3 +195,93 @@ def get_current_rollout_phase() -> Dict[str, Any]:
         "enabled_flags": [flag.value for flag in enabled_flags],
         "total_phases": len(ROLLOUT_CONFIG["phases"])
     }
+
+
+# Amendment-specific feature flag manager
+class AmendmentFeatureFlags:
+    """
+    Amendment-specific feature flag manager.
+
+    This class provides amendment-specific feature flag logic,
+    including company-level and global controls.
+    """
+
+    def __init__(self, db_session=None):
+        self.db = db_session
+
+    def get_amendment_phase_for_company(self, company_id) -> str:
+        """
+        Determine which amendment phase is enabled for a company.
+
+        Args:
+            company_id: Company UUID or string
+
+        Returns:
+            'phase_1_mvp' or 'phase_2_erp'
+        """
+        # Global check first
+        if not is_phase_2_erp_amendments_enabled():
+            return "phase_1_mvp"
+
+        # If we have a database session, check company-specific settings
+        if self.db and company_id:
+            try:
+                from app.models.company import Company
+                from uuid import UUID
+
+                if isinstance(company_id, str):
+                    company_id = UUID(company_id)
+
+                company = self.db.query(Company).filter(Company.id == company_id).first()
+
+                if company and company.erp_integration_enabled and company.erp_sync_enabled:
+                    return "phase_2_erp"
+            except Exception:
+                # Fall back to Phase 1 on any error
+                pass
+
+        return "phase_1_mvp"
+
+    def is_phase_1_for_company(self, company_id) -> bool:
+        """Check if company should use Phase 1 amendments."""
+        return self.get_amendment_phase_for_company(company_id) == "phase_1_mvp"
+
+    def is_phase_2_for_company(self, company_id) -> bool:
+        """Check if company should use Phase 2 amendments."""
+        return self.get_amendment_phase_for_company(company_id) == "phase_2_erp"
+
+    def should_send_notifications(self) -> bool:
+        """Check if amendment notifications should be sent."""
+        return is_amendment_notifications_enabled()
+
+    def should_audit_amendments(self) -> bool:
+        """Check if amendment actions should be audited."""
+        return is_amendment_audit_enabled()
+
+    def get_amendment_config(self, company_id=None) -> Dict[str, Any]:
+        """
+        Get complete amendment configuration.
+
+        Args:
+            company_id: Optional company ID for company-specific settings
+
+        Returns:
+            Amendment configuration dictionary
+        """
+        phase = self.get_amendment_phase_for_company(company_id) if company_id else "phase_1_mvp"
+
+        return {
+            "phase": phase,
+            "is_phase_1": phase == "phase_1_mvp",
+            "is_phase_2": phase == "phase_2_erp",
+            "notifications_enabled": self.should_send_notifications(),
+            "audit_enabled": self.should_audit_amendments(),
+            "global_phase_1_enabled": is_phase_1_amendments_enabled(),
+            "global_phase_2_enabled": is_phase_2_erp_amendments_enabled()
+        }
+
+
+# Global amendment feature flag instance
+def get_amendment_feature_flags(db_session=None) -> AmendmentFeatureFlags:
+    """Get amendment feature flags instance."""
+    return AmendmentFeatureFlags(db_session)

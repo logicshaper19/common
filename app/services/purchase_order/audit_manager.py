@@ -397,3 +397,152 @@ class PurchaseOrderAuditManager:
             return AuditEventType.PO_ORIGIN_DATA_UPDATED
         else:
             return AuditEventType.PO_UPDATED
+
+    # Phase 1 MVP Amendment Audit Methods
+
+    def log_amendment_proposed(
+        self,
+        po_id: UUID,
+        user_id: UUID,
+        original_quantity: float,
+        proposed_quantity: float,
+        reason: str,
+        context: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Log amendment proposal.
+
+        Args:
+            po_id: Purchase order ID
+            user_id: User who proposed the amendment
+            original_quantity: Original quantity
+            proposed_quantity: Proposed new quantity
+            reason: Reason for amendment
+            context: Additional context
+        """
+        try:
+            audit_context = {
+                "workflow_stage": "amendment_proposed",
+                "original_quantity": float(original_quantity),
+                "proposed_quantity": float(proposed_quantity),
+                "quantity_change": float(proposed_quantity - original_quantity),
+                "amendment_reason": reason,
+                "phase": "1_mvp"
+            }
+
+            if context:
+                audit_context.update(context)
+
+            self.audit_logger.log_event(
+                event_type=AuditEventType.PO_UPDATED,
+                severity=AuditEventSeverity.INFO,
+                entity_type="purchase_order",
+                entity_id=po_id,
+                actor_id=user_id,
+                description=f"Amendment proposed: quantity change from {original_quantity} to {proposed_quantity}",
+                context=audit_context
+            )
+
+            logger.info(
+                "Amendment proposal logged",
+                po_id=str(po_id),
+                user_id=str(user_id),
+                original_quantity=original_quantity,
+                proposed_quantity=proposed_quantity
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to log amendment proposal: {str(e)}")
+            raise PurchaseOrderAuditError(f"Amendment proposal audit failed: {str(e)}")
+
+    def log_amendment_approved(
+        self,
+        po_id: UUID,
+        user_id: UUID,
+        buyer_notes: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Log amendment approval.
+
+        Args:
+            po_id: Purchase order ID
+            user_id: User who approved the amendment
+            buyer_notes: Optional buyer notes
+            context: Additional context
+        """
+        try:
+            audit_context = {
+                "workflow_stage": "amendment_approved",
+                "buyer_notes": buyer_notes,
+                "phase": "1_mvp"
+            }
+
+            if context:
+                audit_context.update(context)
+
+            self.audit_logger.log_event(
+                event_type=AuditEventType.PO_STATUS_CHANGED,
+                severity=AuditEventSeverity.INFO,
+                entity_type="purchase_order",
+                entity_id=po_id,
+                actor_id=user_id,
+                description="Amendment approved and applied",
+                context=audit_context
+            )
+
+            logger.info(
+                "Amendment approval logged",
+                po_id=str(po_id),
+                user_id=str(user_id)
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to log amendment approval: {str(e)}")
+            raise PurchaseOrderAuditError(f"Amendment approval audit failed: {str(e)}")
+
+    def log_amendment_rejected(
+        self,
+        po_id: UUID,
+        user_id: UUID,
+        buyer_notes: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Log amendment rejection.
+
+        Args:
+            po_id: Purchase order ID
+            user_id: User who rejected the amendment
+            buyer_notes: Optional buyer notes
+            context: Additional context
+        """
+        try:
+            audit_context = {
+                "workflow_stage": "amendment_rejected",
+                "buyer_notes": buyer_notes,
+                "phase": "1_mvp"
+            }
+
+            if context:
+                audit_context.update(context)
+
+            self.audit_logger.log_event(
+                event_type=AuditEventType.PO_UPDATED,
+                severity=AuditEventSeverity.INFO,
+                entity_type="purchase_order",
+                entity_id=po_id,
+                actor_id=user_id,
+                description="Amendment rejected",
+                context=audit_context
+            )
+
+            logger.info(
+                "Amendment rejection logged",
+                po_id=str(po_id),
+                user_id=str(user_id)
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to log amendment rejection: {str(e)}")
+            raise PurchaseOrderAuditError(f"Amendment rejection audit failed: {str(e)}")

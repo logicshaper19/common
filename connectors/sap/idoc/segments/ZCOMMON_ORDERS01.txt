@@ -1,0 +1,239 @@
+*&---------------------------------------------------------------------*
+*& IDoc Basic Type: ZCOMMON_ORDERS01
+*& Description: Common Purchase Order IDoc Structure
+*&---------------------------------------------------------------------*
+
+* Segment: E1ZCOMMON_HEADER (Header Segment)
+* Description: Purchase Order Header Information
+* Fields:
+COMMON_PO_ID     CHAR 36    Common Platform PO ID (UUID)
+SAP_PO_NUMBER    CHAR 10    SAP Purchase Order Number (EBELN)
+BUYER_COMPANY    CHAR 36    Buyer Company ID (UUID)
+SELLER_COMPANY   CHAR 36    Seller Company ID (UUID)
+PO_STATUS        CHAR 20    Purchase Order Status
+CREATED_DATE     DATS 8     Creation Date
+CREATED_TIME     TIMS 6     Creation Time
+CREATED_BY       CHAR 12    Created By User
+CURRENCY         CUKY 5     Currency Code
+TOTAL_AMOUNT     CURR 15,2  Total Order Amount
+NOTES            CHAR 255   Order Notes
+PO_TYPE          CHAR 4     Purchase Order Type
+DELIVERY_TERMS   CHAR 50    Delivery Terms
+PAYMENT_TERMS    CHAR 50    Payment Terms
+
+* Segment: E1ZCOMMON_ITEM (Item Segment)
+* Description: Purchase Order Line Items
+* Fields:
+ITEM_NUMBER      NUMC 5     Line Item Number (EBELP)
+PRODUCT_ID       CHAR 36    Common Product ID (UUID)
+SAP_MATERIAL     CHAR 18    SAP Material Number (MATNR)
+MATERIAL_DESC    CHAR 40    Material Description
+QUANTITY         QUAN 13,3  Order Quantity
+UNIT             UNIT 3     Unit of Measure (MEINS)
+UNIT_PRICE       CURR 11,2  Unit Price
+TOTAL_AMOUNT     CURR 15,2  Total Line Amount
+DELIVERY_DATE    DATS 8     Requested Delivery Date
+DELIVERY_LOCATION CHAR 50   Delivery Location
+PLANT            CHAR 4     SAP Plant (WERKS)
+STORAGE_LOCATION CHAR 4     Storage Location (LGORT)
+ITEM_CATEGORY    CHAR 1     Item Category
+ACCOUNT_ASSIGNMENT CHAR 1   Account Assignment Category
+COST_CENTER      CHAR 10    Cost Center
+GL_ACCOUNT       CHAR 10    G/L Account
+WBS_ELEMENT      CHAR 24    WBS Element
+ITEM_STATUS      CHAR 20    Item Status
+ITEM_NOTES       CHAR 255   Item-specific Notes
+
+* Segment: E1ZCOMMON_AMENDMENT (Amendment Segment)
+* Description: Purchase Order Amendment Information
+* Fields:
+AMENDMENT_ID     CHAR 36    Amendment ID (UUID)
+AMENDMENT_TYPE   CHAR 20    Type of Amendment
+ORIGINAL_QTY     QUAN 13,3  Original Quantity
+PROPOSED_QTY     QUAN 13,3  Proposed Quantity
+ORIGINAL_UNIT    UNIT 3     Original Unit
+PROPOSED_UNIT    UNIT 3     Proposed Unit
+ORIGINAL_PRICE   CURR 11,2  Original Unit Price
+PROPOSED_PRICE   CURR 11,2  Proposed Unit Price
+AMENDMENT_REASON CHAR 255   Reason for Amendment
+AMENDMENT_STATUS CHAR 20    Current Amendment Status
+REQUESTED_BY     CHAR 12    Amendment Requested By
+REQUESTED_DATE   DATS 8     Amendment Request Date
+REQUESTED_TIME   TIMS 6     Amendment Request Time
+APPROVED_BY      CHAR 12    Amendment Approved By
+APPROVED_DATE    DATS 8     Amendment Approval Date
+APPROVED_TIME    TIMS 6     Amendment Approval Time
+PRIORITY         CHAR 10    Amendment Priority
+BUSINESS_IMPACT  CHAR 255   Business Impact Description
+
+* Segment: E1ZCOMMON_COMPOSITION (Composition Segment)
+* Description: Product Composition Information
+* Fields:
+COMPONENT_NAME   CHAR 50    Component Name
+COMPONENT_PCT    DEC 5,2    Component Percentage
+COMPONENT_UNIT   UNIT 3     Component Unit
+COMPONENT_SOURCE CHAR 50    Component Source
+CERTIFICATION   CHAR 100   Component Certifications
+ORIGIN_COUNTRY   CHAR 3     Country of Origin
+HARVEST_DATE     DATS 8     Harvest/Production Date
+BATCH_NUMBER     CHAR 20    Batch/Lot Number
+
+* Segment: E1ZCOMMON_ORIGIN (Origin Data Segment)
+* Description: Product Origin and Traceability Information
+* Fields:
+LATITUDE         DEC 10,6   Geographic Latitude
+LONGITUDE        DEC 10,6   Geographic Longitude
+FARM_ID          CHAR 36    Farm/Producer ID
+FARM_NAME        CHAR 100   Farm/Producer Name
+REGION           CHAR 50    Geographic Region
+COUNTRY          CHAR 3     Country Code
+CERTIFICATIONS   CHAR 255   Certifications (comma-separated)
+HARVEST_DATE     DATS 8     Harvest Date
+PROCESSING_DATE  DATS 8     Processing Date
+QUALITY_GRADE    CHAR 20    Quality Grade
+SUSTAINABILITY   CHAR 100   Sustainability Metrics
+CARBON_FOOTPRINT DEC 10,3   Carbon Footprint (kg CO2)
+WATER_USAGE      DEC 10,3   Water Usage (liters)
+ORGANIC_CERT     CHAR 1     Organic Certification (X/blank)
+FAIR_TRADE_CERT  CHAR 1     Fair Trade Certification (X/blank)
+
+* Segment: E1ZCOMMON_TRACKING (Tracking Segment)
+* Description: Shipment and Tracking Information
+* Fields:
+TRACKING_ID      CHAR 36    Tracking ID
+CARRIER          CHAR 50    Shipping Carrier
+TRACKING_NUMBER  CHAR 50    Carrier Tracking Number
+SHIP_DATE        DATS 8     Ship Date
+ESTIMATED_ARRIVAL DATS 8    Estimated Arrival Date
+ACTUAL_ARRIVAL   DATS 8     Actual Arrival Date
+SHIP_FROM        CHAR 100   Ship From Location
+SHIP_TO          CHAR 100   Ship To Location
+TRANSPORT_MODE   CHAR 20    Mode of Transport
+CONTAINER_NUMBER CHAR 20    Container Number
+SEAL_NUMBER      CHAR 20    Seal Number
+TEMPERATURE_MIN  DEC 5,2    Minimum Temperature (°C)
+TEMPERATURE_MAX  DEC 5,2    Maximum Temperature (°C)
+HUMIDITY_MIN     DEC 5,2    Minimum Humidity (%)
+HUMIDITY_MAX     DEC 5,2    Maximum Humidity (%)
+
+* Segment: E1ZCOMMON_QUALITY (Quality Segment)
+* Description: Quality Control and Testing Information
+* Fields:
+TEST_ID          CHAR 36    Quality Test ID
+TEST_TYPE        CHAR 50    Type of Test
+TEST_DATE        DATS 8     Test Date
+TEST_RESULT      CHAR 20    Test Result (PASS/FAIL/PENDING)
+TEST_VALUE       DEC 10,3   Measured Value
+TEST_UNIT        UNIT 3     Test Unit
+SPECIFICATION    DEC 10,3   Specification Limit
+TOLERANCE        DEC 5,2    Tolerance Percentage
+TESTED_BY        CHAR 50    Testing Laboratory
+CERTIFICATE_NUM  CHAR 50    Certificate Number
+EXPIRY_DATE      DATS 8     Certificate Expiry Date
+COMPLIANCE_STD   CHAR 100   Compliance Standards
+DEFECT_CODE      CHAR 10    Defect Code (if any)
+CORRECTIVE_ACTION CHAR 255  Corrective Action Taken
+
+* Segment: E1ZCOMMON_FINANCIAL (Financial Segment)
+* Description: Financial and Pricing Information
+* Fields:
+CURRENCY         CUKY 5     Currency Code
+EXCHANGE_RATE    DEC 9,5    Exchange Rate
+BASE_PRICE       CURR 11,2  Base Unit Price
+DISCOUNT_PCT     DEC 5,2    Discount Percentage
+DISCOUNT_AMOUNT  CURR 11,2  Discount Amount
+TAX_CODE         CHAR 2     Tax Code
+TAX_RATE         DEC 5,2    Tax Rate Percentage
+TAX_AMOUNT       CURR 11,2  Tax Amount
+FREIGHT_COST     CURR 11,2  Freight Cost
+INSURANCE_COST   CURR 11,2  Insurance Cost
+HANDLING_COST    CURR 11,2  Handling Cost
+OTHER_CHARGES    CURR 11,2  Other Charges
+NET_AMOUNT       CURR 15,2  Net Amount
+GROSS_AMOUNT     CURR 15,2  Gross Amount
+PAYMENT_METHOD   CHAR 20    Payment Method
+PAYMENT_TERMS    CHAR 50    Payment Terms
+DUE_DATE         DATS 8     Payment Due Date
+EARLY_PAY_DISC   DEC 5,2    Early Payment Discount
+LATE_PAY_PENALTY DEC 5,2    Late Payment Penalty
+
+*&---------------------------------------------------------------------*
+*& IDoc Message Type: ZCOMMON_ORDERS
+*& Description: Common Purchase Order Message
+*& Basic Type: ZCOMMON_ORDERS01
+*&---------------------------------------------------------------------*
+
+* Message Type Configuration:
+* - Outbound: Send purchase orders from SAP to Common
+* - Inbound: Receive purchase order updates from Common
+* - Change Pointers: Track changes to purchase order data
+* - Filters: Filter by company, material, or date ranges
+
+* Partner Profile Configuration:
+* - Partner Type: Customer/Vendor
+* - Message Type: ZCOMMON_ORDERS
+* - Process Code: ZCOM_PO_PROCESS (Inbound)
+* - Process Code: ZCOM_PO_SEND (Outbound)
+
+* Processing Logic:
+* 1. Header segment contains main PO information
+* 2. Multiple item segments for line items
+* 3. Optional amendment segments for changes
+* 4. Optional composition segments for product details
+* 5. Optional origin segments for traceability
+* 6. Optional tracking segments for logistics
+* 7. Optional quality segments for QC data
+* 8. Optional financial segments for pricing
+
+* Error Handling:
+* - Validation errors logged to application log
+* - Business errors create error IDocs
+* - Technical errors trigger retry mechanism
+* - Status updates sent back to sender
+
+* Monitoring:
+* - IDoc status tracking in WE02/WE05
+* - Custom monitoring in ZCOMMON_MONITOR
+* - Performance metrics in ZCOMMON_LOG
+* - Alert notifications for failures
+
+*&---------------------------------------------------------------------*
+*& Segment Relationships:
+*&---------------------------------------------------------------------*
+* E1ZCOMMON_HEADER (1)
+*   ├── E1ZCOMMON_ITEM (1..n)
+*   │   ├── E1ZCOMMON_COMPOSITION (0..n)
+*   │   ├── E1ZCOMMON_ORIGIN (0..1)
+*   │   ├── E1ZCOMMON_QUALITY (0..n)
+*   │   └── E1ZCOMMON_FINANCIAL (0..1)
+*   ├── E1ZCOMMON_AMENDMENT (0..n)
+*   └── E1ZCOMMON_TRACKING (0..n)
+
+*&---------------------------------------------------------------------*
+*& Usage Examples:
+*&---------------------------------------------------------------------*
+
+* Example 1: Simple Purchase Order
+* E1ZCOMMON_HEADER: Basic PO information
+* E1ZCOMMON_ITEM: Single line item
+* E1ZCOMMON_FINANCIAL: Pricing details
+
+* Example 2: Complex Multi-Item Order
+* E1ZCOMMON_HEADER: PO header
+* E1ZCOMMON_ITEM (multiple): Various products
+* E1ZCOMMON_COMPOSITION: Product ingredients
+* E1ZCOMMON_ORIGIN: Traceability data
+
+* Example 3: Amendment Processing
+* E1ZCOMMON_HEADER: Original PO
+* E1ZCOMMON_ITEM: Current items
+* E1ZCOMMON_AMENDMENT: Proposed changes
+
+* Example 4: Full Traceability
+* E1ZCOMMON_HEADER: PO information
+* E1ZCOMMON_ITEM: Product details
+* E1ZCOMMON_COMPOSITION: Ingredients
+* E1ZCOMMON_ORIGIN: Source information
+* E1ZCOMMON_QUALITY: Test results
+* E1ZCOMMON_TRACKING: Logistics data
+* E1ZCOMMON_FINANCIAL: Complete pricing

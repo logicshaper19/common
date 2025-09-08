@@ -1,0 +1,18 @@
+{
+  "minMuleVersion": "4.4.0",
+  "requiredProduct": "MULE_EE",
+  "name": "common-mulesoft-connector",
+  "classLoaderModelLoaderDescriptor": {
+    "id": "mule",
+    "attributes": {
+      "exportedResources": [
+        "dataweave/sap-to-common-po.dwl",
+        "dataweave/common-to-sap-po.dwl"
+      ]
+    }
+  },
+  "bundleDescriptorLoader": {
+    "id": "mule",
+    "attributes": {}
+  }
+}

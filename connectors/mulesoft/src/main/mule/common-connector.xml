@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- Configuration Properties -->
+    <configuration-properties file="mule-app.properties" doc:name="Configuration properties"/>
+
+    <!-- HTTP Request Configuration for Common API -->
+    <http:request-config name="Common_API_Config" doc:name="Common API Config">
+        <http:request-connection 
+            host="${common.api.host}" 
+            port="${common.api.port}" 
+            protocol="HTTPS"
+            connectionIdleTimeout="${common.api.timeout}"
+            responseTimeout="${common.api.timeout}">
+            <http:authentication>
+                <http:oauth2-authorization-code-grant-type 
+                    clientId="${secure::common.api.clientId}"
+                    clientSecret="${secure::common.api.clientSecret}"
+                    tokenUrl="${common.api.baseUrl}/api/v1/auth/token"/>
+            </http:authentication>
+        </http:request-connection>
+    </http:request-config>
+
+    <!-- HTTP Listener Configuration -->
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <!-- Global Error Handler -->
+    <error-handler name="Global_Error_Handler" doc:name="Global Error Handler">
+        <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate">
+            <ee:transform doc:name="Error Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    message: "An error occurred: " ++ error.description,
+    error_type: error.errorType.identifier,
+    timestamp: now()
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+        </on-error-propagate>
+    </error-handler>
+
+    <!-- Flow 1: Create Purchase Order -->
+    <flow name="create-purchase-order-flow" doc:id="create-po-flow">
+        <http:listener doc:name="POST /purchase-orders" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders" 
+                      allowedMethods="POST"/>
+        
+        <!-- Validate Input -->
+        <ee:transform doc:name="Validate and Transform Input">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    buyer_company_id: payload.buyer_company_id,
+    seller_company_id: payload.seller_company_id,
+    product_id: payload.product_id,
+    quantity: payload.quantity,
+    unit_price: payload.unit_price,
+    unit: payload.unit,
+    delivery_date: payload.delivery_date,
+    delivery_location: payload.delivery_location,
+    notes: payload.notes default null,
+    composition: payload.composition default null,
+    input_materials: payload.input_materials default null,
+    origin_data: payload.origin_data default null
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Call Common API -->
+        <http:request method="POST" doc:name="Create PO in Common API" 
+                     config-ref="Common_API_Config" 
+                     path="/api/v1/purchase-orders">
+            <http:headers><![CDATA[#[output application/java
+---
+{
+    "Content-Type" : "application/json",
+    "Accept" : "application/json"
+}]]]></http:headers>
+        </http:request>
+        
+        <!-- Transform Response -->
+        <ee:transform doc:name="Transform Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    message: "Purchase order created successfully",
+    purchase_order: payload
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <error-handler ref="Global_Error_Handler"/>
+    </flow>
+
+    <!-- Flow 2: Get Purchase Order -->
+    <flow name="get-purchase-order-flow" doc:id="get-po-flow">
+        <http:listener doc:name="GET /purchase-orders/{id}" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders/{id}" 
+                      allowedMethods="GET"/>
+        
+        <!-- Extract ID from path -->
+        <set-variable value="#[attributes.uriParams.id]" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+        
+        <!-- Call Common API -->
+        <http:request method="GET" doc:name="Get PO from Common API" 
+                     config-ref="Common_API_Config" 
+                     path="/api/v1/purchase-orders/{id}">
+            <http:uri-params><![CDATA[#[output application/java
+---
+{
+    "id" : vars.purchaseOrderId
+}]]]></http:uri-params>
+        </http:request>
+        
+        <!-- Transform Response -->
+        <ee:transform doc:name="Transform Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    purchase_order: payload
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <error-handler ref="Global_Error_Handler"/>
+    </flow>
+
+    <!-- Flow 3: List Purchase Orders -->
+    <flow name="list-purchase-orders-flow" doc:id="list-po-flow">
+        <http:listener doc:name="GET /purchase-orders" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders" 
+                      allowedMethods="GET"/>
+        
+        <!-- Extract query parameters -->
+        <set-variable value="#[attributes.queryParams.status default '']" variableName="status" doc:name="Set Status Filter"/>
+        <set-variable value="#[attributes.queryParams.page default '1']" variableName="page" doc:name="Set Page"/>
+        <set-variable value="#[attributes.queryParams.per_page default '50']" variableName="perPage" doc:name="Set Per Page"/>
+        
+        <!-- Call Common API -->
+        <http:request method="GET" doc:name="List POs from Common API" 
+                     config-ref="Common_API_Config" 
+                     path="/api/v1/purchase-orders">
+            <http:query-params><![CDATA[#[output application/java
+---
+{
+    "page" : vars.page,
+    "per_page" : vars.perPage
+} ++ (if (vars.status != "") {"status": vars.status} else {})
+]]]></http:query-params>
+        </http:request>
+        
+        <!-- Transform Response -->
+        <ee:transform doc:name="Transform Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    data: payload.data,
+    pagination: {
+        page: payload.page default 1,
+        per_page: payload.per_page default 50,
+        total: payload.total default 0
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <error-handler ref="Global_Error_Handler"/>
+    </flow>
+
+    <!-- Flow 4: Update Purchase Order -->
+    <flow name="update-purchase-order-flow" doc:id="update-po-flow">
+        <http:listener doc:name="PUT /purchase-orders/{id}" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders/{id}" 
+                      allowedMethods="PUT"/>
+        
+        <!-- Extract ID from path -->
+        <set-variable value="#[attributes.uriParams.id]" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+        
+        <!-- Validate and Transform Input -->
+        <ee:transform doc:name="Validate and Transform Input">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload filterObject ((value, key) -> value != null and value != "")]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Call Common API -->
+        <http:request method="PUT" doc:name="Update PO in Common API" 
+                     config-ref="Common_API_Config" 
+                     path="/api/v1/purchase-orders/{id}">
+            <http:uri-params><![CDATA[#[output application/java
+---
+{
+    "id" : vars.purchaseOrderId
+}]]]></http:uri-params>
+            <http:headers><![CDATA[#[output application/java
+---
+{
+    "Content-Type" : "application/json",
+    "Accept" : "application/json"
+}]]]></http:headers>
+        </http:request>
+        
+        <!-- Transform Response -->
+        <ee:transform doc:name="Transform Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    message: "Purchase order updated successfully",
+    purchase_order: payload
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <error-handler ref="Global_Error_Handler"/>
+    </flow>
+
+    <!-- Flow 5: Propose Changes (Amendment) -->
+    <flow name="propose-changes-flow" doc:id="propose-changes-flow">
+        <http:listener doc:name="PUT /purchase-orders/{id}/propose-changes" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders/{id}/propose-changes" 
+                      allowedMethods="PUT"/>
+        
+        <!-- Extract ID from path -->
+        <set-variable value="#[attributes.uriParams.id]" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+        
+        <!-- Validate Amendment Request -->
+        <ee:transform doc:name="Validate Amendment Request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    proposed_quantity: payload.proposed_quantity,
+    proposed_quantity_unit: payload.proposed_quantity_unit default "kg",
+    amendment_reason: payload.amendment_reason
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Call Common API -->
+        <http:request method="PUT" doc:name="Propose Changes in Common API" 
+                     config-ref="Common_API_Config" 
+                     path="/api/v1/purchase-orders/{id}/propose-changes">
+            <http:uri-params><![CDATA[#[output application/java
+---
+{
+    "id" : vars.purchaseOrderId
+}]]]></http:uri-params>
+            <http:headers><![CDATA[#[output application/java
+---
+{
+    "Content-Type" : "application/json",
+    "Accept" : "application/json"
+}]]]></http:headers>
+        </http:request>
+        
+        <!-- Transform Response -->
+        <ee:transform doc:name="Transform Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: payload.success,
+    message: payload.message,
+    amendment_status: payload.amendment_status,
+    purchase_order_id: payload.purchase_order_id
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <error-handler ref="Global_Error_Handler"/>
+    </flow>
+
+    <!-- Flow 6: Approve Changes (Amendment) -->
+    <flow name="approve-changes-flow" doc:id="approve-changes-flow">
+        <http:listener doc:name="PUT /purchase-orders/{id}/approve-changes" 
+                      config-ref="HTTP_Listener_config" 
+                      path="/purchase-orders/{id}/approve-changes" 
+                      allowedMethods="PUT"/>
+        
+        <!-- Extract ID from path -->
+        <set-variable value="#[attributes.uriParams.id]" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+        
+        <!-- Validate Approval Request -->
+        <ee:transform doc:name="Validate Approval Request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    approve: payload.approve,
+    buyer_notes: payload.buyer_notes default null
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Call Common API -->
+        <http:request method="PUT" doc:name="Approve Changes in Common API" 
+                     config-ref="Common_API_Config" 
+                     path="/api/v1/purchase-orders/{id}/approve-changes">
+            <http:uri-params><![CDATA[#[output application/java
+---
+{
+    "id" : vars.purchaseOrderId
+}]]]></http:uri-params>
+            <http:headers><![CDATA[#[output application/java
+---
+{
+    "Content-Type" : "application/json",
+    "Accept" : "application/json"
+}]]]></http:headers>
+        </http:request>
+        
+        <!-- Transform Response -->
+        <ee:transform doc:name="Transform Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: payload.success,
+    message: payload.message,
+    amendment_status: payload.amendment_status,
+    purchase_order_id: payload.purchase_order_id
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <error-handler ref="Global_Error_Handler"/>
+    </flow>
+
+</mule>

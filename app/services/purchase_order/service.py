@@ -7,7 +7,7 @@ multiple specialized services to provide a unified interface.
 
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models.purchase_order import PurchaseOrder
@@ -17,7 +17,12 @@ from app.schemas.purchase_order import (
     PurchaseOrderFilter,
     PurchaseOrderWithDetails,
     TraceabilityRequest,
-    TraceabilityResponse
+    TraceabilityResponse,
+    ProposeChangesRequest,
+    ApproveChangesRequest,
+    AmendmentResponse,
+    AmendmentStatus,
+    PurchaseOrderStatus
 )
 from app.core.logging import get_logger
 from .repository import PurchaseOrderRepository
@@ -33,6 +38,14 @@ from .exceptions import (
 )
 
 logger = get_logger(__name__)
+
+# Import ERP sync for Phase 2 integration
+try:
+    from app.services.erp_sync import create_erp_sync_manager
+    ERP_SYNC_AVAILABLE = True
+except ImportError:
+    ERP_SYNC_AVAILABLE = False
+    logger.warning("ERP sync service not available")
 
 
 class PurchaseOrderOrchestrator:
@@ -412,3 +425,201 @@ class PurchaseOrderOrchestrator:
             Statistics dictionary
         """
         return self.repository.get_statistics(current_user_company_id)
+
+    # Phase 1 MVP Amendment Methods
+
+    def propose_changes(self, po_id: str, proposal: ProposeChangesRequest, current_user) -> AmendmentResponse:
+        """
+        Phase 1 MVP: Propose changes to a purchase order.
+
+        Args:
+            po_id: Purchase order UUID string
+            proposal: Amendment proposal data
+            current_user: User making the proposal
+
+        Returns:
+            Amendment response
+        """
+        try:
+            uuid_obj = UUID(po_id)
+            po = self.repository.get_by_id(uuid_obj)
+
+            if not po:
+                raise PurchaseOrderNotFoundError(po_id)
+
+            # Update the purchase order with proposed changes
+            po.proposed_quantity = proposal.proposed_quantity
+            po.proposed_quantity_unit = proposal.proposed_quantity_unit
+            po.amendment_reason = proposal.amendment_reason
+            po.amendment_status = AmendmentStatus.PROPOSED
+
+            # Save changes
+            self.repository.update(po)
+
+            # Create audit event
+            self.audit_manager.log_amendment_proposed(
+                po_id=uuid_obj,
+                user_id=current_user.id,
+                original_quantity=po.quantity,
+                proposed_quantity=proposal.proposed_quantity,
+                reason=proposal.amendment_reason
+            )
+
+            # Send notification to buyer
+            self.notification_manager.notify_amendment_proposed(
+                po=po,
+                proposer=current_user,
+                proposal=proposal
+            )
+
+            return AmendmentResponse(
+                success=True,
+                message="Amendment proposal submitted successfully",
+                amendment_status=AmendmentStatus.PROPOSED,
+                purchase_order_id=uuid_obj
+            )
+
+        except ValueError:
+            raise PurchaseOrderNotFoundError(po_id)
+        except Exception as e:
+            logger.error(f"Error proposing changes for PO {po_id}: {str(e)}")
+            raise PurchaseOrderError(f"Failed to propose changes: {str(e)}")
+
+    def approve_changes(self, po_id: str, approval: ApproveChangesRequest, current_user) -> AmendmentResponse:
+        """
+        Phase 1 MVP: Approve or reject proposed changes to a purchase order.
+
+        Args:
+            po_id: Purchase order UUID string
+            approval: Approval/rejection data
+            current_user: User making the approval
+
+        Returns:
+            Amendment response
+        """
+        try:
+            uuid_obj = UUID(po_id)
+            po = self.repository.get_by_id(uuid_obj)
+
+            if not po:
+                raise PurchaseOrderNotFoundError(po_id)
+
+            if approval.approve:
+                # Apply the proposed changes
+                po.quantity = po.proposed_quantity
+                po.unit = po.proposed_quantity_unit
+                po.status = PurchaseOrderStatus.CONFIRMED
+                po.amendment_status = AmendmentStatus.APPROVED
+
+                # Clear proposed fields
+                po.proposed_quantity = None
+                po.proposed_quantity_unit = None
+                po.amendment_reason = None
+
+                message = "Amendment approved and applied successfully"
+                new_status = AmendmentStatus.APPROVED
+
+                # Create audit event for approval
+                self.audit_manager.log_amendment_approved(
+                    po_id=uuid_obj,
+                    user_id=current_user.id,
+                    buyer_notes=approval.buyer_notes
+                )
+
+                # Send notification to seller
+                self.notification_manager.notify_amendment_approved(
+                    po=po,
+                    approver=current_user,
+                    approval=approval
+                )
+
+                # Phase 2: Trigger ERP sync if enabled
+                self._trigger_erp_sync_if_enabled(po, current_user)
+
+            else:
+                # Reject the amendment
+                po.amendment_status = AmendmentStatus.REJECTED
+
+                # Clear proposed fields
+                po.proposed_quantity = None
+                po.proposed_quantity_unit = None
+                po.amendment_reason = None
+
+                message = "Amendment rejected"
+                new_status = AmendmentStatus.REJECTED
+
+                # Create audit event for rejection
+                self.audit_manager.log_amendment_rejected(
+                    po_id=uuid_obj,
+                    user_id=current_user.id,
+                    buyer_notes=approval.buyer_notes
+                )
+
+                # Send notification to seller
+                self.notification_manager.notify_amendment_rejected(
+                    po=po,
+                    rejector=current_user,
+                    approval=approval
+                )
+
+            # Save changes
+            self.repository.update(po)
+
+            return AmendmentResponse(
+                success=True,
+                message=message,
+                amendment_status=new_status,
+                purchase_order_id=uuid_obj
+            )
+
+        except ValueError:
+            raise PurchaseOrderNotFoundError(po_id)
+        except Exception as e:
+            logger.error(f"Error approving changes for PO {po_id}: {str(e)}")
+            raise PurchaseOrderError(f"Failed to approve changes: {str(e)}")
+
+    def _trigger_erp_sync_if_enabled(self, po, current_user):
+        """
+        Trigger ERP sync for Phase 2 companies if enabled.
+
+        Args:
+            po: Purchase order that was amended
+            current_user: User who approved the amendment
+        """
+        if not ERP_SYNC_AVAILABLE:
+            return
+
+        try:
+            # Create ERP sync manager
+            erp_sync_manager = create_erp_sync_manager(self.db)
+
+            # Prepare amendment data
+            amendment_data = {
+                "original_quantity": po.quantity,
+                "amended_quantity": po.quantity,  # Already updated
+                "amendment_reason": "Amendment approved",
+                "approved_by": str(current_user.id),
+                "approved_at": datetime.now(timezone.utc).isoformat()
+            }
+
+            # Trigger sync
+            erp_sync_manager.sync_amendment_approval(
+                po_id=po.id,
+                amendment_data=amendment_data,
+                user_id=current_user.id
+            )
+
+            logger.info(
+                "ERP sync triggered for amendment approval",
+                po_id=str(po.id),
+                company_id=str(po.buyer_company_id),
+                user_id=str(current_user.id)
+            )
+
+        except Exception as e:
+            # Don't fail the amendment approval if ERP sync fails
+            logger.error(
+                "Failed to trigger ERP sync for amendment approval",
+                po_id=str(po.id),
+                error=str(e)
+            )

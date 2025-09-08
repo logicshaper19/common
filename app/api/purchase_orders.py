@@ -20,7 +20,11 @@ from app.schemas.purchase_order import (
     TraceabilityRequest,
     TraceabilityResponse,
     PurchaseOrderStatus,
-    SellerConfirmation
+    SellerConfirmation,
+    ProposeChangesRequest,
+    ApproveChangesRequest,
+    AmendmentResponse,
+    AmendmentStatus
 )
 from app.core.logging import get_logger
 from app.core.data_access_middleware import require_po_access, filter_response_data
@@ -382,3 +386,117 @@ def trace_supply_chain(
     )
     
     return traceability_result
+
+
+# Phase 1 MVP Amendment Endpoints
+
+@router.put("/{po_id}/propose-changes", response_model=AmendmentResponse)
+@rate_limit(RateLimitType.STANDARD)
+def propose_po_changes(
+    po_id: str,
+    proposal: ProposeChangesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Phase 1 MVP: Propose changes to a purchase order.
+
+    Only sellers can propose changes to PENDING purchase orders.
+    This is the core of the Phase 1 amendment workflow.
+    """
+    purchase_order_service = PurchaseOrderService(db)
+
+    # Get the purchase order
+    po = purchase_order_service.get_purchase_order(po_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+
+    # Validate seller permissions
+    if current_user.company_id != po.seller_company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the seller can propose changes to this purchase order"
+        )
+
+    # Validate PO status
+    if po.status != PurchaseOrderStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only propose changes to PENDING purchase orders"
+        )
+
+    # Validate no existing pending amendment
+    if po.amendment_status == AmendmentStatus.PROPOSED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="There is already a pending amendment for this purchase order"
+        )
+
+    # Apply the proposal
+    result = purchase_order_service.propose_changes(po_id, proposal, current_user)
+
+    logger.info(
+        "Amendment proposed",
+        po_id=po_id,
+        proposed_quantity=str(proposal.proposed_quantity),
+        original_quantity=str(po.quantity),
+        seller_id=str(current_user.id),
+        company_id=str(current_user.company_id)
+    )
+
+    return result
+
+
+@router.put("/{po_id}/approve-changes", response_model=AmendmentResponse)
+@rate_limit(RateLimitType.STANDARD)
+def approve_po_changes(
+    po_id: str,
+    approval: ApproveChangesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Phase 1 MVP: Approve or reject proposed changes to a purchase order.
+
+    Only buyers can approve/reject amendments to purchase orders.
+    """
+    purchase_order_service = PurchaseOrderService(db)
+
+    # Get the purchase order
+    po = purchase_order_service.get_purchase_order(po_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+
+    # Validate buyer permissions
+    if current_user.company_id != po.buyer_company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the buyer can approve changes to this purchase order"
+        )
+
+    # Validate there's a pending amendment
+    if po.amendment_status != AmendmentStatus.PROPOSED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No pending amendment to approve or reject"
+        )
+
+    # Apply the approval/rejection
+    result = purchase_order_service.approve_changes(po_id, approval, current_user)
+
+    action = "approved" if approval.approve else "rejected"
+    logger.info(
+        f"Amendment {action}",
+        po_id=po_id,
+        approved=approval.approve,
+        buyer_id=str(current_user.id),
+        company_id=str(current_user.company_id)
+    )
+
+    return result

@@ -1,0 +1,311 @@
+{
+  "name": "common-boomi-connector",
+  "version": "1.0.0",
+  "description": "Common Supply Chain Transparency Platform Connector for Dell Boomi",
+  "author": "Common Supply Chain Transparency Platform",
+  "license": "Common Connector License",
+  "homepage": "https://common.co",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/common/connectors"
+  },
+  "keywords": [
+    "boomi",
+    "connector",
+    "supply-chain",
+    "transparency",
+    "purchase-orders",
+    "erp-integration",
+    "sap",
+    "oracle"
+  ],
+  "boomi": {
+    "packageType": "PROCESS_LIBRARY",
+    "minimumVersion": "2.4.0",
+    "category": "Supply Chain",
+    "subcategory": "Transparency",
+    "vendor": "Common",
+    "supportLevel": "ENTERPRISE",
+    "certification": "BOOMI_CERTIFIED"
+  },
+  "components": {
+    "connections": [
+      {
+        "name": "Common API Connection",
+        "file": "connections/Common-API-Connection.xml",
+        "type": "HTTP_CLIENT",
+        "description": "HTTP Client connection to Common API with OAuth 2.0 authentication"
+      }
+    ],
+    "processes": [
+      {
+        "name": "Create Purchase Order",
+        "file": "processes/Create-Purchase-Order.xml",
+        "category": "Purchase Orders",
+        "description": "Creates a new purchase order in the Common platform"
+      },
+      {
+        "name": "Get Purchase Order",
+        "file": "processes/Get-Purchase-Order.xml",
+        "category": "Purchase Orders",
+        "description": "Retrieves a purchase order by ID"
+      },
+      {
+        "name": "List Purchase Orders",
+        "file": "processes/List-Purchase-Orders.xml",
+        "category": "Purchase Orders",
+        "description": "Retrieves purchase orders with filtering and pagination"
+      },
+      {
+        "name": "Update Purchase Order",
+        "file": "processes/Update-Purchase-Order.xml",
+        "category": "Purchase Orders",
+        "description": "Updates an existing purchase order"
+      },
+      {
+        "name": "Propose Changes",
+        "file": "processes/Propose-Changes.xml",
+        "category": "Amendment Workflow",
+        "description": "Proposes amendments to an existing purchase order"
+      },
+      {
+        "name": "Approve Changes",
+        "file": "processes/Approve-Changes.xml",
+        "category": "Amendment Workflow",
+        "description": "Approves or rejects proposed amendments"
+      },
+      {
+        "name": "Batch ERP Sync",
+        "file": "processes/Batch-ERP-Sync.xml",
+        "category": "ERP Synchronization",
+        "description": "Synchronizes purchase orders between Common and ERP systems in batches"
+      },
+      {
+        "name": "Health Check",
+        "file": "processes/Health-Check.xml",
+        "category": "Monitoring",
+        "description": "Performs health check on Common API connectivity"
+      }
+    ],
+    "maps": [
+      {
+        "name": "SAP to Common PO Map",
+        "file": "maps/SAP-to-Common-PO-Map.xml",
+        "sourceFormat": "XML",
+        "targetFormat": "JSON",
+        "description": "Maps SAP purchase order data to Common API format"
+      },
+      {
+        "name": "Common to SAP PO Map",
+        "file": "maps/Common-to-SAP-PO-Map.xml",
+        "sourceFormat": "JSON",
+        "targetFormat": "XML",
+        "description": "Maps Common API data to SAP purchase order format"
+      },
+      {
+        "name": "Oracle to Common PO Map",
+        "file": "maps/Oracle-to-Common-PO-Map.xml",
+        "sourceFormat": "XML",
+        "targetFormat": "JSON",
+        "description": "Maps Oracle purchase order data to Common API format"
+      },
+      {
+        "name": "Common to Oracle PO Map",
+        "file": "maps/Common-to-Oracle-PO-Map.xml",
+        "sourceFormat": "JSON",
+        "targetFormat": "XML",
+        "description": "Maps Common API data to Oracle purchase order format"
+      },
+      {
+        "name": "Generic ERP Map",
+        "file": "maps/Generic-ERP-Map.xml",
+        "sourceFormat": "JSON",
+        "targetFormat": "JSON",
+        "description": "Generic mapping for standard ERP systems"
+      }
+    ],
+    "errorHandlers": [
+      {
+        "name": "Standard Error Handler",
+        "file": "error-handlers/Standard-Error-Handler.xml",
+        "description": "Standard error handling with retry logic and notifications"
+      },
+      {
+        "name": "Business Error Handler",
+        "file": "error-handlers/Business-Error-Handler.xml",
+        "description": "Business logic error handling and validation"
+      },
+      {
+        "name": "Notification Handler",
+        "file": "error-handlers/Notification-Handler.xml",
+        "description": "Error notification via email and webhooks"
+      }
+    ],
+    "utilities": [
+      {
+        "name": "Data Validator",
+        "file": "utilities/Data-Validator.xml",
+        "description": "Validates purchase order and amendment data"
+      },
+      {
+        "name": "Performance Monitor",
+        "file": "utilities/Performance-Monitor.xml",
+        "description": "Monitors process performance and metrics"
+      },
+      {
+        "name": "Audit Logger",
+        "file": "utilities/Audit-Logger.xml",
+        "description": "Creates comprehensive audit trails"
+      }
+    ]
+  },
+  "dependencies": {
+    "boomi": {
+      "platform": ">=2.4.0",
+      "connectors": [
+        "http-client",
+        "email",
+        "database"
+      ]
+    }
+  },
+  "configuration": {
+    "required": [
+      "baseUrl",
+      "clientId",
+      "clientSecret",
+      "companyId"
+    ],
+    "optional": [
+      "timeout",
+      "maxRetries",
+      "environment"
+    ],
+    "environments": {
+      "development": {
+        "baseUrl": "https://api-dev.common.co",
+        "timeout": 30,
+        "maxRetries": 3
+      },
+      "staging": {
+        "baseUrl": "https://api-staging.common.co",
+        "timeout": 45,
+        "maxRetries": 3
+      },
+      "production": {
+        "baseUrl": "https://api.common.co",
+        "timeout": 60,
+        "maxRetries": 5
+      }
+    }
+  },
+  "testing": {
+    "testSuites": [
+      {
+        "name": "Connection Tests",
+        "description": "Tests API connectivity and authentication",
+        "tests": [
+          "test-connection",
+          "test-authentication",
+          "test-health-check"
+        ]
+      },
+      {
+        "name": "Purchase Order Tests",
+        "description": "Tests purchase order operations",
+        "tests": [
+          "test-create-po",
+          "test-get-po",
+          "test-list-pos",
+          "test-update-po"
+        ]
+      },
+      {
+        "name": "Amendment Tests",
+        "description": "Tests amendment workflow",
+        "tests": [
+          "test-propose-changes",
+          "test-approve-changes",
+          "test-amendment-validation"
+        ]
+      },
+      {
+        "name": "Integration Tests",
+        "description": "Tests ERP integration mappings",
+        "tests": [
+          "test-sap-mapping",
+          "test-oracle-mapping",
+          "test-batch-sync"
+        ]
+      }
+    ]
+  },
+  "documentation": {
+    "guides": [
+      {
+        "name": "Installation Guide",
+        "file": "documentation/Installation-Guide.pdf",
+        "description": "Step-by-step installation instructions"
+      },
+      {
+        "name": "Configuration Guide",
+        "file": "documentation/Configuration-Guide.pdf",
+        "description": "Detailed configuration instructions"
+      },
+      {
+        "name": "User Manual",
+        "file": "documentation/User-Manual.pdf",
+        "description": "Complete user manual with examples"
+      },
+      {
+        "name": "API Reference",
+        "file": "documentation/API-Reference.pdf",
+        "description": "Common API reference documentation"
+      }
+    ],
+    "examples": [
+      {
+        "name": "SAP Integration Example",
+        "file": "examples/SAP-Integration-Example.xml",
+        "description": "Complete SAP integration example process"
+      },
+      {
+        "name": "Oracle Integration Example",
+        "file": "examples/Oracle-Integration-Example.xml",
+        "description": "Complete Oracle integration example process"
+      },
+      {
+        "name": "Batch Processing Example",
+        "file": "examples/Batch-Processing-Example.xml",
+        "description": "Batch processing and synchronization example"
+      }
+    ]
+  },
+  "support": {
+    "email": "support@common.co",
+    "documentation": "https://docs.common.co/connectors/boomi",
+    "status": "https://status.common.co",
+    "community": "https://community.common.co",
+    "enterprise": {
+      "phone": "+1-800-COMMON-1",
+      "email": "enterprise-support@common.co",
+      "sla": "24/7 support with 4-hour response time"
+    }
+  },
+  "changelog": {
+    "1.0.0": {
+      "date": "2024-12-08",
+      "changes": [
+        "Initial release",
+        "Complete Process Library with all core operations",
+        "SAP and Oracle integration maps",
+        "Comprehensive error handling and monitoring",
+        "Production-ready deployment packages",
+        "OAuth 2.0 authentication support",
+        "Batch processing capabilities",
+        "Amendment workflow support",
+        "Performance monitoring and audit logging"
+      ]
+    }
+  }
+}

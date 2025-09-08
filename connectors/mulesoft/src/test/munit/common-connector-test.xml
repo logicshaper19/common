@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <munit:config name="common-connector-test.xml" />
+
+    <!-- Test: Create Purchase Order Flow -->
+    <munit:test name="test-create-purchase-order-flow" doc:id="test-create-po">
+        <munit:behavior>
+            <!-- Mock the HTTP request to Common API -->
+            <munit-tools:mock-when doc:name="Mock Common API Create PO" processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="config-ref" whereValue="Common_API_Config"/>
+                    <munit-tools:with-attribute attributeName="path" whereValue="/api/v1/purchase-orders"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value='#[{
+                        "id": "test-po-123",
+                        "po_number": "PO-2024-001",
+                        "buyer_company_id": "buyer-123",
+                        "seller_company_id": "seller-456",
+                        "product_id": "product-789",
+                        "quantity": 100,
+                        "unit_price": 25.50,
+                        "unit": "kg",
+                        "delivery_date": "2024-12-31",
+                        "delivery_location": "Warehouse A",
+                        "status": "pending",
+                        "created_at": "2024-01-01T00:00:00Z"
+                    }]' mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        
+        <munit:execution>
+            <!-- Prepare test payload -->
+            <set-payload value='#[{
+                "buyer_company_id": "buyer-123",
+                "seller_company_id": "seller-456",
+                "product_id": "product-789",
+                "quantity": 100,
+                "unit_price": 25.50,
+                "unit": "kg",
+                "delivery_date": "2024-12-31",
+                "delivery_location": "Warehouse A",
+                "notes": "Test purchase order"
+            }]' doc:name="Set Test Payload"/>
+            
+            <!-- Execute the flow -->
+            <flow-ref doc:name="Call create-purchase-order-flow" name="create-purchase-order-flow"/>
+        </munit:execution>
+        
+        <munit:validation>
+            <!-- Verify response structure -->
+            <munit-tools:assert-that doc:name="Assert success is true" 
+                                   expression="#[payload.success]" 
+                                   is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that doc:name="Assert message exists" 
+                                   expression="#[payload.message]" 
+                                   is="#[MunitTools::notNullValue()]"/>
+            <munit-tools:assert-that doc:name="Assert purchase order exists" 
+                                   expression="#[payload.purchase_order]" 
+                                   is="#[MunitTools::notNullValue()]"/>
+            <munit-tools:assert-that doc:name="Assert PO ID" 
+                                   expression="#[payload.purchase_order.id]" 
+                                   is="#[MunitTools::equalTo('test-po-123')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- Test: Get Purchase Order Flow -->
+    <munit:test name="test-get-purchase-order-flow" doc:id="test-get-po">
+        <munit:behavior>
+            <!-- Mock the HTTP request to Common API -->
+            <munit-tools:mock-when doc:name="Mock Common API Get PO" processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="config-ref" whereValue="Common_API_Config"/>
+                    <munit-tools:with-attribute attributeName="path" whereValue="/api/v1/purchase-orders/{id}"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value='#[{
+                        "id": "test-po-123",
+                        "po_number": "PO-2024-001",
+                        "buyer_company_id": "buyer-123",
+                        "seller_company_id": "seller-456",
+                        "status": "confirmed"
+                    }]' mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        
+        <munit:execution>
+            <!-- Set URI parameters -->
+            <set-variable value="test-po-123" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+            <ee:transform doc:name="Set Attributes">
+                <ee:message>
+                    <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+{
+    uriParams: {
+        id: vars.purchaseOrderId
+    }
+}]]></ee:set-attributes>
+                </ee:message>
+            </ee:transform>
+            
+            <!-- Execute the flow -->
+            <flow-ref doc:name="Call get-purchase-order-flow" name="get-purchase-order-flow"/>
+        </munit:execution>
+        
+        <munit:validation>
+            <!-- Verify response structure -->
+            <munit-tools:assert-that doc:name="Assert success is true" 
+                                   expression="#[payload.success]" 
+                                   is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that doc:name="Assert purchase order exists" 
+                                   expression="#[payload.purchase_order]" 
+                                   is="#[MunitTools::notNullValue()]"/>
+            <munit-tools:assert-that doc:name="Assert PO ID matches" 
+                                   expression="#[payload.purchase_order.id]" 
+                                   is="#[MunitTools::equalTo('test-po-123')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- Test: Propose Changes Flow -->
+    <munit:test name="test-propose-changes-flow" doc:id="test-propose-changes">
+        <munit:behavior>
+            <!-- Mock the HTTP request to Common API -->
+            <munit-tools:mock-when doc:name="Mock Common API Propose Changes" processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="config-ref" whereValue="Common_API_Config"/>
+                    <munit-tools:with-attribute attributeName="path" whereValue="/api/v1/purchase-orders/{id}/propose-changes"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value='#[{
+                        "success": true,
+                        "message": "Amendment proposed successfully",
+                        "amendment_status": "proposed",
+                        "purchase_order_id": "test-po-123"
+                    }]' mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        
+        <munit:execution>
+            <!-- Prepare test payload -->
+            <set-payload value='#[{
+                "proposed_quantity": 150,
+                "proposed_quantity_unit": "kg",
+                "amendment_reason": "Increased demand from customer"
+            }]' doc:name="Set Test Payload"/>
+            
+            <!-- Set URI parameters -->
+            <set-variable value="test-po-123" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+            <ee:transform doc:name="Set Attributes">
+                <ee:message>
+                    <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+{
+    uriParams: {
+        id: vars.purchaseOrderId
+    }
+}]]></ee:set-attributes>
+                </ee:message>
+            </ee:transform>
+            
+            <!-- Execute the flow -->
+            <flow-ref doc:name="Call propose-changes-flow" name="propose-changes-flow"/>
+        </munit:execution>
+        
+        <munit:validation>
+            <!-- Verify response structure -->
+            <munit-tools:assert-that doc:name="Assert success is true" 
+                                   expression="#[payload.success]" 
+                                   is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that doc:name="Assert amendment status" 
+                                   expression="#[payload.amendment_status]" 
+                                   is="#[MunitTools::equalTo('proposed')]"/>
+            <munit-tools:assert-that doc:name="Assert PO ID matches" 
+                                   expression="#[payload.purchase_order_id]" 
+                                   is="#[MunitTools::equalTo('test-po-123')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- Test: Approve Changes Flow -->
+    <munit:test name="test-approve-changes-flow" doc:id="test-approve-changes">
+        <munit:behavior>
+            <!-- Mock the HTTP request to Common API -->
+            <munit-tools:mock-when doc:name="Mock Common API Approve Changes" processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="config-ref" whereValue="Common_API_Config"/>
+                    <munit-tools:with-attribute attributeName="path" whereValue="/api/v1/purchase-orders/{id}/approve-changes"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value='#[{
+                        "success": true,
+                        "message": "Amendment approved successfully",
+                        "amendment_status": "approved",
+                        "purchase_order_id": "test-po-123"
+                    }]' mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        
+        <munit:execution>
+            <!-- Prepare test payload -->
+            <set-payload value='#[{
+                "approve": true,
+                "buyer_notes": "Approved - updated delivery schedule"
+            }]' doc:name="Set Test Payload"/>
+            
+            <!-- Set URI parameters -->
+            <set-variable value="test-po-123" variableName="purchaseOrderId" doc:name="Set PO ID"/>
+            <ee:transform doc:name="Set Attributes">
+                <ee:message>
+                    <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+{
+    uriParams: {
+        id: vars.purchaseOrderId
+    }
+}]]></ee:set-attributes>
+                </ee:message>
+            </ee:transform>
+            
+            <!-- Execute the flow -->
+            <flow-ref doc:name="Call approve-changes-flow" name="approve-changes-flow"/>
+        </munit:execution>
+        
+        <munit:validation>
+            <!-- Verify response structure -->
+            <munit-tools:assert-that doc:name="Assert success is true" 
+                                   expression="#[payload.success]" 
+                                   is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that doc:name="Assert amendment status" 
+                                   expression="#[payload.amendment_status]" 
+                                   is="#[MunitTools::equalTo('approved')]"/>
+            <munit-tools:assert-that doc:name="Assert PO ID matches" 
+                                   expression="#[payload.purchase_order_id]" 
+                                   is="#[MunitTools::equalTo('test-po-123')]"/>
+        </munit:validation>
+    </munit:test>
+
+</mule>
