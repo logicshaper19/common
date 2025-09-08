@@ -1,9 +1,10 @@
 /**
  * User create/edit modal component
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import { AdminUser, UserCreate, UserRole } from '../../../../types/admin';
+import { AdminUser, UserCreate, UserRole, Company } from '../../../../types/admin';
+import { adminApi } from '../../../../api/admin';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -28,6 +29,28 @@ export function UserModal({
   selectedUser,
   mode,
 }: UserModalProps) {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+
+  // Load companies when modal opens for create mode
+  useEffect(() => {
+    if (isOpen && mode === 'create') {
+      loadCompanies();
+    }
+  }, [isOpen, mode]);
+
+  const loadCompanies = async () => {
+    try {
+      setLoadingCompanies(true);
+      const response = await adminApi.getCompanies({ page: 1, per_page: 1000 }); // Get all companies
+      setCompanies(response.data);
+    } catch (error) {
+      console.error('Failed to load companies:', error);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -106,16 +129,24 @@ export function UserModal({
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Company ID
+                        Company
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={formData.company_id}
                         onChange={(e) => onFormDataChange({ ...formData, company_id: e.target.value })}
                         className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                        placeholder="Enter company ID"
                         required
-                      />
+                        disabled={loadingCompanies}
+                      >
+                        <option value="">
+                          {loadingCompanies ? 'Loading companies...' : 'Select a company'}
+                        </option>
+                        {companies.map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name} ({company.email})
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>

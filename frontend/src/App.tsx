@@ -10,7 +10,7 @@ import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
-import ConfirmationDemo from './pages/ConfirmationDemo';
+
 import TransparencyDashboard from './pages/TransparencyDashboard';
 import SupplierOnboardingDashboard from './pages/SupplierOnboardingDashboard';
 import UserManagementDashboard from './components/user/UserManagementDashboard';
@@ -89,11 +89,7 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="confirmation-demo" element={
-              <ProtectedRoute>
-                <ConfirmationDemo />
-              </ProtectedRoute>
-            } />
+
 
             {/* Redirect root to dashboard when authenticated */}
             <Route index element={

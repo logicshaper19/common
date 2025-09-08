@@ -2,7 +2,8 @@
  * Company management section component
  */
 import React, { useState } from 'react';
-import { Company, CompanyUpdate } from '../../../../types/admin';
+import { PlusIcon } from '@heroicons/react/24/outline';
+import { Company, CompanyCreate, CompanyUpdate } from '../../../../types/admin';
 import { useCompanyManagement } from '../hooks/useCompanyManagement';
 import { CompanyFilters } from './CompanyFilters';
 import { CompanyTable } from './CompanyTable';
@@ -24,34 +25,45 @@ export function CompanyManagementSection() {
     handlePageChange,
     handleSelectCompany,
     handleSelectAllCompanies,
+    createCompany,
     updateCompany,
     bulkOperation,
     clearSelection,
     clearError,
   } = useCompanyManagement();
 
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('edit');
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
-  const handleEditCompany = async (companyData: CompanyUpdate) => {
-    if (!selectedCompany) return;
-
+  const handleSubmitCompany = async (companyData: CompanyCreate | CompanyUpdate) => {
     try {
-      await updateCompany(selectedCompany.id, companyData);
-      setShowEditModal(false);
+      if (modalMode === 'create') {
+        await createCompany(companyData as CompanyCreate);
+      } else if (selectedCompany) {
+        await updateCompany(selectedCompany.id, companyData as CompanyUpdate);
+      }
+      setShowModal(false);
       setSelectedCompany(null);
     } catch (err) {
       // Error is handled by the hook
     }
   };
 
-  const openEditModal = (company: Company) => {
-    setSelectedCompany(company);
-    setShowEditModal(true);
+  const openCreateModal = () => {
+    setModalMode('create');
+    setSelectedCompany(null);
+    setShowModal(true);
   };
 
-  const handleCloseEditModal = () => {
-    setShowEditModal(false);
+  const openEditModal = (company: Company) => {
+    setModalMode('edit');
+    setSelectedCompany(company);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
     setSelectedCompany(null);
   };
 
@@ -65,6 +77,13 @@ export function CompanyManagementSection() {
             Manage company accounts and settings ({totalCompanies} total)
           </p>
         </div>
+        <button
+          onClick={openCreateModal}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+        >
+          <PlusIcon className="h-4 w-4 mr-2" />
+          Create Company
+        </button>
       </div>
 
       {/* Error Display */}
@@ -118,12 +137,13 @@ export function CompanyManagementSection() {
         />
       )}
 
-      {/* Edit Company Modal */}
+      {/* Company Modal */}
       <CompanyModal
-        isOpen={showEditModal}
-        onClose={handleCloseEditModal}
-        onSubmit={handleEditCompany}
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmitCompany}
         company={selectedCompany}
+        mode={modalMode}
       />
     </div>
   );

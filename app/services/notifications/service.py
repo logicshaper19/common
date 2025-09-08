@@ -391,3 +391,63 @@ class NotificationService:
             NotificationPriority.URGENT: ChannelPriority.CRITICAL
         }
         return mapping.get(priority, ChannelPriority.NORMAL)
+
+    def get_user_notifications(
+        self,
+        user_id: UUID,
+        unread_only: bool = False,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[Notification]:
+        """
+        Get notifications for a specific user.
+
+        Args:
+            user_id: The user's ID
+            unread_only: If True, only return unread notifications
+            limit: Maximum number of notifications to return
+            offset: Number of notifications to skip
+
+        Returns:
+            List of notification objects
+        """
+        query = self.db.query(Notification).filter(
+            Notification.user_id == user_id
+        )
+
+        if unread_only:
+            query = query.filter(Notification.is_read == False)
+
+        notifications = query.order_by(
+            Notification.created_at.desc()
+        ).offset(offset).limit(limit).all()
+
+        return notifications
+
+    def mark_as_read(self, notification_id: UUID, user_id: UUID) -> bool:
+        """
+        Mark a notification as read.
+
+        Args:
+            notification_id: The notification ID to mark as read
+            user_id: The user ID (for security check)
+
+        Returns:
+            True if successful, False if notification not found or access denied
+        """
+        notification = self.db.query(Notification).filter(
+            Notification.id == notification_id,
+            Notification.user_id == user_id
+        ).first()
+
+        if not notification:
+            return False
+
+        if notification.is_read:
+            return True  # Already read
+
+        notification.is_read = True
+        notification.read_at = datetime.utcnow()
+        self.db.commit()
+
+        return True

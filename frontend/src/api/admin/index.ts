@@ -95,6 +95,10 @@ export class AdminApiClient {
     return this.companies.getCompany(id);
   }
 
+  async createCompany(data: any) {
+    return this.companies.createCompany(data);
+  }
+
   async updateCompany(id: string, data: any) {
     return this.companies.updateCompany(id, data);
   }

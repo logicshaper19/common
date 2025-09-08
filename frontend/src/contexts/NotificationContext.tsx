@@ -240,6 +240,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   const connect = useCallback(() => {
     if (!user?.id || wsRef.current) return;
 
+    // TODO: WebSocket support is not yet implemented in the backend
+    // Disable WebSocket connections to prevent console errors
+    console.log('WebSocket notifications not yet implemented - using polling instead');
+    return;
+
+    // Note: The following code is commented out until WebSocket support is implemented
+    /*
     try {
       // WebSocket URL for real-time notifications
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -250,7 +257,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
       // Real WebSocket connection
       const ws = new WebSocket(wsUrl);
-      
+
       ws.onopen = () => {
         setState(prev => ({ ...prev, isConnected: true, error: null }));
         reconnectAttemptsRef.current = 0;
@@ -259,10 +266,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       ws.onmessage = (event) => {
         try {
           const update: NotificationUpdate = JSON.parse(event.data);
-          
+
           setState(prev => {
             let newNotifications = [...prev.notifications];
-            
+
             switch (update.type) {
               case 'new_notification':
                 if (update.notification) {
@@ -272,13 +279,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
               case 'notification_read':
               case 'notification_deleted':
                 if (update.notification_ids) {
-                  newNotifications = newNotifications.filter(n => 
+                  newNotifications = newNotifications.filter(n =>
                     !update.notification_ids!.includes(n.id)
                   );
                 }
                 break;
             }
-            
+
             return {
               ...prev,
               notifications: newNotifications,
@@ -294,7 +301,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       ws.onclose = () => {
         setState(prev => ({ ...prev, isConnected: false }));
         wsRef.current = null;
-        
+
         // Attempt to reconnect
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
@@ -314,7 +321,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       console.error('Failed to connect to WebSocket:', error);
       setState(prev => ({ ...prev, error: 'Failed to connect' }));
     }
-  }, [user?.id, user?.company?.id, state.summary]);
+    */
+  }, [user?.id]);
 
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {

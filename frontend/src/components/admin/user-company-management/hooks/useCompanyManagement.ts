@@ -6,6 +6,7 @@ import { adminApi } from '../../../../api/admin';
 import {
   Company,
   CompanyFilter,
+  CompanyCreate,
   CompanyUpdate,
   CompanyBulkOperation,
 } from '../../../../types/admin';
@@ -26,6 +27,7 @@ export interface UseCompanyManagementReturn {
   handlePageChange: (page: number) => void;
   handleSelectCompany: (companyId: string) => void;
   handleSelectAllCompanies: () => void;
+  createCompany: (companyData: CompanyCreate) => Promise<void>;
   updateCompany: (companyId: string, companyData: CompanyUpdate) => Promise<void>;
   bulkOperation: (operation: CompanyBulkOperation['operation']) => Promise<void>;
   clearSelection: () => void;
@@ -87,6 +89,18 @@ export function useCompanyManagement(): UseCompanyManagementReturn {
       setSelectedCompanies(new Set(companies.map(company => company.id)));
     }
   }, [selectedCompanies.size, companies]);
+
+  const createCompany = useCallback(async (companyData: CompanyCreate) => {
+    try {
+      setError(null);
+      await adminApi.createCompany(companyData);
+      await loadCompanies(); // Reload companies after creation
+    } catch (err) {
+      setError('Failed to create company');
+      console.error('Error creating company:', err);
+      throw err;
+    }
+  }, [loadCompanies]);
 
   const updateCompany = useCallback(async (companyId: string, companyData: CompanyUpdate) => {
     try {
@@ -150,6 +164,7 @@ export function useCompanyManagement(): UseCompanyManagementReturn {
     handlePageChange,
     handleSelectCompany,
     handleSelectAllCompanies,
+    createCompany,
     updateCompany,
     bulkOperation,
     clearSelection,

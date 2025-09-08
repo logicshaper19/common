@@ -157,11 +157,40 @@ export interface Company {
   compliance_status: ComplianceStatus;
   last_activity?: string;
   country?: string;
+
+  // Industry fields
+  industry_sector?: string;
+  industry_subcategory?: string;
+
+  // Address fields (for backward compatibility with new schema)
+  address_street?: string;
+  address_city?: string;
+  address_state?: string;
+  address_postal_code?: string;
+  address_country?: string;
 }
 
-export type CompanyType = 'brand' | 'processor' | 'originator' | 'trader' | 'plantation' | 'manufacturer';
+export type CompanyType = 'plantation_grower' | 'smallholder_cooperative' | 'mill_processor' | 'refinery_crusher' | 'trader_aggregator' | 'oleochemical_producer' | 'manufacturer';
 export type SubscriptionTier = 'free' | 'basic' | 'premium' | 'enterprise';
 export type ComplianceStatus = 'compliant' | 'warning' | 'non_compliant' | 'pending_review';
+
+export interface Brand {
+  id: string;
+  name: string;
+  company_id: string;
+  description?: string;
+  website?: string;
+  logo_url?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BrandWithCompany extends Brand {
+  company_name: string;
+  company_email: string;
+  company_type: CompanyType;
+}
 
 export interface Address {
   street: string;
@@ -220,6 +249,30 @@ export interface UserUpdate {
   force_password_reset?: boolean;
 }
 
+export interface CompanyCreate {
+  name: string;
+  email: string;
+  company_type: CompanyType;
+  phone?: string;
+  website?: string;
+  country?: string;
+  subscription_tier?: SubscriptionTier;
+  compliance_status?: ComplianceStatus;
+  is_active?: boolean;
+  is_verified?: boolean;
+
+  // Industry fields
+  industry_sector?: string;
+  industry_subcategory?: string;
+
+  // Address fields
+  address_street?: string;
+  address_city?: string;
+  address_state?: string;
+  address_postal_code?: string;
+  address_country?: string;
+}
+
 export interface CompanyUpdate {
   name?: string;
   email?: string;
@@ -232,6 +285,17 @@ export interface CompanyUpdate {
   subscription_tier?: SubscriptionTier;
   compliance_status?: ComplianceStatus;
   country?: string;
+
+  // Industry fields
+  industry_sector?: string;
+  industry_subcategory?: string;
+
+  // Address fields
+  address_street?: string;
+  address_city?: string;
+  address_state?: string;
+  address_postal_code?: string;
+  address_country?: string;
 }
 
 export interface UserBulkOperation {

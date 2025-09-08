@@ -29,23 +29,31 @@ export abstract class BaseAdminClient {
     } = options;
 
     try {
-      // Use the existing apiClient's request method
-      const response = await (apiClient as any).request({
-        method,
-        url: endpoint,
-        params,
-        data,
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers
-        }
-      });
+      let response: { data: T };
 
-      return response as T;
+      // Use the appropriate HTTP method from apiClient
+      switch (method.toUpperCase()) {
+        case 'GET':
+          response = await apiClient.get<T>(endpoint, { params, headers });
+          break;
+        case 'POST':
+          response = await apiClient.post<T>(endpoint, data, { params, headers });
+          break;
+        case 'PUT':
+          response = await apiClient.put<T>(endpoint, data, { params, headers });
+          break;
+        case 'DELETE':
+          response = await apiClient.delete<T>(endpoint, { params, headers });
+          break;
+        default:
+          throw new Error(`Unsupported HTTP method: ${method}`);
+      }
+
+      return response.data;
     } catch (error: any) {
       // Log the error for debugging
       console.warn(`Backend request failed for ${endpoint}:`, error.message);
-      
+
       // Re-throw to let individual clients handle the error
       throw error;
     }
