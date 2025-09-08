@@ -34,20 +34,22 @@ export function getRoleBadge(role: UserRole) {
 
 export function getCompanyTypeBadge(type: CompanyType) {
   const styles = {
-    brand: 'bg-purple-100 text-purple-800',
-    processor: 'bg-blue-100 text-blue-800',
-    originator: 'bg-green-100 text-green-800',
-    trader: 'bg-yellow-100 text-yellow-800',
-    plantation: 'bg-emerald-100 text-emerald-800',
+    plantation_grower: 'bg-green-100 text-green-800',
+    smallholder_cooperative: 'bg-emerald-100 text-emerald-800',
+    mill_processor: 'bg-blue-100 text-blue-800',
+    refinery_crusher: 'bg-indigo-100 text-indigo-800',
+    trader_aggregator: 'bg-yellow-100 text-yellow-800',
+    oleochemical_producer: 'bg-purple-100 text-purple-800',
     manufacturer: 'bg-orange-100 text-orange-800',
   };
 
   const labels = {
-    brand: 'Brand',
-    processor: 'Processor',
-    originator: 'Originator',
-    trader: 'Trader',
-    plantation: 'Plantation',
+    plantation_grower: 'Plantation / Grower',
+    smallholder_cooperative: 'Smallholder / Cooperative',
+    mill_processor: 'Mill / Processor',
+    refinery_crusher: 'Refinery / Crusher',
+    trader_aggregator: 'Trader / Aggregator',
+    oleochemical_producer: 'Oleochemical Producer',
     manufacturer: 'Manufacturer',
   };
 

@@ -19,14 +19,14 @@ class UserRegister(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=255)
     role: str = Field(..., pattern="^(admin|buyer|seller)$")
     company_name: str = Field(..., min_length=1, max_length=255)
-    company_type: str = Field(..., pattern="^(brand|processor|originator)$")
+    company_type: str = Field(..., pattern="^(plantation_grower|smallholder_cooperative|mill_processor|refinery_crusher|trader_aggregator|oleochemical_producer|manufacturer)$")
     company_email: EmailStr
 
 
 class CompanyCreate(BaseModel):
     """Company creation schema."""
     name: str = Field(..., min_length=1, max_length=255)
-    company_type: str = Field(..., pattern="^(brand|processor|originator)$")
+    company_type: str = Field(..., pattern="^(plantation_grower|smallholder_cooperative|mill_processor|refinery_crusher|trader_aggregator|oleochemical_producer|manufacturer)$")
     email: EmailStr
 
 

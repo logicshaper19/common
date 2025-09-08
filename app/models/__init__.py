@@ -10,6 +10,7 @@ from .audit_event import AuditEvent
 from .sector import Sector, SectorTier, SectorProduct
 from .document import Document, ProxyRelationship, ProxyAction
 from .po_compliance_result import POComplianceResult
+from .brand import Brand
 # from .data_access import DataAccessPermission, AccessAttempt, DataClassification, DataAccessPolicy
 # from .viral_analytics import NetworkGrowthMetric, ViralCascadeNode
 # from .supplier_invitation import SupplierInvitation
@@ -31,6 +32,7 @@ __all__ = [
     "ProxyRelationship",
     "ProxyAction",
     "POComplianceResult",
+    "Brand",
     # "DataAccessPermission",
     # "AccessAttempt",
     # "DataClassification",

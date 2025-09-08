@@ -9,7 +9,7 @@ export interface CompanyOnboardingData {
   
   // Basic company information
   company_name: string;
-  company_type: 'brand' | 'processor' | 'originator';
+  company_type: 'plantation_grower' | 'smallholder_cooperative' | 'mill_processor' | 'refinery_crusher' | 'trader_aggregator' | 'oleochemical_producer' | 'manufacturer';
   email: string;
   phone?: string;
   website?: string;

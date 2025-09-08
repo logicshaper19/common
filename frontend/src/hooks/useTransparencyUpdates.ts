@@ -101,6 +101,13 @@ export function useTransparencyUpdates({
   const connect = useCallback(() => {
     if (!enabled || !companyId) return;
 
+    // TODO: WebSocket support is not yet implemented in the backend
+    // Disable WebSocket connections to prevent console errors
+    console.log('WebSocket transparency updates not yet implemented');
+    return;
+
+    // Note: The following code is commented out until WebSocket support is implemented
+    /*
     try {
       // Close existing connection
       if (wsRef.current) {
@@ -111,7 +118,7 @@ export function useTransparencyUpdates({
 
       // Real WebSocket connection
       const ws = new WebSocket(getWebSocketUrl());
-      
+
       ws.addEventListener('open', handleOpen);
       ws.addEventListener('message', handleMessage);
       ws.addEventListener('close', handleClose);
@@ -125,7 +132,8 @@ export function useTransparencyUpdates({
         isConnected: false,
       }));
     }
-  }, [enabled, companyId, getWebSocketUrl, handleOpen, handleMessage, handleClose, handleError, onUpdate]);
+    */
+  }, [enabled, companyId]);
 
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {

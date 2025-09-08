@@ -40,12 +40,13 @@ export function CompanyFilters({ filters, onFilterChange }: CompanyFiltersProps)
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="">All Types</option>
-            <option value="brand">Brand</option>
+            <option value="plantation_grower">Plantation / Grower</option>
+            <option value="smallholder_cooperative">Smallholder / Cooperative</option>
+            <option value="mill_processor">Mill / Processor</option>
+            <option value="refinery_crusher">Refinery / Crusher</option>
+            <option value="trader_aggregator">Trader / Aggregator</option>
+            <option value="oleochemical_producer">Oleochemical Producer</option>
             <option value="manufacturer">Manufacturer</option>
-            <option value="supplier">Supplier</option>
-            <option value="distributor">Distributor</option>
-            <option value="retailer">Retailer</option>
-            <option value="service_provider">Service Provider</option>
           </select>
         </div>
 

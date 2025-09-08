@@ -6,6 +6,7 @@ import { PaginatedResponse } from '../base/types';
 import {
   Company,
   CompanyFilter,
+  CompanyCreate,
   CompanyUpdate,
   CompanyBulkOperation,
 } from '../../../types/admin';
@@ -34,6 +35,20 @@ export class CompanyClient extends BaseAdminClient {
     this.validateRequired({ id }, ['id']);
 
     const response = await this.makeRequest<Company>(`/admin/companies/${id}`);
+    return response;
+  }
+
+  /**
+   * Create a new company
+   */
+  async createCompany(data: CompanyCreate): Promise<Company> {
+    this.validateRequired(data, ['name', 'email', 'company_type']);
+
+    const response = await this.makeRequest<Company>('/admin/companies', {
+      method: 'POST',
+      data,
+    });
+
     return response;
   }
 

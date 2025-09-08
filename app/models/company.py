@@ -18,6 +18,28 @@ class Company(Base):
     name = Column(String(255), nullable=False)
     company_type = Column(String(50), nullable=False)  # 'brand', 'processor', 'originator' (legacy)
     email = Column(String(255), unique=True, nullable=False)
+    phone = Column(String(50), nullable=True)
+    website = Column(String(500), nullable=True)
+    country = Column(String(100), nullable=True)
+
+    # Industry fields
+    industry_sector = Column(String(100), nullable=True)
+    industry_subcategory = Column(String(100), nullable=True)
+
+    # Address fields
+    address_street = Column(String(255), nullable=True)
+    address_city = Column(String(100), nullable=True)
+    address_state = Column(String(100), nullable=True)
+    address_postal_code = Column(String(20), nullable=True)
+    address_country = Column(String(100), nullable=True)
+
+    # Admin fields
+    subscription_tier = Column(String(50), default='free')  # 'free', 'basic', 'professional', 'enterprise'
+    compliance_status = Column(String(50), default='pending_review')  # 'compliant', 'non_compliant', 'pending_review', 'under_review', 'requires_action'
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+    transparency_score = Column(Integer, nullable=True)  # 0-100 score
+    last_activity = Column(DateTime(timezone=True), nullable=True)
 
     # Sector-specific fields
     sector_id = Column(String(50), ForeignKey("sectors.id"), nullable=True)
@@ -42,6 +64,7 @@ class Company(Base):
     # purchase_orders_as_seller = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.seller_company_id")
     sector = relationship("Sector", back_populates="companies")
     team_invitations = relationship("TeamInvitation", back_populates="company")
+    brands = relationship("Brand", back_populates="company", cascade="all, delete-orphan")
 
     # Performance indexes for frequently queried fields
     __table_args__ = (
@@ -52,6 +75,12 @@ class Company(Base):
         Index('idx_companies_type_created', 'company_type', 'created_at'),
         Index('idx_companies_sector_id', 'sector_id'),
         Index('idx_companies_tier_level', 'tier_level'),
+        # Admin fields indexes
+        Index('idx_companies_subscription_tier', 'subscription_tier'),
+        Index('idx_companies_compliance_status', 'compliance_status'),
+        Index('idx_companies_is_active', 'is_active'),
+        Index('idx_companies_is_verified', 'is_verified'),
+        Index('idx_companies_country', 'country'),
         # Phase 2 ERP Integration indexes
         Index('idx_companies_erp_enabled', 'erp_integration_enabled'),
         Index('idx_companies_erp_sync_enabled', 'erp_sync_enabled'),

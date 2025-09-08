@@ -18,7 +18,7 @@ from app.models.notification import (
 from app.models.purchase_order import PurchaseOrder
 
 # Import the new modular service
-from app.services.notifications import NotificationService as ModularNotificationService
+from app.services.notifications.service import NotificationService as ModularNotificationService
 
 logger = get_logger(__name__)
 
@@ -135,6 +135,41 @@ class NotificationService:
         self.db.commit()
 
         return True
+
+    def get_user_notifications(
+        self,
+        user_id: UUID,
+        unread_only: bool = False,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List:
+        """
+        Get notifications for a specific user.
+
+        Args:
+            user_id: The user's ID
+            unread_only: If True, only return unread notifications
+            limit: Maximum number of notifications to return
+            offset: Number of notifications to skip
+
+        Returns:
+            List of notification objects
+        """
+        # Force reload to ensure method is available
+        from app.models.notification import Notification
+
+        query = self.db.query(Notification).filter(
+            Notification.user_id == user_id
+        )
+
+        if unread_only:
+            query = query.filter(Notification.is_read == False)
+
+        notifications = query.order_by(
+            Notification.created_at.desc()
+        ).offset(offset).limit(limit).all()
+
+        return notifications
 
 
 # Legacy Celery tasks - kept for backward compatibility

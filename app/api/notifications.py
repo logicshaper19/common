@@ -192,6 +192,91 @@ async def mark_notification_as_read(
         )
 
 
+@router.get("/summary", response_model=NotificationStatsResponse)
+async def get_notification_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> NotificationStatsResponse:
+    """
+    Get notification summary for the current user.
+
+    Returns a summary of notification counts and recent activity.
+    """
+    try:
+        from sqlalchemy import func
+        from datetime import datetime, timedelta
+
+        # Get total and unread notification counts
+        total_notifications = db.query(func.count(Notification.id)).filter(
+            Notification.user_id == current_user.id
+        ).scalar()
+
+        unread_notifications = db.query(func.count(Notification.id)).filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False
+        ).scalar()
+
+        # Get notifications by type
+        type_counts = db.query(
+            Notification.notification_type,
+            func.count(Notification.id)
+        ).filter(
+            Notification.user_id == current_user.id
+        ).group_by(Notification.notification_type).all()
+
+        notifications_by_type = {
+            type_count[0].value: type_count[1] for type_count in type_counts
+        }
+
+        # Get notifications by priority
+        priority_counts = db.query(
+            Notification.priority,
+            func.count(Notification.id)
+        ).filter(
+            Notification.user_id == current_user.id
+        ).group_by(Notification.priority).all()
+
+        notifications_by_priority = {
+            priority_count[0].value: priority_count[1] for priority_count in priority_counts
+        }
+
+        # Get recent activity (last 5 notifications)
+        recent_notifications = db.query(Notification).filter(
+            Notification.user_id == current_user.id
+        ).order_by(Notification.created_at.desc()).limit(5).all()
+
+        recent_activity = [
+            {
+                "id": str(n.id),
+                "type": n.notification_type.value,
+                "title": n.title,
+                "priority": n.priority.value,
+                "is_read": n.is_read,
+                "created_at": n.created_at.isoformat()
+            }
+            for n in recent_notifications
+        ]
+
+        return NotificationStatsResponse(
+            total_notifications=total_notifications or 0,
+            unread_notifications=unread_notifications or 0,
+            notifications_by_type=notifications_by_type,
+            notifications_by_priority=notifications_by_priority,
+            recent_activity=recent_activity
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to get notification summary",
+            user_id=str(current_user.id),
+            error=str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get notification summary: {str(e)}"
+        )
+
+
 @router.get("/stats", response_model=NotificationStatsResponse)
 async def get_notification_stats(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),

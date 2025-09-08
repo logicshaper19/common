@@ -25,6 +25,7 @@ from app.core.error_handling import (
 )
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
+from app.api.admin import router as admin_router
 from app.api.products import router as products_router
 from app.api.purchase_orders import router as purchase_orders_router
 from app.api.confirmation import router as confirmation_router
@@ -45,6 +46,7 @@ from app.api.compliance import router as compliance_router
 from app.api.team_invitations import router as team_invitations_router
 from app.api.amendments import router as amendments_router
 from app.api.erp_sync import router as erp_sync_router
+from app.api.v1.endpoints.brands import router as brands_router
 from app.services.seed_data import SeedDataService
 
 # Configure logging
@@ -196,6 +198,7 @@ app.include_router(health_router, prefix="/health", tags=["Health"])
 
 # V1 API endpoints
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["Purchase Orders"])
 app.include_router(confirmation_router, prefix="/api/v1", tags=["Confirmation"])
@@ -216,6 +219,7 @@ app.include_router(compliance_router, prefix="/api/v1", tags=["Compliance"])
 app.include_router(team_invitations_router, prefix="/api/v1/team", tags=["Team Management"])
 app.include_router(amendments_router, prefix="/api/v1", tags=["Amendments"])
 app.include_router(erp_sync_router, prefix="/api/v1", tags=["ERP Sync"])
+app.include_router(brands_router, prefix="/api/v1/brands", tags=["Brands"])
 
 
 @app.get("/")

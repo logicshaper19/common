@@ -24,7 +24,7 @@ import { cn } from '../../lib/utils';
 
 interface CompanyOnboardingWizardProps {
   invitationToken?: string;
-  companyType?: 'brand' | 'processor' | 'originator';
+  companyType?: 'plantation_grower' | 'smallholder_cooperative' | 'mill_processor' | 'refinery_crusher' | 'trader_aggregator' | 'oleochemical_producer' | 'manufacturer';
   onComplete?: (result: { company_id: string; user_id: string; access_token: string }) => void;
   className?: string;
 }
@@ -42,7 +42,7 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
   const [companyData, setCompanyData] = useState<CompanyOnboardingData>({
     id: undefined,
     company_name: '',
-    company_type: companyType || 'originator',
+    company_type: companyType || 'plantation_grower',
     email: '',
     phone: '',
     website: '',
@@ -136,31 +136,67 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
   // Get role-specific guidance
   const getRoleGuidance = () => {
     const guidance = {
-      brand: {
-        title: 'Brand Company Setup',
-        description: 'As a brand, you\'ll be managing relationships with processors and tracking product transparency.',
+      plantation_grower: {
+        title: 'Plantation / Grower Setup',
+        description: 'As a plantation or grower, you\'ll be providing raw palm fruit and origin data to the supply chain.',
         tips: [
-          'Focus on building relationships with sustainable suppliers',
-          'Set up transparency requirements for your supply chain',
-          'Configure data sharing to track product origins',
+          'Document your farming practices and certifications',
+          'Set up location and sustainability data sharing',
+          'Configure quality and origin certifications',
         ],
       },
-      processor: {
-        title: 'Processor Company Setup',
-        description: 'As a processor, you\'ll be connecting brands with originators and managing transformation data.',
+      smallholder_cooperative: {
+        title: 'Smallholder / Cooperative Setup',
+        description: 'As a smallholder cooperative, you\'ll be aggregating production from multiple small-scale farmers.',
+        tips: [
+          'Document member farmer practices and locations',
+          'Set up aggregated production tracking',
+          'Configure cooperative certifications and standards',
+        ],
+      },
+      mill_processor: {
+        title: 'Mill / Processor Setup',
+        description: 'As a mill or processor, you\'ll be extracting crude palm oil from fresh fruit bunches.',
         tips: [
           'Document your processing capabilities and certifications',
           'Set up input material tracking for transparency',
           'Configure quality metrics and processing data sharing',
         ],
       },
-      originator: {
-        title: 'Originator Company Setup',
-        description: 'As an originator, you\'ll be providing raw materials and origin data to the supply chain.',
+      refinery_crusher: {
+        title: 'Refinery / Crusher Setup',
+        description: 'As a refinery or crusher, you\'ll be refining crude palm oil into derivatives for manufacturers.',
         tips: [
-          'Document your farming or production practices',
-          'Set up location and sustainability data sharing',
-          'Configure quality and origin certifications',
+          'Document refining processes and quality standards',
+          'Set up input-output tracking for transparency',
+          'Configure derivative product specifications',
+        ],
+      },
+      trader_aggregator: {
+        title: 'Trader / Aggregator Setup',
+        description: 'As a trader or aggregator, you\'ll be buying, consolidating, and selling commodities across markets.',
+        tips: [
+          'Focus on building relationships with sustainable suppliers',
+          'Set up transparency requirements for your supply chain',
+          'Configure data sharing to track product origins',
+        ],
+      },
+      oleochemical_producer: {
+        title: 'Oleochemical Producer Setup',
+        description: 'As an oleochemical producer, you\'ll be converting palm oil derivatives into specialized ingredients.',
+        tips: [
+          'Document specialized production capabilities',
+          'Set up ingredient traceability systems',
+          'Configure end-product specifications and certifications',
+        ],
+      },
+      manufacturer: {
+        title: 'Manufacturer Setup',
+        description: 'As a consumer goods manufacturer, you\'ll be producing finished personal care and adhesive products using palm oil derivatives.',
+        tips: [
+          'Document finished product formulations and specifications',
+          'Set up ingredient sourcing and traceability systems',
+          'Configure consumer product certifications and compliance',
         ],
       },
     };
@@ -364,9 +400,13 @@ const CompanyOnboardingWizard: React.FC<CompanyOnboardingWizardProps> = ({
           required
           disabled={!!companyType}
           options={[
-            { label: 'Originator (Raw Materials)', value: 'originator' },
-            { label: 'Processor (Manufacturing)', value: 'processor' },
-            { label: 'Brand (Retail)', value: 'brand' }
+            { label: 'Plantation / Grower (Farms & Estates)', value: 'plantation_grower' },
+            { label: 'Smallholder / Cooperative (Small-scale Farmers)', value: 'smallholder_cooperative' },
+            { label: 'Mill / Processor (Oil Extraction)', value: 'mill_processor' },
+            { label: 'Refinery / Crusher (Oil Refining)', value: 'refinery_crusher' },
+            { label: 'Trader / Aggregator (Commodity Trading)', value: 'trader_aggregator' },
+            { label: 'Oleochemical Producer (Specialized Manufacturing)', value: 'oleochemical_producer' },
+            { label: 'Manufacturer (Consumer Goods)', value: 'manufacturer' }
           ]}
         />
       </div>

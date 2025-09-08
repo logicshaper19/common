@@ -213,9 +213,13 @@ const SupplierInvitationForm: React.FC<SupplierInvitationFormProps> = ({
               required
               className={`pl-10 ${errors.company_type ? 'border-red-500' : ''}`}
               options={[
-                { value: 'originator', label: 'Originator (Raw Materials)' },
-                { value: 'processor', label: 'Processor (Manufacturing)' },
-                { value: 'brand', label: 'Brand (Retail)' }
+                { value: 'plantation_grower', label: 'Plantation / Grower (Farms & Estates)' },
+                { value: 'smallholder_cooperative', label: 'Smallholder / Cooperative (Small-scale Farmers)' },
+                { value: 'mill_processor', label: 'Mill / Processor (Oil Extraction)' },
+                { value: 'refinery_crusher', label: 'Refinery / Crusher (Oil Refining)' },
+                { value: 'trader_aggregator', label: 'Trader / Aggregator (Commodity Trading)' },
+                { value: 'oleochemical_producer', label: 'Oleochemical Producer (Specialized Manufacturing)' },
+                { value: 'manufacturer', label: 'Manufacturer (Consumer Goods)' }
               ]}
             >
               <option value="originator">Originator (Raw Materials)</option>
