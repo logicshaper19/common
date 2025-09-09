@@ -99,9 +99,17 @@ async def get_documents(
         company_id = str(current_user.company_id)
     
     # Security check: users can only see their company's documents
-    # TODO: Add admin override capability
+    # Admin override: super admins can view any company's documents
     if company_id != str(current_user.company_id):
-        raise HTTPException(status_code=403, detail="Access denied")
+        if current_user.role != 'admin':
+            raise HTTPException(status_code=403, detail="Access denied")
+        # Log admin access for audit trail
+        logger.info(
+            "Admin override: viewing documents for different company",
+            admin_user_id=str(current_user.id),
+            admin_company_id=str(current_user.company_id),
+            target_company_id=company_id
+        )
     
     documents = await storage_service.get_documents(
         company_id=company_id,

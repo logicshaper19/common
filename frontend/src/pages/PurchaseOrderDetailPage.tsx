@@ -16,8 +16,9 @@ import {
   ShareIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
-import { purchaseOrderApi, PurchaseOrderWithDetails, Amendment } from '../services/purchaseOrderApi';
+import { purchaseOrderApi, PurchaseOrderWithDetails, Amendment, ProposeChangesRequest, SellerConfirmation } from '../services/purchaseOrderApi';
 import { useToast } from '../contexts/ToastContext';
+import { useAmendments } from '../hooks/useAmendments';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -30,6 +31,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { proposeChanges, isLoading: amendmentLoading } = useAmendments();
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,17 +124,65 @@ const PurchaseOrderDetailPage: React.FC = () => {
   };
 
   const handleAmendmentSubmit = async (amendment: any) => {
-    // TODO: Implement amendment submission
-    console.log('Amendment submitted:', amendment);
-    setShowAmendmentModal(false);
-    await loadPurchaseOrder(); // Refresh data
+    if (!id || !purchaseOrder) return;
+
+    try {
+      // Convert amendment data to ProposeChangesRequest format
+      const proposal: ProposeChangesRequest = {
+        proposed_quantity: amendment.changes.find((c: any) => c.field === 'quantity')?.proposed_value || purchaseOrder.quantity,
+        proposed_quantity_unit: purchaseOrder.unit,
+        amendment_reason: amendment.reason
+      };
+
+      await proposeChanges(id, proposal);
+
+      showToast({
+        type: 'success',
+        title: 'Amendment Proposed',
+        message: 'Your amendment has been submitted for approval.'
+      });
+
+      setShowAmendmentModal(false);
+      await loadPurchaseOrder(); // Refresh data
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Amendment Failed',
+        message: error.message || 'Failed to submit amendment. Please try again.'
+      });
+    }
   };
 
   const handleConfirmationSubmit = async (confirmation: any) => {
-    // TODO: Implement confirmation submission
-    console.log('Confirmation submitted:', confirmation);
-    setShowConfirmationModal(false);
-    await loadPurchaseOrder(); // Refresh data
+    if (!id || !purchaseOrder) return;
+
+    try {
+      // Convert confirmation data to SellerConfirmation format
+      const sellerConfirmation: SellerConfirmation = {
+        confirmed_quantity: confirmation.confirmed_quantity || purchaseOrder.quantity,
+        confirmed_unit_price: confirmation.confirmed_unit_price || purchaseOrder.unit_price,
+        confirmed_delivery_date: confirmation.confirmed_delivery_date || purchaseOrder.delivery_date,
+        confirmed_delivery_location: confirmation.confirmed_delivery_location || purchaseOrder.delivery_location,
+        seller_notes: confirmation.seller_notes || undefined
+      };
+
+      await purchaseOrderApi.sellerConfirmPurchaseOrder(id, sellerConfirmation);
+
+      showToast({
+        type: 'success',
+        title: 'Order Confirmed',
+        message: 'Purchase order has been successfully confirmed.'
+      });
+
+      setShowConfirmationModal(false);
+      await loadPurchaseOrder(); // Refresh data
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Confirmation Failed',
+        message: error.response?.data?.detail || 'Failed to confirm purchase order. Please try again.'
+      });
+    }
   };
 
   if (loading) {

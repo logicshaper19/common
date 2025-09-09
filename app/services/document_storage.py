@@ -27,6 +27,9 @@ from app.exceptions.document_exceptions import (
     DocumentStorageError, DocumentNotFoundError, DocumentAccessDeniedError,
     ProxyAuthorizationError, DocumentTransactionError, DocumentTransactionContext
 )
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -419,8 +422,19 @@ class DocumentStorageService:
         
         # Check permissions (user must be uploader or have admin rights)
         if document.uploaded_by_user_id != user_id:
-            # TODO: Add admin permission check
-            raise HTTPException(status_code=403, detail="Not authorized to delete this document")
+            # Admin override: check if user is admin
+            from app.models.user import User
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if not user or user.role != 'admin':
+                raise HTTPException(status_code=403, detail="Not authorized to delete this document")
+
+            # Log admin override for audit trail
+            logger.info(
+                "Admin override: deleting document uploaded by different user",
+                admin_user_id=str(user_id),
+                document_id=str(document_id),
+                original_uploader_id=str(document.uploaded_by_user_id)
+            )
         
         # Update validation status instead of hard delete
         document.validation_status = 'deleted'
