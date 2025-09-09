@@ -82,7 +82,8 @@ def require_data_access(
             # Admin bypass: platform admins can access all data in dev/ops scenarios
             try:
                 if getattr(current_user, 'role', None) == 'admin':
-                    return await func(*args, **kwargs) if hasattr(func, '__await__') else func(*args, **kwargs)
+                    import asyncio
+                    return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
             except Exception:
                 pass
 
@@ -114,7 +115,8 @@ def require_data_access(
 
             # Check if accessing own company data
             if allow_own_company and target_company_id == current_user.company_id:
-                return await func(*args, **kwargs) if hasattr(func, '__await__') else func(*args, **kwargs)
+                import asyncio
+                return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
             
             # Check data access permission
             access_control = DataAccessControlService(db)
@@ -137,7 +139,8 @@ def require_data_access(
                 )
             
             # Execute the function
-            return await func(*args, **kwargs) if hasattr(func, '__await__') else func(*args, **kwargs)
+            import asyncio
+            return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
         
         return wrapper
     return decorator
@@ -182,7 +185,8 @@ def filter_response_data(
                         db = arg
             
             # Execute the original function
-            result = await func(*args, **kwargs) if hasattr(func, '__await__') else func(*args, **kwargs)
+            import asyncio
+            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
             
             if not current_user or not db or not result:
                 return result

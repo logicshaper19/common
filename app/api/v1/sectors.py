@@ -4,6 +4,7 @@ API endpoints for sector management
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+import structlog
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
@@ -16,6 +17,7 @@ from app.schemas.sector import (
 )
 from app.services.sector_service import SectorService
 
+logger = structlog.get_logger()
 router = APIRouter()
 
 
@@ -113,20 +115,37 @@ async def get_user_sector_info(
     db: Session = Depends(get_db)
 ):
     """Get current user's sector and tier information"""
-    if not current_user.sector_id or not current_user.tier_level:
-        return UserSectorInfo()
-    
-    sector_service = SectorService(db)
-    tier_info = await sector_service.get_user_tier_info(
-        current_user.sector_id, 
-        current_user.tier_level
-    )
-    
-    return UserSectorInfo(
-        sector_id=current_user.sector_id,
-        tier_level=current_user.tier_level,
-        **tier_info if tier_info else {}
-    )
+    try:
+        # Debug logging for troubleshooting
+        logger.debug(f"Getting sector info for user {current_user.id}")
+        logger.debug(f"User sector_id: {getattr(current_user, 'sector_id', 'NOT_SET')}")
+        logger.debug(f"User tier_level: {getattr(current_user, 'tier_level', 'NOT_SET')}")
+
+        # Check if user has sector_id and tier_level attributes
+        if not hasattr(current_user, 'sector_id') or not hasattr(current_user, 'tier_level'):
+            logger.warning(f"User {current_user.id} missing sector attributes")
+            return UserSectorInfo()
+
+        # Check if user has sector assigned
+        if not current_user.sector_id or current_user.tier_level is None:
+            logger.info(f"User {current_user.id} has no sector assigned")
+            return UserSectorInfo()
+
+        sector_service = SectorService(db)
+        tier_info = await sector_service.get_user_tier_info(
+            current_user.sector_id,
+            current_user.tier_level
+        )
+
+        return UserSectorInfo(
+            sector_id=current_user.sector_id,
+            tier_level=current_user.tier_level,
+            **tier_info if tier_info else {}
+        )
+
+    except Exception as e:
+        logger.error(f"Error in get_user_sector_info: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user sector info: {str(e)}")
 
 
 # Admin-only endpoints for sector management
