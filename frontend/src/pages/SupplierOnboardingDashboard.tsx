@@ -3,11 +3,10 @@
  * Main interface for supplier onboarding and relationship management
  */
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   UserPlusIcon,
   UsersIcon,
   ChartBarIcon,
-  Cog6ToothIcon,
   PlusIcon,
   EyeIcon,
 } from '@heroicons/react/24/outline';
@@ -17,14 +16,15 @@ import { onboardingApi } from '../lib/onboardingApi';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import SupplierInvitationForm from '../components/onboarding/SupplierInvitationForm';
+import AnalyticsCard from '../components/ui/AnalyticsCard';
+import SupplierAddForm from '../components/onboarding/SupplierInvitationForm';
 import RelationshipManagement from '../components/onboarding/RelationshipManagement';
 import ViralCascadeAnalytics from '../components/onboarding/ViralCascadeAnalytics';
 import { cn, formatDate } from '../lib/utils';
 
 const SupplierOnboardingDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'invite' | 'relationships' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'add' | 'relationships' | 'analytics'>('overview');
   const [invitations, setInvitations] = useState<SupplierInvitation[]>([]);
   const [relationships, setRelationships] = useState<BusinessRelationship[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,13 +75,13 @@ const SupplierOnboardingDashboard: React.FC = () => {
 
   // Calculate dashboard stats
   const stats = {
-    totalInvitations: invitations.length,
-    pendingInvitations: invitations.filter(inv => inv.status === 'pending').length,
-    acceptedInvitations: invitations.filter(inv => inv.status === 'accepted').length,
+    totalSuppliers: invitations.length,
+    pendingSuppliers: invitations.filter(inv => inv.status === 'pending').length,
+    onboardedSuppliers: invitations.filter(inv => inv.status === 'accepted').length,
     activeRelationships: relationships.filter(rel => rel.status === 'active').length,
     totalRelationships: relationships.length,
-    conversionRate: invitations.length > 0 
-      ? (invitations.filter(inv => inv.status === 'accepted').length / invitations.length) * 100 
+    onboardingRate: invitations.length > 0
+      ? (invitations.filter(inv => inv.status === 'accepted').length / invitations.length) * 100
       : 0,
   };
 
@@ -90,94 +90,46 @@ const SupplierOnboardingDashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-primary-600 mb-1">
-              {stats.totalInvitations}
-            </div>
-            <div className="text-sm text-neutral-600">Total Invitations</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Total Suppliers"
+          value={stats.totalSuppliers}
+          icon={UsersIcon}
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-warning-600 mb-1">
-              {stats.pendingInvitations}
-            </div>
-            <div className="text-sm text-neutral-600">Pending Invitations</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Pending Onboarding"
+          value={stats.pendingSuppliers}
+          icon={UserPlusIcon}
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-success-600 mb-1">
-              {stats.activeRelationships}
-            </div>
-            <div className="text-sm text-neutral-600">Active Relationships</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Active Relationships"
+          value={stats.activeRelationships}
+          icon={UsersIcon}
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-neutral-600 mb-1">
-              {stats.conversionRate.toFixed(1)}%
-            </div>
-            <div className="text-sm text-neutral-600">Conversion Rate</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Onboarding Rate"
+          value={`${stats.onboardingRate.toFixed(1)}%`}
+          icon={ChartBarIcon}
+        />
       </div>
 
-      {/* Quick Actions */}
+
+
+      {/* Recent Suppliers */}
       <Card>
-        <CardHeader title="Quick Actions" />
-        <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button
-              variant="primary"
-              onClick={() => setActiveTab('invite')}
-              leftIcon={<PlusIcon className="h-4 w-4" />}
-              className="h-20 flex-col"
-            >
-              <span className="text-lg font-medium">Invite Supplier</span>
-              <span className="text-sm opacity-80">Send new invitation</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab('relationships')}
-              leftIcon={<UsersIcon className="h-4 w-4" />}
-              className="h-20 flex-col"
-            >
-              <span className="text-lg font-medium">Manage Relationships</span>
-              <span className="text-sm opacity-80">View and configure</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab('analytics')}
-              leftIcon={<ChartBarIcon className="h-4 w-4" />}
-              className="h-20 flex-col"
-            >
-              <span className="text-lg font-medium">View Analytics</span>
-              <span className="text-sm opacity-80">Viral cascade metrics</span>
-            </Button>
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* Recent Invitations */}
-      <Card>
-        <CardHeader 
-          title="Recent Invitations"
-          subtitle={`${invitations.length} total invitations sent`}
+        <CardHeader
+          title="Recent Suppliers"
+          subtitle={`${invitations.length} total suppliers added`}
           action={
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setActiveTab('invite')}
+              onClick={() => setActiveTab('add')}
               leftIcon={<PlusIcon className="h-4 w-4" />}
             >
-              Send Invitation
+              Add Supplier
             </Button>
           }
         />
@@ -185,59 +137,89 @@ const SupplierOnboardingDashboard: React.FC = () => {
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-2 text-neutral-600">Loading invitations...</p>
+              <p className="mt-2 text-neutral-600">Loading suppliers...</p>
             </div>
           ) : invitations.length === 0 ? (
             <div className="text-center py-8">
               <UserPlusIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-neutral-900 mb-2">No invitations sent yet</h3>
+              <h3 className="text-lg font-medium text-neutral-900 mb-2">No suppliers added yet</h3>
               <p className="text-neutral-600 mb-4">
-                Start building your supply chain network by inviting suppliers.
+                Start building your supply chain network by adding suppliers.
               </p>
               <Button
                 variant="primary"
-                onClick={() => setActiveTab('invite')}
+                onClick={() => setActiveTab('add')}
                 leftIcon={<PlusIcon className="h-4 w-4" />}
               >
-                Send Your First Invitation
+                Add Your First Supplier
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {invitations.slice(0, 5).map((invitation) => (
-                <div
-                  key={invitation.id}
-                  className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg hover:shadow-sm transition-shadow"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                      <UserPlusIcon className="h-5 w-5 text-primary-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-neutral-900">{invitation.supplier_name}</h4>
-                      <p className="text-sm text-neutral-600">{invitation.supplier_email}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    <Badge variant={getStatusBadgeVariant(invitation.status)}>
-                      {invitation.status}
-                    </Badge>
-                    <div className="text-right text-sm text-neutral-600">
-                      {formatDate(invitation.sent_at)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-neutral-200">
+                <thead className="bg-neutral-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      Supplier
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      Date Added
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-neutral-200">
+                  {invitations.slice(0, 5).map((invitation) => (
+                    <tr key={invitation.id} className="hover:bg-neutral-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                            <UserPlusIcon className="h-5 w-5 text-primary-600" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-neutral-900">
+                              {invitation.supplier_name || 'Unnamed Supplier'}
+                            </div>
+                            <div className="text-sm text-neutral-500">
+                              {invitation.supplier_email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-neutral-900">
+                          {invitation.relationship_type}
+                        </div>
+                        <div className="text-sm text-neutral-500">
+                          {invitation.company_type}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant={getStatusBadgeVariant(invitation.status)}>
+                          {invitation.status}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                        {formatDate(invitation.sent_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
               {invitations.length > 5 && (
-                <div className="text-center pt-3">
+                <div className="text-center pt-4 border-t border-neutral-200 mt-4">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setActiveTab('relationships')}
                   >
-                    View All {invitations.length} Invitations
+                    View All {invitations.length} Suppliers
                   </Button>
                 </div>
               )}
@@ -268,7 +250,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
               <UsersIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-neutral-900 mb-2">No active relationships</h3>
               <p className="text-neutral-600">
-                Relationships will appear here once suppliers accept your invitations.
+                Relationships will appear here once suppliers are onboarded to the platform.
               </p>
             </div>
           ) : (
@@ -318,18 +300,18 @@ const SupplierOnboardingDashboard: React.FC = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Supplier Onboarding</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Supplier Management</h1>
           <p className="text-neutral-600">
-            Manage supplier invitations, relationships, and viral growth analytics
+            Add and manage suppliers, relationships, and supply chain analytics
           </p>
         </div>
         
         <Button
           variant="primary"
-          onClick={() => setActiveTab('invite')}
+          onClick={() => setActiveTab('add')}
           leftIcon={<PlusIcon className="h-4 w-4" />}
         >
-          Invite Supplier
+          Add Supplier
         </Button>
       </div>
 
@@ -338,7 +320,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
         <nav className="-mb-px flex space-x-8">
           {[
             { id: 'overview', label: 'Overview', icon: ChartBarIcon },
-            { id: 'invite', label: 'Invite Supplier', icon: UserPlusIcon },
+            { id: 'add', label: 'Add Supplier', icon: UserPlusIcon },
             { id: 'relationships', label: 'Relationships', icon: UsersIcon },
             { id: 'analytics', label: 'Analytics', icon: ChartBarIcon },
           ].map((tab) => {
@@ -367,8 +349,8 @@ const SupplierOnboardingDashboard: React.FC = () => {
       {/* Tab Content */}
       <div>
         {activeTab === 'overview' && renderOverview()}
-        {activeTab === 'invite' && (
-          <SupplierInvitationForm
+        {activeTab === 'add' && (
+          <SupplierAddForm
             onInvitationSent={handleInvitationSent}
             onCancel={() => setActiveTab('overview')}
           />
@@ -376,7 +358,7 @@ const SupplierOnboardingDashboard: React.FC = () => {
         {activeTab === 'relationships' && user?.company?.id && (
           <RelationshipManagement
             companyId={user.company.id}
-            onInviteSupplier={() => setActiveTab('invite')}
+            onInviteSupplier={() => setActiveTab('add')}
           />
         )}
         {activeTab === 'analytics' && user?.company?.id && (
