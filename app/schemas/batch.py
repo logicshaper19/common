@@ -150,6 +150,9 @@ class BatchResponse(BaseModel):
     parent_batch_ids: Optional[List[UUID]]
     origin_data: Optional[Dict[str, Any]]
     certifications: Optional[List[str]]
+
+    # Purchase Order Linkage - CRITICAL for PO-to-Batch traceability
+    source_purchase_order_id: Optional[UUID] = None
     
     # Audit fields
     created_at: datetime

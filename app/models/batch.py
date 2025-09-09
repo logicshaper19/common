@@ -37,6 +37,9 @@ class Batch(Base):
     # Transformation tracking
     transformation_id = Column(String(100))  # For refineries: transformation events
     parent_batch_ids = Column(JSONType)  # List of input batch IDs for traceability
+
+    # Purchase Order Linkage - CRITICAL for automatic batch creation
+    source_purchase_order_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"))  # Links batch back to originating PO
     
     # Origin and traceability data
     origin_data = Column(JSONType)  # Origin data for harvest batches
@@ -66,6 +69,7 @@ class Batch(Base):
         Index('idx_batch_production_date', 'production_date'),
         Index('idx_batch_status', 'status'),
         Index('idx_batch_transformation_id', 'transformation_id'),
+        Index('idx_batch_source_po', 'source_purchase_order_id'),  # Critical for PO-to-batch queries
     )
 
 

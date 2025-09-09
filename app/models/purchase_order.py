@@ -45,6 +45,12 @@ class PurchaseOrder(Base):
     # Additional notes
     notes = Column(Text)
 
+    # Original Order Details (immutable)
+    original_quantity = Column(Numeric(12, 3))  # Original quantity requested by buyer
+    original_unit_price = Column(Numeric(12, 2))  # Original unit price requested by buyer
+    original_delivery_date = Column(Date)  # Original delivery date requested by buyer
+    original_delivery_location = Column(String(500))  # Original delivery location requested by buyer
+
     # Seller Confirmation Details
     confirmed_quantity = Column(Numeric(12, 3))  # What seller can actually deliver
     confirmed_unit_price = Column(Numeric(12, 2))  # Seller's confirmed price
@@ -52,6 +58,12 @@ class PurchaseOrder(Base):
     confirmed_delivery_location = Column(String(500))  # Seller's confirmed delivery location
     seller_notes = Column(Text)  # Seller's confirmation notes/conditions
     seller_confirmed_at = Column(DateTime(timezone=True))  # When seller confirmed
+
+    # Buyer Approval Workflow
+    buyer_approved_at = Column(DateTime(timezone=True))  # When buyer approved discrepancies
+    buyer_approval_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))  # User who approved
+    discrepancy_reason = Column(Text)  # JSON describing discrepancies
+    seller_confirmed_data = Column(JSONType)  # Seller's confirmation data before approval
 
     # Amendment tracking fields
     quantity_received = Column(Numeric(12, 3))  # Actual quantity received (for post-delivery amendments)
@@ -115,3 +127,35 @@ class PurchaseOrder(Base):
 
     # Relationships
     compliance_results = relationship("POComplianceResult", back_populates="purchase_order", cascade="all, delete-orphan")
+    history_entries = relationship("PurchaseOrderHistory", back_populates="purchase_order", cascade="all, delete-orphan")
+
+
+class PurchaseOrderHistory(Base):
+    """Purchase Order History model for audit trail."""
+
+    __tablename__ = "purchase_order_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    purchase_order_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=False)
+    action_type = Column(String(50), nullable=False)  # 'created', 'seller_confirmed', 'amendment_approved', etc.
+    action_description = Column(Text, nullable=False)  # Human-readable description
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    changes_data = Column(JSONType)  # Details of what changed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    purchase_order = relationship("PurchaseOrder", back_populates="history_entries")
+    user = relationship("User")
+    company = relationship("Company")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_po_history_po_id', 'purchase_order_id'),
+        Index('idx_po_history_action_type', 'action_type'),
+        Index('idx_po_history_user_id', 'user_id'),
+        Index('idx_po_history_company_id', 'company_id'),
+        Index('idx_po_history_created_at', 'created_at'),
+        Index('idx_po_history_po_action', 'purchase_order_id', 'action_type'),
+        Index('idx_po_history_po_created', 'purchase_order_id', 'created_at'),
+    )

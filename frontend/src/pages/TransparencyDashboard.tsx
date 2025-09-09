@@ -25,6 +25,7 @@ import ConsolidatedTransparencyView from '../components/transparency/Consolidate
 import SupplyChainGraph from '../components/transparency/SupplyChainGraph';
 import GapAnalysisPanel from '../components/transparency/GapAnalysisPanel';
 import MultiClientDashboard from '../components/transparency/MultiClientDashboard';
+import DeterministicTransparencyDashboard from '../components/transparency/DeterministicTransparencyDashboard';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -33,7 +34,7 @@ import { cn } from '../lib/utils';
 
 const TransparencyDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'visualization' | 'gaps' | 'multi-client'>('overview');
+  const [activeTab, setActiveTab] = useState<'deterministic' | 'overview' | 'visualization' | 'gaps' | 'multi-client'>('deterministic');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -131,7 +132,8 @@ const TransparencyDashboard: React.FC = () => {
 
   // Determine which tabs to show based on user role
   const availableTabs = [
-    { id: 'overview', label: 'Overview', icon: ChartBarIcon },
+    { id: 'deterministic', label: 'Deterministic Metrics', icon: ChartBarIcon },
+    { id: 'overview', label: 'Legacy Overview', icon: ChartBarIcon },
     { id: 'visualization', label: 'Supply Chain', icon: MapIcon },
     { id: 'gaps', label: 'Gap Analysis', icon: ExclamationTriangleIcon },
   ];
@@ -243,6 +245,13 @@ const TransparencyDashboard: React.FC = () => {
 
       {/* Tab Content */}
       <div className="space-y-6">
+        {activeTab === 'deterministic' && (
+          <DeterministicTransparencyDashboard
+            companyId={user?.company?.id}
+            className="max-w-7xl mx-auto"
+          />
+        )}
+
         {activeTab === 'overview' && transparencyMetrics && (
           <div className="max-w-4xl mx-auto">
             <ConsolidatedTransparencyView

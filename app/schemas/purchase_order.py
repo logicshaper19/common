@@ -13,6 +13,7 @@ class PurchaseOrderStatus(str, Enum):
     """Purchase order status enumeration."""
     DRAFT = "draft"
     PENDING = "pending"
+    AWAITING_BUYER_APPROVAL = "awaiting_buyer_approval"  # New status for discrepancy approval
     CONFIRMED = "confirmed"
     IN_TRANSIT = "in_transit"
     SHIPPED = "shipped"  # New status for shipped goods
@@ -20,6 +21,7 @@ class PurchaseOrderStatus(str, Enum):
     RECEIVED = "received"  # New status for received goods
     AMENDMENT_PENDING = "amendment_pending"  # New status for pending amendments
     CANCELLED = "cancelled"
+    DECLINED = "declined"  # New status for buyer-declined orders
 
 
 class AmendmentStatus(str, Enum):
@@ -375,4 +377,40 @@ class TraceabilityResponse(BaseModel):
     root_purchase_order: TraceabilityNode
     supply_chain: List[TraceabilityNode]
     total_nodes: int
+
+
+class DiscrepancyDetail(BaseModel):
+    """Schema for individual discrepancy details."""
+    field_name: str
+    original_value: Any
+    confirmed_value: Any
+    difference: Optional[str] = None
+
+
+class BuyerApprovalRequest(BaseModel):
+    """Schema for buyer approval of seller confirmation with discrepancies."""
+    approve: bool
+    buyer_notes: Optional[str] = Field(None, max_length=1000)
+
+
+class DiscrepancyResponse(BaseModel):
+    """Response schema for discrepancy detection."""
+    has_discrepancies: bool
+    discrepancies: List[DiscrepancyDetail]
+    requires_approval: bool
+    seller_confirmation_data: Dict[str, Any]
+
+
+class PurchaseOrderHistoryEntry(BaseModel):
+    """Schema for purchase order history entries."""
+    id: UUID
+    action_type: str
+    action_description: str
+    user_id: UUID
+    company_id: UUID
+    changes_data: Optional[Dict[str, Any]] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
     max_depth_reached: int

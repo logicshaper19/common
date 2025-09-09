@@ -21,13 +21,17 @@ from app.schemas.purchase_order import (
     TraceabilityResponse,
     PurchaseOrderStatus,
     SellerConfirmation,
+    BuyerApprovalRequest,
+    DiscrepancyResponse,
+    DiscrepancyDetail,
+    PurchaseOrderHistoryEntry,
     ProposeChangesRequest,
     ApproveChangesRequest,
     AmendmentResponse,
     AmendmentStatus
 )
 from app.core.logging import get_logger
-from app.core.data_access_middleware import require_po_access, filter_response_data
+from app.core.data_access_middleware import require_po_access, filter_response_data, AccessType
 from app.core.rate_limiting import rate_limit, RateLimitType
 from app.models.data_access import DataCategory, AccessType
 
@@ -265,17 +269,22 @@ def seller_confirm_purchase_order(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Seller confirmation of purchase order.
+    Seller confirmation of purchase order with discrepancy detection.
 
     Only the seller company can confirm the purchase order.
-    This sets confirmed quantities, prices, and delivery details.
+    If discrepancies are detected, the PO status is set to AWAITING_BUYER_APPROVAL.
+    If no discrepancies, the PO is confirmed immediately.
     """
     from datetime import datetime
+    from app.services.discrepancy_detection import DiscrepancyDetectionService
+    from app.services.po_history import POHistoryService
 
     purchase_order_service = PurchaseOrderService(db)
+    discrepancy_service = DiscrepancyDetectionService()
+    history_service = POHistoryService(db)
 
     # Get the PO to verify seller access
-    po = purchase_order_service.get_purchase_order_with_details(purchase_order_id)
+    po = purchase_order_service.get_purchase_order_by_id(purchase_order_id)
     if not po:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -283,38 +292,259 @@ def seller_confirm_purchase_order(
         )
 
     # Verify user is from seller company
-    if current_user.company_id != po.seller_company["id"]:
+    if current_user.company_id != po.seller_company_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the seller company can confirm this purchase order"
         )
 
-    # Create update data from confirmation
-    update_data = PurchaseOrderUpdate(
-        confirmed_quantity=confirmation.confirmed_quantity,
-        confirmed_unit_price=confirmation.confirmed_unit_price,
-        confirmed_delivery_date=confirmation.confirmed_delivery_date,
-        confirmed_delivery_location=confirmation.confirmed_delivery_location,
-        seller_notes=confirmation.seller_notes,
-        status=PurchaseOrderStatus.CONFIRMED  # Auto-confirm when seller confirms
+    # Store original values if not already stored
+    if po.original_quantity is None:
+        po.original_quantity = po.quantity
+        po.original_unit_price = po.unit_price
+        po.original_delivery_date = po.delivery_date
+        po.original_delivery_location = po.delivery_location
+
+    # Detect discrepancies
+    discrepancies = discrepancy_service.detect_discrepancies(po, confirmation)
+
+    # Store seller confirmation data
+    po.seller_confirmed_data = confirmation.model_dump()
+    po.seller_confirmed_at = datetime.utcnow()
+
+    if discrepancies:
+        # Has discrepancies - require buyer approval
+        po.status = PurchaseOrderStatus.AWAITING_BUYER_APPROVAL.value
+        po.discrepancy_reason = discrepancy_service.create_discrepancy_reason(discrepancies)
+
+        # Log history entry
+        history_service.log_seller_confirmation_with_discrepancies(
+            purchase_order_id=po.id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            po_number=po.po_number,
+            discrepancies=[d.model_dump() for d in discrepancies]
+        )
+
+        logger.info(
+            "Purchase order confirmation requires buyer approval",
+            po_id=purchase_order_id,
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            discrepancies_count=len(discrepancies)
+        )
+    else:
+        # No discrepancies - confirm immediately
+        _confirm_po(po, confirmation, db, current_user, history_service)
+
+        logger.info(
+            "Purchase order confirmed by seller with no discrepancies",
+            po_id=purchase_order_id,
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            confirmed_quantity=str(confirmation.confirmed_quantity)
+        )
+
+    db.commit()
+    db.refresh(po)
+
+    # Convert to response format
+    return purchase_order_service.get_purchase_order_with_details(purchase_order_id)
+
+
+@router.post("/{purchase_order_id}/buyer-approve", response_model=PurchaseOrderResponse)
+@require_po_access(AccessType.WRITE)
+def buyer_approve_discrepancies(
+    purchase_order_id: str,
+    approval: BuyerApprovalRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Buyer approval or rejection of seller confirmation discrepancies.
+
+    Only the buyer company can approve/reject discrepancies.
+    If approved, the PO is confirmed with the seller's values.
+    If rejected, the PO status returns to PENDING for seller revision.
+    """
+    from datetime import datetime
+    from app.services.po_history import POHistoryService
+
+    purchase_order_service = PurchaseOrderService(db)
+    history_service = POHistoryService(db)
+
+    # Get the PO
+    po = purchase_order_service.get_purchase_order_by_id(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+
+    # Verify user is from buyer company
+    if current_user.company_id != po.buyer_company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the buyer company can approve discrepancies"
+        )
+
+    # Verify PO is awaiting approval
+    if po.status != PurchaseOrderStatus.AWAITING_BUYER_APPROVAL.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Purchase order is not awaiting buyer approval"
+        )
+
+    if approval.approve:
+        # Buyer approved - apply seller's confirmation data and confirm PO
+        seller_data = po.seller_confirmed_data
+
+        # Create a SellerConfirmation object from stored data
+        confirmation = SellerConfirmation(
+            confirmed_quantity=seller_data.get('confirmed_quantity'),
+            confirmed_unit_price=seller_data.get('confirmed_unit_price'),
+            confirmed_delivery_date=seller_data.get('confirmed_delivery_date'),
+            confirmed_delivery_location=seller_data.get('confirmed_delivery_location'),
+            seller_notes=seller_data.get('seller_notes')
+        )
+
+        # Set buyer approval fields
+        po.buyer_approved_at = datetime.utcnow()
+        po.buyer_approval_user_id = current_user.id
+
+        # Log approval
+        history_service.log_buyer_approval(
+            purchase_order_id=po.id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            po_number=po.po_number,
+            approved=True,
+            buyer_notes=approval.buyer_notes
+        )
+
+        # Confirm the PO (this will create the batch automatically)
+        _confirm_po(po, confirmation, db, current_user, history_service)
+
+        logger.info(
+            "Buyer approved discrepancies and confirmed PO",
+            po_id=purchase_order_id,
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id)
+        )
+    else:
+        # Buyer rejected - return to pending for seller revision
+        po.status = PurchaseOrderStatus.PENDING.value
+        po.discrepancy_reason = None
+        po.seller_confirmed_data = None
+        po.seller_confirmed_at = None
+
+        # Log rejection
+        history_service.log_buyer_approval(
+            purchase_order_id=po.id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            po_number=po.po_number,
+            approved=False,
+            buyer_notes=approval.buyer_notes
+        )
+
+        logger.info(
+            "Buyer rejected discrepancies, PO returned to pending",
+            po_id=purchase_order_id,
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id)
+        )
+
+    db.commit()
+    db.refresh(po)
+
+    return purchase_order_service.get_purchase_order_with_details(purchase_order_id)
+
+
+@router.get("/{purchase_order_id}/discrepancies", response_model=DiscrepancyResponse)
+@require_po_access(AccessType.READ)
+def get_purchase_order_discrepancies(
+    purchase_order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get discrepancy details for a purchase order awaiting buyer approval.
+
+    Returns the original vs confirmed values and discrepancy analysis.
+    """
+    import json
+    from app.services.discrepancy_detection import DiscrepancyDetectionService
+
+    purchase_order_service = PurchaseOrderService(db)
+    discrepancy_service = DiscrepancyDetectionService()
+
+    # Get the PO
+    po = purchase_order_service.get_purchase_order_by_id(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+
+    # Check if PO has discrepancies
+    has_discrepancies = po.status == PurchaseOrderStatus.AWAITING_BUYER_APPROVAL.value
+
+    if not has_discrepancies:
+        return DiscrepancyResponse(
+            has_discrepancies=False,
+            discrepancies=[],
+            requires_approval=False,
+            seller_confirmation_data={}
+        )
+
+    # Parse discrepancy reason
+    discrepancy_data = json.loads(po.discrepancy_reason) if po.discrepancy_reason else {}
+    discrepancies = [
+        DiscrepancyDetail(**d) for d in discrepancy_data.get("discrepancies", [])
+    ]
+
+    return DiscrepancyResponse(
+        has_discrepancies=True,
+        discrepancies=discrepancies,
+        requires_approval=True,
+        seller_confirmation_data=po.seller_confirmed_data or {}
     )
 
-    # Update the PO
-    updated_po = purchase_order_service.update_purchase_order(
-        purchase_order_id,
-        update_data,
-        current_user.company_id
+
+@router.get("/{purchase_order_id}/history", response_model=List[PurchaseOrderHistoryEntry])
+@require_po_access(AccessType.READ)
+def get_purchase_order_history(
+    purchase_order_id: str,
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the history/audit trail for a purchase order.
+
+    Returns all actions performed on the purchase order in chronological order.
+    """
+    from app.services.po_history import POHistoryService
+
+    purchase_order_service = PurchaseOrderService(db)
+    history_service = POHistoryService(db)
+
+    # Verify PO exists and user has access
+    po = purchase_order_service.get_purchase_order_by_id(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+
+    # Get history entries
+    history_entries = history_service.get_po_history(
+        purchase_order_id=po.id,
+        limit=limit
     )
 
-    logger.info(
-        "Purchase order confirmed by seller",
-        po_id=purchase_order_id,
-        user_id=str(current_user.id),
-        company_id=str(current_user.company_id),
-        confirmed_quantity=str(confirmation.confirmed_quantity)
-    )
-
-    return updated_po
+    return history_entries
 
 
 @router.delete("/{purchase_order_id}")
@@ -501,3 +731,106 @@ def approve_po_changes(
     )
 
     return result
+
+
+def _confirm_po(
+    po: "PurchaseOrder",
+    confirmation: SellerConfirmation,
+    db: Session,
+    current_user: User,
+    history_service: "POHistoryService"
+) -> None:
+    """
+    Core function to confirm a Purchase Order and create automatic batch.
+
+    This function implements the critical transition from PO to Batch:
+    1. Updates PO with confirmed values
+    2. Sets status to CONFIRMED
+    3. Creates deterministic batch automatically
+    4. Links batch back to PO for full traceability
+
+    Args:
+        po: Purchase Order to confirm
+        confirmation: Seller's confirmation data
+        db: Database session
+        current_user: User performing the confirmation
+        history_service: Service for logging history
+    """
+    from datetime import datetime
+    from app.services.batch import BatchTrackingService
+    from app.models.batch import Batch
+
+    # 1. UPDATE PO WITH CONFIRMED VALUES
+    po.confirmed_quantity = confirmation.confirmed_quantity
+    po.confirmed_unit_price = confirmation.confirmed_unit_price
+    po.confirmed_delivery_date = confirmation.confirmed_delivery_date
+    po.confirmed_delivery_location = confirmation.confirmed_delivery_location
+    po.seller_notes = confirmation.seller_notes
+    po.status = PurchaseOrderStatus.CONFIRMED.value
+    po.confirmed_at = datetime.utcnow()
+
+    # 2. LOG CONFIRMATION IN HISTORY
+    history_service.log_po_confirmed(
+        purchase_order_id=po.id,
+        user_id=current_user.id,
+        company_id=current_user.company_id,
+        po_number=po.po_number
+    )
+
+    # 3. CREATE BATCH AUTOMATICALLY - THE CRITICAL LINKAGE
+    batch_service = BatchTrackingService(db)
+
+    try:
+        # Create deterministic batch ID: "PO-{po_number}-BATCH-1"
+        batch_id = f"PO-{po.po_number}-BATCH-1"
+
+        # Check if batch already exists (idempotency)
+        existing_batch = db.query(Batch).filter(Batch.batch_id == batch_id).first()
+
+        if existing_batch:
+            logger.warning(
+                "Batch already exists for PO - skipping creation",
+                po_id=str(po.id),
+                batch_id=batch_id,
+                existing_batch_uuid=str(existing_batch.id)
+            )
+            return
+
+        # Create the batch with CRITICAL linkage back to PO
+        batch = batch_service.create_batch_from_purchase_order(
+            purchase_order_id=po.id,
+            po_number=po.po_number,
+            seller_company_id=po.seller_company_id,
+            product_id=po.product_id,
+            confirmed_quantity=confirmation.confirmed_quantity,  # Use CONFIRMED quantity
+            user_id=current_user.id
+        )
+
+        # 4. LOG BATCH CREATION IN AUDIT TRAIL
+        history_service.log_batch_created(
+            purchase_order_id=po.id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            po_number=po.po_number,
+            batch_id=batch.batch_id
+        )
+
+        logger.info(
+            "PO confirmed and batch automatically created",
+            po_id=str(po.id),
+            po_number=po.po_number,
+            batch_id=str(batch.id),
+            batch_number=batch.batch_id,
+            confirmed_quantity=str(confirmation.confirmed_quantity),
+            seller_company_id=str(po.seller_company_id)
+        )
+
+    except Exception as e:
+        logger.error(
+            "Failed to create batch for confirmed PO - PO confirmation will proceed",
+            po_id=str(po.id),
+            po_number=po.po_number,
+            error=str(e)
+        )
+        # IMPORTANT: Don't fail PO confirmation if batch creation fails
+        # The PO confirmation is the source of truth, batch creation is a convenience
