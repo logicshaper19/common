@@ -5,7 +5,7 @@
 import '@testing-library/jest-dom';
 
 // Mock environment variables
-process.env.REACT_APP_API_URL = 'http://localhost:8000';
+process.env.REACT_APP_API_URL = 'http://127.0.0.1:8000';
 
 // Mock localStorage
 const localStorageMock = {

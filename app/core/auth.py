@@ -22,7 +22,7 @@ security = HTTPBearer()
 
 class CurrentUser:
     """Current authenticated user information."""
-    
+
     def __init__(self, user: User, company: Company):
         self.id = user.id
         self.email = user.email
@@ -30,6 +30,8 @@ class CurrentUser:
         self.role = user.role
         self.is_active = user.is_active
         self.company_id = user.company_id
+        self.sector_id = user.sector_id  # Add sector_id
+        self.tier_level = user.tier_level  # Add tier_level
         self.company = company
         self.user = user  # Full user object for database operations
 
