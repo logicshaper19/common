@@ -3,6 +3,8 @@ import { Card, CardHeader, CardBody } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import TextArea from '../ui/Textarea';
+import BatchInventorySelector from '../inventory/BatchInventorySelector';
+import useBatchValidation from '../../hooks/useBatchValidation';
 import { CheckCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface PurchaseOrder {
@@ -13,10 +15,16 @@ interface PurchaseOrder {
   delivery_date: string;
   delivery_location: string;
   product: {
+    id: string;
     name: string;
     default_unit: string;
   };
   buyer_company: {
+    id: string;
+    name: string;
+  };
+  seller_company: {
+    id: string;
     name: string;
   };
 }
@@ -27,6 +35,17 @@ interface SellerConfirmationData {
   confirmed_delivery_date?: string;
   confirmed_delivery_location?: string;
   seller_notes?: string;
+}
+
+interface BatchSelection {
+  batchId: string;
+  quantityToUse: number;
+  batch: {
+    id: string;
+    batch_id: string;
+    quantity: number;
+    unit: string;
+  };
 }
 
 interface SellerConfirmationModalProps {
@@ -53,13 +72,15 @@ export const SellerConfirmationModal: React.FC<SellerConfirmationModalProps> = (
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedBatches, setSelectedBatches] = useState<BatchSelection[]>([]);
+  const [useInventorySelector, setUseInventorySelector] = useState(true);
 
   const handleInputChange = (field: keyof SellerConfirmationData, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
@@ -68,6 +89,25 @@ export const SellerConfirmationModal: React.FC<SellerConfirmationModalProps> = (
       }));
     }
   };
+
+  const handleBatchesSelected = (selections: BatchSelection[], totalQuantity: number) => {
+    setSelectedBatches(selections);
+    setFormData(prev => ({
+      ...prev,
+      confirmed_quantity: totalQuantity
+    }));
+
+    // Clear quantity error when batches are selected
+    if (errors.confirmed_quantity) {
+      setErrors(prev => ({
+        ...prev,
+        confirmed_quantity: ''
+      }));
+    }
+  };
+
+  // Validate batch selections when using inventory selector
+  const batchValidation = useBatchValidation(selectedBatches, useInventorySelector ? purchaseOrder.quantity : undefined);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -78,6 +118,11 @@ export const SellerConfirmationModal: React.FC<SellerConfirmationModalProps> = (
 
     if (formData.confirmed_unit_price && formData.confirmed_unit_price <= 0) {
       newErrors.confirmed_unit_price = 'Confirmed price must be greater than 0';
+    }
+
+    // Validate batch selections when using inventory selector
+    if (useInventorySelector && !batchValidation.isValid) {
+      newErrors.batch_selection = 'Please fix batch selection errors before confirming';
     }
 
     setErrors(newErrors);
@@ -147,26 +192,82 @@ export const SellerConfirmationModal: React.FC<SellerConfirmationModalProps> = (
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Confirmed Quantity */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirmed Quantity *
-                </label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  value={formData.confirmed_quantity}
-                  onChange={(e) => handleInputChange('confirmed_quantity', parseFloat(e.target.value) || 0)}
-                  errorMessage={errors.confirmed_quantity}
-                  placeholder="Enter confirmed quantity"
-                />
-                {quantityDifference !== 0 && (
-                  <p className={`text-sm mt-1 ${quantityDifference > 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                    {quantityDifference > 0 ? '+' : ''}{quantityDifference.toFixed(3)} {purchaseOrder.product.default_unit} vs. requested
-                  </p>
-                )}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Inventory Selection Toggle */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900">Quantity Confirmation</h3>
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm text-gray-600">Use Inventory:</label>
+                  <button
+                    type="button"
+                    onClick={() => setUseInventorySelector(!useInventorySelector)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      useInventorySelector ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        useInventorySelector ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
+
+              {useInventorySelector ? (
+                /* Inventory Selector */
+                <div className="space-y-4">
+                  <BatchInventorySelector
+                    companyId={purchaseOrder.seller_company.id}
+                    productId={purchaseOrder.product.id}
+                    targetQuantity={purchaseOrder.quantity}
+                    onBatchesSelected={handleBatchesSelected}
+                    disabled={isLoading}
+                  />
+
+                  {/* Confirmed Quantity Display (Read-only) */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-blue-900">Total Confirmed Quantity:</span>
+                      <span className="text-lg font-bold text-blue-900">
+                        {formData.confirmed_quantity.toFixed(3)} {purchaseOrder.product.default_unit}
+                      </span>
+                    </div>
+                    {quantityDifference !== 0 && (
+                      <p className={`text-sm mt-2 ${quantityDifference > 0 ? 'text-green-700' : 'text-orange-700'}`}>
+                        {quantityDifference > 0 ? '+' : ''}{quantityDifference.toFixed(3)} {purchaseOrder.product.default_unit} vs. requested
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Batch Selection Error */}
+                  {errors.batch_selection && (
+                    <div className="mt-2 text-sm text-red-600">
+                      {errors.batch_selection}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Manual Quantity Input */
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirmed Quantity *
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={formData.confirmed_quantity}
+                    onChange={(e) => handleInputChange('confirmed_quantity', parseFloat(e.target.value) || 0)}
+                    errorMessage={errors.confirmed_quantity}
+                    placeholder="Enter confirmed quantity"
+                  />
+                  {quantityDifference !== 0 && (
+                    <p className={`text-sm mt-1 ${quantityDifference > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                      {quantityDifference > 0 ? '+' : ''}{quantityDifference.toFixed(3)} {purchaseOrder.product.default_unit} vs. requested
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Confirmed Unit Price */}
               <div>

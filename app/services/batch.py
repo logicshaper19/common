@@ -124,7 +124,9 @@ class BatchTrackingService:
                 certifications=batch_data.certifications,
                 status=BatchStatus.ACTIVE.value,
                 created_by_user_id=user_id,
-                batch_metadata=batch_data.batch_metadata
+                batch_metadata=batch_data.batch_metadata,
+                # CRITICAL: Set source PO if this batch was created from a PO
+                source_purchase_order_id=batch_data.batch_metadata.get('purchase_order_id') if batch_data.batch_metadata else None
             )
             
             self.db.add(batch)
@@ -166,7 +168,92 @@ class BatchTrackingService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create batch"
             )
-    
+
+    def create_batch_from_purchase_order(
+        self,
+        purchase_order_id: UUID,
+        po_number: str,
+        seller_company_id: UUID,
+        product_id: UUID,
+        confirmed_quantity: Decimal,
+        user_id: UUID
+    ) -> Batch:
+        """
+        Create a batch automatically from a confirmed purchase order.
+
+        Args:
+            purchase_order_id: UUID of the purchase order
+            po_number: Purchase order number for batch ID generation
+            seller_company_id: Seller company (batch owner)
+            product_id: Product being batched
+            confirmed_quantity: Confirmed quantity from PO
+            user_id: User confirming the PO
+
+        Returns:
+            Created batch
+        """
+        # Generate deterministic batch number: PO-123-BATCH-1
+        batch_number = f"{po_number}-BATCH-1"
+
+        # Check if batch already exists for this PO
+        existing_batch = self.db.query(Batch).filter(
+            Batch.batch_id == batch_number
+        ).first()
+
+        if existing_batch:
+            logger.warning(
+                "Batch already exists for purchase order",
+                po_id=str(purchase_order_id),
+                batch_id=str(existing_batch.id),
+                batch_number=batch_number
+            )
+            return existing_batch
+
+        # Create batch data with CRITICAL PO linkage
+        batch_data = BatchCreate(
+            batch_id=batch_number,
+            product_id=product_id,
+            batch_type=BatchType.HARVEST,  # Default to harvest for PO batches
+            quantity=confirmed_quantity,
+            unit="KGM",  # Default unit
+            production_date=date.today(),
+            expiry_date=None,  # Will be set based on product shelf life if available
+            location_name=None,
+            location_coordinates=None,  # Can be updated later
+            facility_code=None,
+            quality_metrics=None,
+            processing_method=None,
+            storage_conditions=None,
+            transportation_method=None,
+            transformation_id=None,
+            parent_batch_ids=None,
+            origin_data=None,
+            certifications=[],
+            batch_metadata={
+                "created_from_po": True,
+                "purchase_order_id": str(purchase_order_id),  # CRITICAL: Store PO ID for linkage
+                "auto_created": True,
+                "creation_source": "purchase_order_confirmation"
+            }
+        )
+
+        # Create the batch
+        batch = self.create_batch(
+            batch_data=batch_data,
+            company_id=seller_company_id,
+            user_id=user_id
+        )
+
+        logger.info(
+            "Batch automatically created from purchase order",
+            po_id=str(purchase_order_id),
+            batch_id=str(batch.id),
+            batch_number=batch_number,
+            quantity=str(confirmed_quantity)
+        )
+
+        return batch
+
     def update_batch(
         self,
         batch_id: UUID,

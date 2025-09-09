@@ -49,6 +49,7 @@ from app.api.amendments import router as amendments_router
 from app.api.erp_sync import router as erp_sync_router
 from app.api.v1.endpoints.brands import router as brands_router
 from app.api.tier_requirements import router as tier_requirements_router
+from app.api.deterministic_transparency import router as deterministic_transparency_router
 from app.services.seed_data import SeedDataService
 
 # Configure logging
@@ -233,6 +234,7 @@ app.include_router(amendments_router, prefix="/api/v1", tags=["Amendments"])
 app.include_router(erp_sync_router, prefix="/api/v1", tags=["ERP Sync"])
 app.include_router(brands_router, prefix="/api/v1/brands", tags=["Brands"])
 app.include_router(tier_requirements_router, tags=["Tier Requirements"])
+app.include_router(deterministic_transparency_router, prefix="/api/v1", tags=["Deterministic Transparency"])
 
 
 @app.get("/")
