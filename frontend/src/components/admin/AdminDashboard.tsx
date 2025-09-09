@@ -24,6 +24,7 @@ import { PurchaseOrderManagement } from './purchase-order-management';
 import { SupportTicketSystem } from './SupportTicketSystem';
 import { AuditLogViewer } from './AuditLogViewer';
 import { SystemMonitoring } from './SystemMonitoring';
+import AnalyticsCard from '../ui/AnalyticsCard';
 
 interface AdminDashboardProps {
   className?: string;
@@ -199,93 +200,37 @@ export function AdminDashboard({ className = '' }: AdminDashboardProps) {
             <>
               {/* Key Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <UserGroupIcon className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                          <dd className="text-lg font-medium text-gray-900">{formatNumber(dashboardData.overview.total_users)}</dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-5 py-3">
-                    <div className="text-sm">
-                      <span className="text-green-600 font-medium">+{dashboardData.user_stats.new_users_today}</span>
-                      <span className="text-gray-500"> today</span>
-                    </div>
-                  </div>
-                </div>
+                <AnalyticsCard
+                  name="Total Users"
+                  value={formatNumber(dashboardData.overview.total_users)}
+                  change={`+${dashboardData.user_stats.new_users_today} today`}
+                  changeType="increase"
+                  icon={UserGroupIcon}
+                />
 
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <CubeIcon className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">Companies</dt>
-                          <dd className="text-lg font-medium text-gray-900">{formatNumber(dashboardData.overview.total_companies)}</dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-5 py-3">
-                    <div className="text-sm">
-                      <span className="text-green-600 font-medium">+{dashboardData.company_stats.new_companies_today}</span>
-                      <span className="text-gray-500"> today</span>
-                    </div>
-                  </div>
-                </div>
+                <AnalyticsCard
+                  name="Companies"
+                  value={formatNumber(dashboardData.overview.total_companies)}
+                  change={`+${dashboardData.company_stats.new_companies_today} today`}
+                  changeType="increase"
+                  icon={CubeIcon}
+                />
 
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <LifebuoyIcon className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">Open Tickets</dt>
-                          <dd className="text-lg font-medium text-gray-900">{dashboardData.overview.open_tickets}</dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-5 py-3">
-                    <div className="text-sm">
-                      <span className="text-blue-600 font-medium">{dashboardData.support_stats.tickets_today}</span>
-                      <span className="text-gray-500"> today</span>
-                    </div>
-                  </div>
-                </div>
+                <AnalyticsCard
+                  name="Open Tickets"
+                  value={dashboardData.overview.open_tickets}
+                  change={`${dashboardData.support_stats.tickets_today} today`}
+                  changeType="neutral"
+                  icon={LifebuoyIcon}
+                />
 
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        {getStatusIcon(dashboardData.system_health.status)}
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">System Health</dt>
-                          <dd className="text-lg font-medium text-gray-900 capitalize">{dashboardData.system_health.status}</dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-5 py-3">
-                    <div className="text-sm">
-                      <span className="text-green-600 font-medium">{dashboardData.overview.system_uptime}%</span>
-                      <span className="text-gray-500"> uptime</span>
-                    </div>
-                  </div>
-                </div>
+                <AnalyticsCard
+                  name="System Health"
+                  value={dashboardData.system_health.status}
+                  change={`${dashboardData.overview.system_uptime}% uptime`}
+                  changeType="increase"
+                  icon={CheckCircleIcon}
+                />
               </div>
 
               {/* Recent Activity and System Status */}
