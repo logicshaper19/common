@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiClient } from '../lib/api';
 
 export interface TransparencyMetrics {
   company_id: string;
@@ -59,13 +60,13 @@ interface TransparencyGapsResponse {
 }
 
 export const useDeterministicTransparency = (companyId?: string) => {
-  const { user, getAuthHeaders } = useAuth();
+  const { user } = useAuth();
   const [metrics, setMetrics] = useState<TransparencyMetrics | null>(null);
   const [gaps, setGaps] = useState<TransparencyGap[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const targetCompanyId = companyId || user?.company_id;
+  const targetCompanyId = companyId || user?.company?.id;
 
   const fetchTransparencyMetrics = useCallback(async (refresh: boolean = false) => {
     if (!targetCompanyId) return;
@@ -74,18 +75,11 @@ export const useDeterministicTransparency = (companyId?: string) => {
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/v1/transparency/v2/companies/${targetCompanyId}/metrics?refresh=${refresh}`,
-        {
-          headers: getAuthHeaders(),
-        }
+      const response = await apiClient.get<TransparencyResponse<TransparencyMetrics>>(
+        `/transparency/v2/companies/${targetCompanyId}/metrics?refresh=${refresh}`
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch transparency metrics: ${response.statusText}`);
-      }
-
-      const result: TransparencyResponse<TransparencyMetrics> = await response.json();
+      const result = response.data;
       
       if (result.success) {
         setMetrics(result.data);
@@ -99,7 +93,7 @@ export const useDeterministicTransparency = (companyId?: string) => {
     } finally {
       setLoading(false);
     }
-  }, [targetCompanyId, getAuthHeaders]);
+  }, [targetCompanyId]);
 
   const fetchTransparencyGaps = useCallback(async (
     gapType?: 'mill' | 'plantation',
@@ -119,18 +113,11 @@ export const useDeterministicTransparency = (companyId?: string) => {
         params.append('gap_type', gapType);
       }
 
-      const response = await fetch(
-        `/api/v1/transparency/v2/companies/${targetCompanyId}/gaps?${params}`,
-        {
-          headers: getAuthHeaders(),
-        }
+      const response = await apiClient.get<TransparencyGapsResponse>(
+        `/transparency/v2/companies/${targetCompanyId}/gaps?${params}`
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch transparency gaps: ${response.statusText}`);
-      }
-
-      const result: TransparencyGapsResponse = await response.json();
+      const result = response.data;
       
       if (result.success) {
         setGaps(result.data);
@@ -144,22 +131,15 @@ export const useDeterministicTransparency = (companyId?: string) => {
     } finally {
       setLoading(false);
     }
-  }, [targetCompanyId, getAuthHeaders]);
+  }, [targetCompanyId]);
 
   const getSupplyChainTrace = useCallback(async (poId: string): Promise<SupplyChainTrace | null> => {
     try {
-      const response = await fetch(
-        `/api/v1/transparency/v2/purchase-orders/${poId}/trace`,
-        {
-          headers: getAuthHeaders(),
-        }
+      const response = await apiClient.get<TransparencyResponse<SupplyChainTrace>>(
+        `/transparency/v2/purchase-orders/${poId}/trace`
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch supply chain trace: ${response.statusText}`);
-      }
-
-      const result: TransparencyResponse<SupplyChainTrace> = await response.json();
+      const result = response.data;
       
       if (result.success && result.data) {
         return result.data;
@@ -171,27 +151,16 @@ export const useDeterministicTransparency = (companyId?: string) => {
       console.error('Error fetching supply chain trace:', err);
       throw err;
     }
-  }, [getAuthHeaders]);
+  }, []);
 
   const refreshTransparencyData = useCallback(async () => {
     try {
-      const response = await fetch(
-        '/api/v1/transparency/v2/refresh',
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeaders(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ force_refresh: true }),
-        }
+      const response = await apiClient.post(
+        '/transparency/v2/refresh',
+        { force_refresh: true }
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to refresh transparency data: ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      const result = response.data;
       
       if (result.success) {
         // Automatically refetch metrics after refresh
@@ -204,22 +173,15 @@ export const useDeterministicTransparency = (companyId?: string) => {
       console.error('Error refreshing transparency data:', err);
       throw err;
     }
-  }, [getAuthHeaders, fetchTransparencyMetrics]);
+  }, [fetchTransparencyMetrics]);
 
   const getTransparencyAuditTrail = useCallback(async (poId: string) => {
     try {
-      const response = await fetch(
-        `/api/v1/transparency/v2/purchase-orders/${poId}/audit`,
-        {
-          headers: getAuthHeaders(),
-        }
+      const response = await apiClient.get(
+        `/transparency/v2/purchase-orders/${poId}/audit`
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch audit trail: ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      const result = response.data;
       
       if (result.success) {
         return result.data;
@@ -230,7 +192,7 @@ export const useDeterministicTransparency = (companyId?: string) => {
       console.error('Error fetching transparency audit trail:', err);
       throw err;
     }
-  }, [getAuthHeaders]);
+  }, []);
 
   // Auto-fetch metrics when component mounts or company changes
   useEffect(() => {

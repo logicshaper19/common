@@ -31,7 +31,7 @@ router = APIRouter(prefix="/business-relationships", tags=["business-relationshi
 
 
 @router.post("/invite-supplier")
-def invite_supplier(
+async def invite_supplier(
     invitation_request: SupplierInvitationRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -53,7 +53,7 @@ def invite_supplier(
     relationship_service = BusinessRelationshipService(db)
     
     try:
-        result = relationship_service.invite_supplier(
+        result = await relationship_service.invite_supplier(
             invitation_request,
             current_user.company_id,
             current_user.id

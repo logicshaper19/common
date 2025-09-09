@@ -26,16 +26,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui';
-import { 
-  RefreshCw, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle, 
-  Eye,
-  Download,
-  Info
-} from 'lucide-react';
+} from '../ui';
+import {
+  ArrowPathIcon as RefreshCw,
+  ArrowTrendingUpIcon as TrendingUp,
+  ExclamationTriangleIcon as AlertTriangle,
+  CheckCircleIcon as CheckCircle,
+  EyeIcon as Eye,
+  ArrowDownTrayIcon as Download,
+  InformationCircleIcon as Info
+} from '@heroicons/react/24/outline';
 import { useDeterministicTransparency } from '../../hooks/useDeterministicTransparency';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -126,10 +126,10 @@ export const DeterministicTransparencyDashboard: React.FC<DeterministicTranspare
   }
 
   const getTransparencyStatus = (percentage: number) => {
-    if (percentage >= 90) return { label: 'Excellent', color: 'bg-green-500', variant: 'default' as const };
-    if (percentage >= 70) return { label: 'Good', color: 'bg-blue-500', variant: 'secondary' as const };
-    if (percentage >= 50) return { label: 'Fair', color: 'bg-yellow-500', variant: 'outline' as const };
-    return { label: 'Needs Improvement', color: 'bg-red-500', variant: 'destructive' as const };
+    if (percentage >= 90) return { label: 'Excellent', color: 'bg-green-500', variant: 'success' as const };
+    if (percentage >= 70) return { label: 'Good', color: 'bg-blue-500', variant: 'primary' as const };
+    if (percentage >= 50) return { label: 'Fair', color: 'bg-yellow-500', variant: 'warning' as const };
+    return { label: 'Needs Improvement', color: 'bg-red-500', variant: 'error' as const };
   };
 
   const millStatus = getTransparencyStatus(metrics!.transparency_to_mill_percentage);
@@ -223,7 +223,7 @@ export const DeterministicTransparencyDashboard: React.FC<DeterministicTranspare
                 value={averageTransparency} 
                 className="flex-1"
               />
-              <Badge variant={isFullyTraced ? 'default' : 'secondary'}>
+              <Badge variant={isFullyTraced ? 'success' : 'warning'}>
                 {isFullyTraced ? 'Fully Traced' : 'Partial'}
               </Badge>
             </div>
@@ -248,21 +248,21 @@ export const DeterministicTransparencyDashboard: React.FC<DeterministicTranspare
                 <CardTitle>Transparency Gaps</CardTitle>
                 <div className="flex space-x-2">
                   <Button
-                    variant={selectedGapType === undefined ? 'default' : 'outline'}
+                    variant={selectedGapType === undefined ? 'primary' : 'outline'}
                     size="sm"
                     onClick={() => handleGapTypeChange('all')}
                   >
                     All Gaps
                   </Button>
                   <Button
-                    variant={selectedGapType === 'mill' ? 'default' : 'outline'}
+                    variant={selectedGapType === 'mill' ? 'primary' : 'outline'}
                     size="sm"
                     onClick={() => handleGapTypeChange('mill')}
                   >
                     Mill Gaps
                   </Button>
                   <Button
-                    variant={selectedGapType === 'plantation' ? 'default' : 'outline'}
+                    variant={selectedGapType === 'plantation' ? 'primary' : 'outline'}
                     size="sm"
                     onClick={() => handleGapTypeChange('plantation')}
                   >
@@ -303,7 +303,7 @@ export const DeterministicTransparencyDashboard: React.FC<DeterministicTranspare
                           {gap.quantity.toLocaleString()} {gap.unit}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={gap.gap_type === 'not_traced_to_mill' ? 'secondary' : 'outline'}>
+                          <Badge variant={gap.gap_type === 'not_traced_to_mill' ? 'warning' : 'error'}>
                             {gap.gap_type === 'not_traced_to_mill' ? 'Mill' : 'Plantation'}
                           </Badge>
                         </TableCell>

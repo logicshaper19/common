@@ -117,6 +117,36 @@ const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
 
 CardHeader.displayName = 'CardHeader';
 
+// Card Title component
+export interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> {
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+}
+
+const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
+  (
+    {
+      className,
+      as: Component = 'h3',
+      children,
+      ...props
+    },
+    ref
+  ) => {
+    const titleClasses = cn(
+      'text-lg font-semibold text-neutral-900',
+      className
+    );
+
+    return (
+      <Component ref={ref} className={titleClasses} {...props}>
+        {children}
+      </Component>
+    );
+  }
+);
+
+CardTitle.displayName = 'CardTitle';
+
 // Card Body component
 export interface CardBodyProps extends HTMLAttributes<HTMLDivElement> {
   padding?: 'none' | 'sm' | 'md' | 'lg';
@@ -199,5 +229,5 @@ const CardFooter = forwardRef<HTMLDivElement, CardFooterProps>(
 CardFooter.displayName = 'CardFooter';
 
 // Export all components
-export { Card, CardHeader, CardBody, CardFooter };
+export { Card, CardHeader, CardTitle, CardBody, CardFooter };
 export default Card;

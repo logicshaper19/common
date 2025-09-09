@@ -70,7 +70,7 @@ class BusinessRelationshipService:
         """Map frontend company type to database company type."""
         return self.COMPANY_TYPE_MAPPING.get(frontend_type, frontend_type)
 
-    def invite_supplier(
+    async def invite_supplier(
         self,
         invitation_request: SupplierInvitationRequest,
         inviting_company_id: UUID,
@@ -136,7 +136,7 @@ class BusinessRelationshipService:
                     )
             else:
                 # Create pending company and send invitation
-                return self._create_pending_company_and_invite(
+                return await self._create_pending_company_and_invite(
                     invitation_request,
                     inviting_company_id,
                     inviting_user_id
@@ -155,7 +155,7 @@ class BusinessRelationshipService:
                 detail="Failed to invite supplier"
             )
     
-    def _create_pending_company_and_invite(
+    async def _create_pending_company_and_invite(
         self,
         invitation_request: SupplierInvitationRequest,
         inviting_company_id: UUID,
@@ -220,8 +220,8 @@ class BusinessRelationshipService:
         self.db.add(relationship)
         self.db.commit()
         
-        # TODO: Send invitation email (implement email service)
-        # self._send_invitation_email(invitation_request, pending_company, relationship)
+        # Send invitation email
+        await self._send_invitation_email(invitation_request, pending_company, relationship)
         
         logger.info(
             "Supplier invitation sent successfully",
@@ -670,3 +670,128 @@ class BusinessRelationshipService:
         # Check specific permission
         permissions = relationship.data_sharing_permissions or {}
         return permissions.get(data_type.value, False)
+
+    async def _send_invitation_email(
+        self,
+        invitation_request,
+        pending_company,
+        relationship
+    ) -> bool:
+        """
+        Send invitation email to supplier using the notification system.
+
+        Args:
+            invitation_request: The supplier invitation request
+            pending_company: The newly created company
+            relationship: The business relationship
+
+        Returns:
+            True if email was sent successfully, False otherwise
+        """
+        try:
+            from app.services.notifications.channels.email_channel import EmailNotificationChannel
+            from app.core.config import settings
+
+            # Initialize email channel
+            email_channel = EmailNotificationChannel(
+                db=self.db,
+                resend_api_key=settings.resend_api_key
+            )
+
+            # Prepare email content
+            subject = f"Invitation to join {invitation_request.inviting_company_name} on Common Supply Chain Platform"
+
+            html_content = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2563eb;">You're invited to join Common Supply Chain Platform</h2>
+
+                    <p>Hello,</p>
+
+                    <p><strong>{invitation_request.inviting_company_name}</strong> has invited you to join their supply chain network on the Common Supply Chain Platform.</p>
+
+                    <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; color: #1e40af;">Invitation Details:</h3>
+                        <ul style="margin: 0;">
+                            <li><strong>Company:</strong> {pending_company.name}</li>
+                            <li><strong>Email:</strong> {invitation_request.supplier_email}</li>
+                            <li><strong>Relationship Type:</strong> {invitation_request.relationship_type.title()}</li>
+                            <li><strong>Invited by:</strong> {invitation_request.inviting_company_name}</li>
+                        </ul>
+                    </div>
+
+                    <p>The Common Supply Chain Platform helps you:</p>
+                    <ul>
+                        <li>Track and verify supply chain transparency</li>
+                        <li>Manage purchase orders and confirmations</li>
+                        <li>Share compliance documentation securely</li>
+                        <li>Build trusted business relationships</li>
+                    </ul>
+
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="https://common.supply/signup?invitation_id={relationship.id}"
+                           style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                            Accept Invitation & Sign Up
+                        </a>
+                    </div>
+
+                    <p style="font-size: 14px; color: #6b7280;">
+                        If you have any questions, please contact {invitation_request.inviting_company_name} directly or reach out to our support team.
+                    </p>
+
+                    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+                    <p style="font-size: 12px; color: #9ca3af; text-align: center;">
+                        Common Supply Chain Platform<br>
+                        Building transparent, sustainable supply chains
+                    </p>
+                </div>
+            </body>
+            </html>
+            """
+
+            # Send email
+            result = await email_channel._send_via_resend(
+                to_email=invitation_request.supplier_email,
+                subject=subject,
+                html_content=html_content,
+                text_content=f"""
+You're invited to join Common Supply Chain Platform
+
+{invitation_request.inviting_company_name} has invited you to join their supply chain network.
+
+Company: {pending_company.name}
+Email: {invitation_request.supplier_email}
+Relationship Type: {invitation_request.relationship_type.title()}
+Invited by: {invitation_request.inviting_company_name}
+
+Accept your invitation: https://common.supply/signup?invitation_id={relationship.id}
+
+The Common Supply Chain Platform helps you track supply chain transparency, manage purchase orders, and build trusted business relationships.
+                """.strip()
+            )
+
+            if result.get("success"):
+                logger.info(
+                    "Invitation email sent successfully",
+                    supplier_email=invitation_request.supplier_email,
+                    company_id=str(pending_company.id),
+                    relationship_id=str(relationship.id),
+                    message_id=result.get("message_id")
+                )
+                return True
+            else:
+                logger.error(
+                    "Failed to send invitation email",
+                    supplier_email=invitation_request.supplier_email,
+                    error=result.get("error")
+                )
+                return False
+
+        except Exception as e:
+            logger.error(
+                "Exception while sending invitation email",
+                supplier_email=invitation_request.supplier_email,
+                error=str(e)
+            )
+            return False

@@ -9,6 +9,7 @@ import uuid
 
 from app.models.user import User
 from app.models.company import Company
+from app.models.purchase_order import PurchaseOrder
 from app.schemas.admin import (
     AdminUserCreate,
     AdminUserUpdate,
@@ -180,9 +181,14 @@ class AdminService:
         """Convert Company model to AdminCompanyResponse."""
         # Get user count for this company
         user_count = self.db.query(func.count(User.id)).filter(User.company_id == company.id).scalar() or 0
-        
-        # Get PO count (when PO model is available)
-        po_count = 0  # TODO: Implement when PO model is available
+
+        # Get PO count - count POs where company is either buyer or seller
+        po_count = self.db.query(func.count(PurchaseOrder.id)).filter(
+            or_(
+                PurchaseOrder.buyer_company_id == company.id,
+                PurchaseOrder.seller_company_id == company.id
+            )
+        ).scalar() or 0
         
         return AdminCompanyResponse(
             id=company.id,

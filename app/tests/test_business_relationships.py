@@ -135,10 +135,10 @@ def sample_users(db_session: Session, sample_companies):
 class TestSupplierInvitation:
     """Test supplier invitation functionality."""
     
-    def test_invite_new_supplier(self, db_session, sample_companies, sample_users):
+    async def test_invite_new_supplier(self, db_session, sample_companies, sample_users):
         """Test inviting a completely new supplier."""
         relationship_service = BusinessRelationshipService(db_session)
-        
+
         invitation_request = SupplierInvitationRequest(
             supplier_email="newsupplier@example.com",
             supplier_name="New Supplier Co",
@@ -146,8 +146,8 @@ class TestSupplierInvitation:
             relationship_type=RelationshipType.SUPPLIER,
             invitation_message="Welcome to our supply chain!"
         )
-        
-        result = relationship_service.invite_supplier(
+
+        result = await relationship_service.invite_supplier(
             invitation_request,
             sample_companies["buyer"].id,
             sample_users["buyer"].id
@@ -174,18 +174,18 @@ class TestSupplierInvitation:
         assert relationship.buyer_company_id == sample_companies["buyer"].id
         assert relationship.seller_company_id == new_company.id
     
-    def test_invite_existing_supplier(self, db_session, sample_companies, sample_users):
+    async def test_invite_existing_supplier(self, db_session, sample_companies, sample_users):
         """Test inviting an existing supplier company."""
         relationship_service = BusinessRelationshipService(db_session)
-        
+
         invitation_request = SupplierInvitationRequest(
             supplier_email=sample_companies["seller"].email,
             supplier_name=sample_companies["seller"].name,
             company_type=sample_companies["seller"].company_type,
             relationship_type=RelationshipType.SUPPLIER
         )
-        
-        result = relationship_service.invite_supplier(
+
+        result = await relationship_service.invite_supplier(
             invitation_request,
             sample_companies["buyer"].id,
             sample_users["buyer"].id
@@ -204,10 +204,10 @@ class TestSupplierInvitation:
         assert relationship.buyer_company_id == sample_companies["buyer"].id
         assert relationship.seller_company_id == sample_companies["seller"].id
     
-    def test_invite_duplicate_supplier(self, db_session, sample_companies, sample_users):
+    async def test_invite_duplicate_supplier(self, db_session, sample_companies, sample_users):
         """Test inviting a supplier that already has a relationship."""
         relationship_service = BusinessRelationshipService(db_session)
-        
+
         # Create existing relationship
         existing_relationship = BusinessRelationship(
             id=uuid4(),
@@ -219,16 +219,16 @@ class TestSupplierInvitation:
         )
         db_session.add(existing_relationship)
         db_session.commit()
-        
+
         invitation_request = SupplierInvitationRequest(
             supplier_email=sample_companies["seller"].email,
             supplier_name=sample_companies["seller"].name,
             company_type=sample_companies["seller"].company_type,
             relationship_type=RelationshipType.SUPPLIER
         )
-        
+
         with pytest.raises(Exception) as exc_info:
-            relationship_service.invite_supplier(
+            await relationship_service.invite_supplier(
                 invitation_request,
                 sample_companies["buyer"].id,
                 sample_users["buyer"].id
