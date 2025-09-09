@@ -19,8 +19,19 @@ import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import { cn } from '../../lib/utils';
 
+// Backend gap format (temporary adapter)
+interface BackendGapItem {
+  gap_id: string;
+  category: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  description: string;
+  recommendation: string;
+  impact_score: number;
+  implementation_effort: string;
+}
+
 interface GapAnalysisPanelProps {
-  gaps: GapAnalysisItem[];
+  gaps: GapAnalysisItem[] | BackendGapItem[];
   onGapClick?: (gap: GapAnalysisItem) => void;
   onRecommendationAction?: (gapId: string, recommendation: string) => void;
   className?: string;
@@ -37,8 +48,29 @@ const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
   const [expandedGaps, setExpandedGaps] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<'all' | 'critical' | 'high' | 'medium' | 'low'>('all');
 
+  // Adapter function to normalize gap data
+  const normalizeGap = (gap: any): GapAnalysisItem => {
+    if ('gap_id' in gap) {
+      // Backend format
+      return {
+        id: gap.gap_id,
+        type: gap.category as any,
+        severity: gap.severity,
+        title: gap.category.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        description: gap.description,
+        impact_score: gap.impact_score,
+        affected_nodes: [],
+        recommendations: [gap.recommendation],
+        estimated_improvement: gap.impact_score * 1.5 // Estimate based on impact
+      };
+    }
+    return gap; // Frontend format
+  };
+
+  const normalizedGaps = gaps.map(normalizeGap);
+
   // Filter gaps by severity
-  const filteredGaps = gaps.filter(gap => 
+  const filteredGaps = normalizedGaps.filter(gap =>
     filter === 'all' || gap.severity === filter
   );
 
@@ -121,65 +153,91 @@ const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
   };
 
   // Calculate summary stats
-  const criticalCount = gaps.filter(g => g.severity === 'critical').length;
-  const highCount = gaps.filter(g => g.severity === 'high').length;
-  const totalImpact = gaps.reduce((sum, gap) => sum + gap.impact_score, 0);
-  const totalImprovement = gaps.reduce((sum, gap) => sum + gap.estimated_improvement, 0);
+  const criticalCount = normalizedGaps.filter(g => g.severity === 'critical').length;
+  const highCount = normalizedGaps.filter(g => g.severity === 'high').length;
+  const totalImpact = normalizedGaps.reduce((sum, gap) => sum + gap.impact_score, 0);
+  const totalImprovement = normalizedGaps.reduce((sum, gap) => sum + gap.estimated_improvement, 0);
+
+  // Show empty state for zero gaps
+  if (normalizedGaps.length === 0) {
+    return (
+      <Card className={cn('', className)}>
+        <CardBody className="text-center py-12">
+          <div className="space-y-4">
+            <div className="mx-auto w-16 h-16 bg-success-100 rounded-full flex items-center justify-center">
+              <CheckCircleIcon className="h-8 w-8 text-success-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-success-900 mb-2">
+                No Gaps Found
+              </h3>
+              <p className="text-neutral-600 max-w-md mx-auto">
+                Your supply chain transparency is excellent. All critical areas are properly tracked and documented.
+              </p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <Card className={cn('', className)}>
-      <CardHeader 
+      <CardHeader
         title="Gap Analysis"
-        subtitle={`${gaps.length} gaps identified • ${totalImprovement.toFixed(1)}% potential improvement`}
+        action={
+          <div className="flex items-center space-x-2">
+            {/* Consolidated Priority Issues */}
+            {(criticalCount + highCount) > 0 && (
+              <Badge variant="error" size="sm">
+                {criticalCount + highCount} Priority Issues
+              </Badge>
+            )}
+            {/* Total with potential improvement */}
+            <Badge variant="neutral" size="sm">
+              {normalizedGaps.length} gaps • +{totalImprovement.toFixed(0)}% potential
+            </Badge>
+          </div>
+        }
       />
-      
-      <CardBody className="space-y-4">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="text-center p-3 bg-error-50 rounded-lg">
-            <div className="text-2xl font-bold text-error-600">{criticalCount}</div>
-            <div className="text-xs text-error-700">Critical</div>
-          </div>
-          <div className="text-center p-3 bg-warning-50 rounded-lg">
-            <div className="text-2xl font-bold text-warning-600">{highCount}</div>
-            <div className="text-xs text-warning-700">High Priority</div>
-          </div>
-          <div className="text-center p-3 bg-neutral-50 rounded-lg">
-            <div className="text-2xl font-bold text-neutral-600">{totalImpact.toFixed(1)}</div>
-            <div className="text-xs text-neutral-700">Total Impact</div>
-          </div>
-          <div className="text-center p-3 bg-success-50 rounded-lg">
-            <div className="text-2xl font-bold text-success-600">+{totalImprovement.toFixed(1)}%</div>
-            <div className="text-xs text-success-700">Potential Gain</div>
-          </div>
-        </div>
 
-        {/* Filter Buttons */}
-        <div className="flex flex-wrap gap-2">
-          {['all', 'critical', 'high', 'medium', 'low'].map((severity) => (
+      <CardBody className="space-y-4">
+        {/* Only show filters if there are many gaps and mix of severities */}
+        {normalizedGaps.length > 3 && (criticalCount > 0 || highCount > 0) && (
+          <div className="flex gap-2">
             <Button
-              key={severity}
-              variant={filter === severity ? 'primary' : 'outline'}
+              variant={filter === 'all' ? 'primary' : 'outline'}
               size="sm"
-              onClick={() => setFilter(severity as any)}
+              onClick={() => setFilter('all')}
             >
-              {severity.charAt(0).toUpperCase() + severity.slice(1)}
-              {severity !== 'all' && (
-                <span className="ml-1">
-                  ({gaps.filter(g => g.severity === severity).length})
-                </span>
-              )}
+              All
             </Button>
-          ))}
-        </div>
+            {criticalCount > 0 && (
+              <Button
+                variant={filter === 'critical' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setFilter('critical')}
+              >
+                Critical
+              </Button>
+            )}
+            {highCount > 0 && (
+              <Button
+                variant={filter === 'high' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setFilter('high')}
+              >
+                High Priority
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Gap List */}
         <div className="space-y-3">
           {sortedGaps.length === 0 ? (
             <div className="text-center py-8 text-neutral-500">
-              <CheckCircleIcon className="h-12 w-12 mx-auto mb-3 text-success-600" />
-              <p className="text-lg font-medium text-success-600">No gaps found!</p>
-              <p className="text-sm">Your supply chain transparency is excellent.</p>
+              <p className="text-neutral-600">No {filter !== 'all' ? filter : ''} gaps found.</p>
             </div>
           ) : (
             sortedGaps.map((gap) => {
@@ -189,19 +247,19 @@ const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
               return (
                 <div
                   key={gap.id}
-                  className="border border-neutral-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                  className="border border-neutral-200 rounded-lg overflow-hidden hover:shadow-sm transition-shadow"
                 >
-                  {/* Gap Header */}
-                  <div 
-                    className="p-4 cursor-pointer hover:bg-neutral-50"
+                  {/* Compact Gap Header */}
+                  <div
+                    className="p-3 cursor-pointer hover:bg-neutral-50"
                     onClick={() => {
                       toggleGapExpansion(gap.id);
                       if (onGapClick) onGapClick(gap);
                     }}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3 flex-1">
-                        <SeverityIcon className={cn('h-5 w-5 mt-0.5', getSeverityColor(gap.severity))} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <SeverityIcon className={cn('h-4 w-4 flex-shrink-0', getSeverityColor(gap.severity))} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
                             <h4 className="font-medium text-neutral-900 truncate">
@@ -210,82 +268,47 @@ const GapAnalysisPanel: React.FC<GapAnalysisPanelProps> = ({
                             <Badge variant={getSeverityBadgeVariant(gap.severity)} size="sm">
                               {gap.severity}
                             </Badge>
-                            <Badge variant="neutral" size="sm">
-                              {getTypeLabel(gap.type)}
-                            </Badge>
                           </div>
-                          <p className="text-sm text-neutral-600 line-clamp-2">
+                          <p className="text-sm text-neutral-600 line-clamp-1">
                             {gap.description}
                           </p>
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-neutral-500">
-                            <span>Impact: {gap.impact_score.toFixed(1)}</span>
-                            <span>Improvement: +{gap.estimated_improvement.toFixed(1)}%</span>
-                            <span>{gap.affected_nodes.length} nodes affected</span>
-                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 ml-3">
+                      <div className="flex items-center space-x-2 ml-3 flex-shrink-0">
                         <div className="text-right">
                           <div className="text-sm font-medium text-success-600">
-                            +{gap.estimated_improvement.toFixed(1)}%
+                            +{gap.estimated_improvement.toFixed(0)}%
                           </div>
-                          <div className="text-xs text-neutral-500">potential</div>
                         </div>
                         {isExpanded ? (
-                          <ChevronDownIcon className="h-5 w-5 text-neutral-400" />
+                          <ChevronDownIcon className="h-4 w-4 text-neutral-400" />
                         ) : (
-                          <ChevronRightIcon className="h-5 w-5 text-neutral-400" />
+                          <ChevronRightIcon className="h-4 w-4 text-neutral-400" />
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Expanded Content */}
+                  {/* Simplified Expanded Content */}
                   {isExpanded && showRecommendations && (
-                    <div className="border-t border-neutral-200 bg-neutral-50 p-4">
-                      <div className="space-y-4">
-                        {/* Recommendations */}
-                        <div>
-                          <div className="flex items-center space-x-2 mb-3">
-                            <LightBulbIcon className="h-4 w-4 text-primary-600" />
-                            <h5 className="font-medium text-neutral-900">Recommendations</h5>
+                    <div className="border-t border-neutral-200 bg-neutral-50 p-3">
+                      <div className="space-y-3">
+                        {/* Single Recommendation */}
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-2 flex-1">
+                            <LightBulbIcon className="h-4 w-4 text-primary-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-neutral-700">{gap.recommendations[0]}</p>
                           </div>
-                          <div className="space-y-2">
-                            {gap.recommendations.map((recommendation, index) => (
-                              <div 
-                                key={index}
-                                className="flex items-start justify-between p-3 bg-white rounded border"
-                              >
-                                <div className="flex items-start space-x-2 flex-1">
-                                  <div className="w-2 h-2 bg-primary-600 rounded-full mt-2 flex-shrink-0" />
-                                  <p className="text-sm text-neutral-700">{recommendation}</p>
-                                </div>
-                                {onRecommendationAction && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => onRecommendationAction(gap.id, recommendation)}
-                                    className="ml-3 flex-shrink-0"
-                                  >
-                                    Take Action
-                                  </Button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Potential Impact */}
-                        <div className="flex items-center justify-between p-3 bg-success-50 rounded-lg">
-                          <div className="flex items-center space-x-2">
-                            <ArrowTrendingUpIcon className="h-5 w-5 text-success-600" />
-                            <span className="font-medium text-success-900">
-                              Potential Transparency Improvement
-                            </span>
-                          </div>
-                          <span className="text-lg font-bold text-success-600">
-                            +{gap.estimated_improvement.toFixed(1)}%
-                          </span>
+                          {onRecommendationAction && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onRecommendationAction(gap.id, gap.recommendations[0])}
+                              className="ml-3 flex-shrink-0"
+                            >
+                              Take Action
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

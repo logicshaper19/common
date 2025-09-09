@@ -22,7 +22,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Badge from '../ui/Badge';
-import SupplierInvitationForm from './SupplierInvitationForm';
+import SupplierAddForm from './SupplierInvitationForm';
 import DataSharingPermissionsModal from './DataSharingPermissionsModal';
 import { cn, formatCurrency, formatDate } from '../../lib/utils';
 
@@ -177,7 +177,7 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
 
   if (showInviteForm) {
     return (
-      <SupplierInvitationForm
+      <SupplierAddForm
         onInvitationSent={handleInvitationSent}
         onCancel={() => setShowInviteForm(false)}
         className={className}
@@ -199,7 +199,7 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                 onClick={() => setShowInviteForm(true)}
                 leftIcon={<PlusIcon className="h-4 w-4" />}
               >
-                Invite Supplier
+                Add Supplier
               </Button>
             </div>
           }
@@ -275,8 +275,8 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                 {relationships.length === 0 ? 'No relationships yet' : 'No matching relationships'}
               </h3>
               <p className="text-neutral-600 mb-4">
-                {relationships.length === 0 
-                  ? 'Start building your supply chain network by inviting suppliers.'
+                {relationships.length === 0
+                  ? 'Start building your supply chain network by adding suppliers.'
                   : 'Try adjusting your search or filter criteria.'
                 }
               </p>
@@ -286,7 +286,7 @@ const RelationshipManagement: React.FC<RelationshipManagementProps> = ({
                   onClick={() => setShowInviteForm(true)}
                   leftIcon={<PlusIcon className="h-4 w-4" />}
                 >
-                  Invite Your First Supplier
+                  Add Your First Supplier
                 </Button>
               )}
             </div>

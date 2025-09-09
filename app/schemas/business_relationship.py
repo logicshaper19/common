@@ -46,7 +46,8 @@ class SupplierInvitationRequest(BaseModel):
     """Request to invite a new supplier."""
     supplier_email: str = Field(..., description="Email address of the supplier to invite")
     supplier_name: str = Field(..., max_length=255, description="Name of the supplier company")
-    company_type: str = Field(..., pattern="^(originator|processor|brand)$", description="Type of supplier company")
+    company_type: str = Field(..., pattern="^(originator|processor|brand|trader)$", description="Type of supplier company")
+    sector_id: str = Field("palm_oil", pattern="^(palm_oil|apparel|electronics)$", description="Industry sector")
     relationship_type: RelationshipType = Field(RelationshipType.SUPPLIER, description="Type of business relationship")
     data_sharing_permissions: Optional[DataSharingPermissions] = Field(None, description="Custom data sharing permissions")
     invitation_message: Optional[str] = Field(None, max_length=1000, description="Custom invitation message")

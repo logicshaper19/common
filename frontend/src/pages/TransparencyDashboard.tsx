@@ -21,6 +21,7 @@ import {
   ViewOptions,
 } from '../types/transparency';
 import TransparencyScoreCard from '../components/transparency/TransparencyScoreCard';
+import ConsolidatedTransparencyView from '../components/transparency/ConsolidatedTransparencyView';
 import SupplyChainGraph from '../components/transparency/SupplyChainGraph';
 import GapAnalysisPanel from '../components/transparency/GapAnalysisPanel';
 import MultiClientDashboard from '../components/transparency/MultiClientDashboard';
@@ -243,73 +244,17 @@ const TransparencyDashboard: React.FC = () => {
       {/* Tab Content */}
       <div className="space-y-6">
         {activeTab === 'overview' && transparencyMetrics && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <TransparencyScoreCard
-                metrics={transparencyMetrics}
-                showTrend={true}
-                size="lg"
-                className={cn(
-                  'transition-all duration-500',
-                  isUpdating && 'ring-2 ring-primary-500 ring-opacity-50'
-                )}
-              />
-            </div>
-            <div className="space-y-4">
-              <Card>
-                <CardHeader title="Quick Stats" />
-                <CardBody>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-neutral-600">TTM Score:</span>
-                      <span className="font-medium">{transparencyMetrics.ttm_score.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-600">TTP Score:</span>
-                      <span className="font-medium">{transparencyMetrics.ttp_score.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-600">Confidence:</span>
-                      <span className="font-medium">{transparencyMetrics.confidence_level.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-600">Traced:</span>
-                      <span className="font-medium">{transparencyMetrics.traced_percentage.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-              
-              {gapAnalysis.length > 0 && (
-                <Card>
-                  <CardHeader title="Critical Gaps" />
-                  <CardBody>
-                    <div className="space-y-2">
-                      {gapAnalysis.slice(0, 3).map((gap) => (
-                        <div key={gap.id} className="flex items-center justify-between">
-                          <span className="text-sm text-neutral-600 truncate">
-                            {gap.title}
-                          </span>
-                          <Badge variant="warning" size="sm">
-                            {gap.severity}
-                          </Badge>
-                        </div>
-                      ))}
-                      {gapAnalysis.length > 3 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full mt-2"
-                          onClick={() => setActiveTab('gaps')}
-                        >
-                          View All {gapAnalysis.length} Gaps
-                        </Button>
-                      )}
-                    </div>
-                  </CardBody>
-                </Card>
+          <div className="max-w-4xl mx-auto">
+            <ConsolidatedTransparencyView
+              metrics={transparencyMetrics}
+              gapAnalysis={gapAnalysis}
+              isRealTimeConnected={isRealTimeConnected}
+              showTrend={true}
+              className={cn(
+                'transition-all duration-500',
+                isUpdating && 'ring-2 ring-primary-500 ring-opacity-50'
               )}
-            </div>
+            />
           </div>
         )}
 

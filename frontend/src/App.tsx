@@ -14,10 +14,11 @@ import Dashboard from './pages/Dashboard';
 import TransparencyDashboard from './pages/TransparencyDashboard';
 import SupplierOnboardingDashboard from './pages/SupplierOnboardingDashboard';
 import UserManagementDashboard from './components/user/UserManagementDashboard';
-import { ProductCatalogManagement } from './components/admin/product-catalog-management';
 import { UserCompanyManagement } from './components/admin/user-company-management';
 import TeamManagement from './pages/TeamManagement';
 import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
+import PurchaseOrderDetailPage from './pages/PurchaseOrderDetailPage';
+import ProductsRouter from './components/products/ProductsRouter';
 
 function App() {
   return (
@@ -47,9 +48,15 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="purchase-orders/:id" element={
+              <ProtectedRoute>
+                <PurchaseOrderDetailPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="products" element={
               <ProtectedRoute>
-                <ProductCatalogManagement />
+                <ProductsRouter />
               </ProtectedRoute>
             } />
 

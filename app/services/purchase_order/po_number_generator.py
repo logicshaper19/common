@@ -69,26 +69,72 @@ class PONumberGenerator:
     def get_next_sequence_number(self, target_date: datetime) -> int:
         """
         Get the next sequence number for a given date.
-        
+
         Args:
             target_date: Date to get sequence for
-            
+
         Returns:
             Next sequence number
         """
         # Get the count of POs created on the target date
         start_of_day = datetime.combine(target_date.date(), datetime.min.time())
         end_of_day = datetime.combine(target_date.date(), datetime.max.time())
-        
+
         count = self.db.query(PurchaseOrder).filter(
             and_(
                 PurchaseOrder.created_at >= start_of_day,
                 PurchaseOrder.created_at <= end_of_day
             )
         ).count()
-        
+
         # Return next sequence number
         return count + 1
+
+    def get_next_available_sequence(self, target_date: datetime) -> int:
+        """
+        Get the next available sequence number by checking existing PO numbers.
+
+        Args:
+            target_date: Date to get sequence for
+
+        Returns:
+            Next available sequence number
+        """
+        # Get the date prefix for PO numbers (e.g., "PO-202509-")
+        date_prefix = f"PO-{target_date.year}{target_date.month:02d}-"
+
+        # Get all PO numbers with this date prefix
+        existing_pos = self.db.query(PurchaseOrder.po_number).filter(
+            PurchaseOrder.po_number.like(f"{date_prefix}%")
+        ).all()
+
+        # Extract sequence numbers
+        existing_sequences = []
+        for (po_number,) in existing_pos:
+            try:
+                # Extract sequence from "PO-202509-0001" -> "0001" -> 1
+                sequence_str = po_number.split('-')[-1]
+                sequence = int(sequence_str)
+                existing_sequences.append(sequence)
+            except (ValueError, IndexError):
+                # Skip malformed PO numbers
+                continue
+
+        # Find the next available sequence number
+        if not existing_sequences:
+            return 1
+
+        existing_sequences.sort()
+        next_sequence = max(existing_sequences) + 1
+
+        logger.info(
+            "Calculated next available sequence",
+            date_prefix=date_prefix,
+            existing_sequences=existing_sequences,
+            next_sequence=next_sequence
+        )
+
+        return next_sequence
     
     def validate_po_number_format(self, format_template: str) -> Dict[str, Any]:
         """
@@ -216,41 +262,61 @@ class PONumberGenerator:
         return existing is not None
     
     def generate_unique(
-        self, 
+        self,
         format_template: Optional[str] = None,
         target_date: Optional[datetime] = None,
         max_attempts: int = 10
     ) -> str:
         """
         Generate a guaranteed unique PO number.
-        
+
         Args:
             format_template: Optional custom format template
             target_date: Optional date for the PO
             max_attempts: Maximum attempts to generate unique number
-            
+
         Returns:
             Unique PO number
-            
+
         Raises:
             RuntimeError: If unable to generate unique number after max attempts
         """
+        if not target_date:
+            target_date = datetime.now()
+
+        if not format_template:
+            format_template = self.default_format
+
         for attempt in range(max_attempts):
-            po_number = self.generate(format_template, target_date)
-            
+            # Get the next available sequence number by checking existing POs
+            sequence = self.get_next_available_sequence(target_date)
+
+            # Generate the PO number with the specific sequence
+            po_number = format_template.format(
+                year=target_date.year,
+                month=target_date.month,
+                day=target_date.day,
+                sequence=sequence,
+                date=target_date.strftime("%Y%m%d"),
+                short_year=target_date.year % 100
+            )
+
             if not self.check_po_number_exists(po_number):
+                logger.info(
+                    "Generated unique PO number",
+                    po_number=po_number,
+                    sequence=sequence,
+                    attempt=attempt + 1
+                )
                 return po_number
-            
+
             logger.warning(
                 "Generated PO number already exists, retrying",
                 po_number=po_number,
-                attempt=attempt + 1
+                attempt=attempt + 1,
+                sequence=sequence
             )
-            
-            # For retry, add a small offset to the target date
-            if target_date:
-                target_date = target_date.replace(second=target_date.second + 1)
-        
+
         raise RuntimeError(f"Unable to generate unique PO number after {max_attempts} attempts")
     
     def get_format_options(self) -> Dict[str, str]:

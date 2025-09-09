@@ -1,10 +1,10 @@
 /**
- * Tests for SupplierInvitationForm component
+ * Tests for SupplierAddForm component
  */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SupplierInvitationForm from '../SupplierInvitationForm';
+import SupplierAddForm from '../SupplierInvitationForm';
 import { onboardingApi } from '../../../lib/onboardingApi';
 
 // Mock the onboarding API
@@ -16,7 +16,7 @@ jest.mock('../../../lib/onboardingApi', () => ({
 
 const mockOnboardingApi = onboardingApi as jest.Mocked<typeof onboardingApi>;
 
-describe('SupplierInvitationForm', () => {
+describe('SupplierAddForm', () => {
   const mockOnInvitationSent = jest.fn();
   const mockOnCancel = jest.fn();
 
@@ -26,7 +26,7 @@ describe('SupplierInvitationForm', () => {
 
   const renderComponent = (props = {}) => {
     return render(
-      <SupplierInvitationForm
+      <SupplierAddForm
         onInvitationSent={mockOnInvitationSent}
         onCancel={mockOnCancel}
         {...props}
@@ -38,7 +38,7 @@ describe('SupplierInvitationForm', () => {
     it('renders the form with initial step', () => {
       renderComponent();
       
-      expect(screen.getByText('Invite Supplier')).toBeInTheDocument();
+      expect(screen.getByText('Add Supplier')).toBeInTheDocument();
       expect(screen.getByLabelText(/supplier email/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/company name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/company type/i)).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe('SupplierInvitationForm', () => {
       
       // Review step
       expect(screen.getByText('Supplier Information')).toBeInTheDocument();
-      expect(screen.getByText('Send Invitation')).toBeInTheDocument();
+      expect(screen.getByText('Add Supplier')).toBeInTheDocument();
     });
 
     it('allows going back through steps', async () => {
@@ -176,7 +176,7 @@ describe('SupplierInvitationForm', () => {
   });
 
   describe('Form Submission', () => {
-    it('submits invitation with correct data', async () => {
+    it('submits supplier addition with correct data', async () => {
       const user = userEvent.setup();
       const mockInvitation = {
         id: 'inv-123',
@@ -201,7 +201,7 @@ describe('SupplierInvitationForm', () => {
       await user.click(screen.getByText('Next')); // Review
       
       // Submit
-      await user.click(screen.getByText('Send Invitation'));
+      await user.click(screen.getByText('Add Supplier'));
       
       await waitFor(() => {
         expect(mockOnboardingApi.sendSupplierInvitation).toHaveBeenCalledWith(
@@ -234,7 +234,7 @@ describe('SupplierInvitationForm', () => {
       await user.click(screen.getByText('Send Invitation'));
       
       await waitFor(() => {
-        expect(screen.getByText(/failed to send invitation/i)).toBeInTheDocument();
+        expect(screen.getByText(/failed to add supplier/i)).toBeInTheDocument();
       });
     });
 
@@ -254,9 +254,9 @@ describe('SupplierInvitationForm', () => {
       await user.click(screen.getByText('Next')); // Review
       
       // Submit
-      await user.click(screen.getByText('Send Invitation'));
+      await user.click(screen.getByText('Add Supplier'));
       
-      expect(screen.getByText('Sending...')).toBeInTheDocument();
+      expect(screen.getByText('Adding...')).toBeInTheDocument();
     });
   });
 

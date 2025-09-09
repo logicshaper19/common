@@ -35,6 +35,7 @@ from app.api.notifications import router as notifications_router
 from app.api.audit import router as audit_router
 from app.api.data_access import router as data_access_router
 from app.api.transparency_visualization import router as transparency_visualization_router
+from app.api.transparency import router as transparency_router
 # from app.api.viral_analytics import router as viral_analytics_router
 from app.api.origin_data import router as origin_data_router
 from app.api.business_relationships import router as business_relationships_router
@@ -47,6 +48,7 @@ from app.api.team_invitations import router as team_invitations_router
 from app.api.amendments import router as amendments_router
 from app.api.erp_sync import router as erp_sync_router
 from app.api.v1.endpoints.brands import router as brands_router
+from app.api.tier_requirements import router as tier_requirements_router
 from app.services.seed_data import SeedDataService
 
 # Configure logging
@@ -107,21 +109,30 @@ app = FastAPI(
 # Set custom OpenAPI schema
 app.openapi = lambda: custom_openapi(app)
 
-# Add security headers middleware
-app.add_middleware(SecurityHeadersMiddleware)
-
-# Add enhanced CORS middleware
-app.add_middleware(
-    CORSSecurityMiddleware,
-    allowed_origins=settings.allowed_origins_list,
-    allow_credentials=True
-)
-
-# Add trusted host middleware
+# Add trusted host middleware (first to process requests)
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1"]
 )
+
+# Add security headers middleware (second to process requests)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Add standard CORS middleware for development (last to process requests, first to add headers)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:8080"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add enhanced CORS middleware
+# app.add_middleware(
+#     CORSSecurityMiddleware,
+#     allowed_origins=settings.allowed_origins_list,
+#     allow_credentials=True
+# )
 
 
 @app.middleware("http")
@@ -208,6 +219,7 @@ app.include_router(notifications_router, prefix="/api/v1", tags=["Notifications"
 app.include_router(audit_router, prefix="/api/v1", tags=["Audit"])
 app.include_router(data_access_router, prefix="/api/v1", tags=["Data Access"])
 app.include_router(transparency_visualization_router, prefix="/api/v1", tags=["Transparency Visualization"])
+app.include_router(transparency_router, prefix="/api/v1", tags=["Transparency"])
 # app.include_router(viral_analytics_router, prefix="/api/v1", tags=["Viral Analytics"])
 app.include_router(origin_data_router, prefix="/api/v1", tags=["Origin Data"])
 app.include_router(business_relationships_router, prefix="/api/v1", tags=["Business Relationships"])
@@ -220,6 +232,7 @@ app.include_router(team_invitations_router, prefix="/api/v1/team", tags=["Team M
 app.include_router(amendments_router, prefix="/api/v1", tags=["Amendments"])
 app.include_router(erp_sync_router, prefix="/api/v1", tags=["ERP Sync"])
 app.include_router(brands_router, prefix="/api/v1/brands", tags=["Brands"])
+app.include_router(tier_requirements_router, tags=["Tier Requirements"])
 
 
 @app.get("/")

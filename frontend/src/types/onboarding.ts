@@ -84,11 +84,22 @@ export interface OnboardingProgress {
 }
 
 // Supplier invitation types
+export interface SupplierInvitationRequest {
+  supplier_email: string;
+  supplier_name: string;
+  company_type: 'brand' | 'processor' | 'originator' | 'trader';
+  sector_id: 'palm_oil' | 'apparel' | 'electronics';
+  relationship_type: 'supplier' | 'customer' | 'partner';
+  invitation_message?: string;
+  data_sharing_permissions?: DataSharingPermissions;
+}
+
 export interface SupplierInvitation {
   id: string;
   supplier_email: string;
   supplier_name: string;
-  company_type: 'brand' | 'processor' | 'originator';
+  company_type: 'brand' | 'processor' | 'originator' | 'trader';
+  sector_id: 'palm_oil' | 'apparel' | 'electronics';
   relationship_type: 'supplier' | 'customer' | 'partner';
   invitation_message?: string;
   data_sharing_permissions: DataSharingPermissions;
@@ -104,20 +115,13 @@ export interface SupplierInvitation {
   decline_reason?: string;
 }
 
-// Data sharing permissions
+// Data sharing permissions - Backend compatible format
 export interface DataSharingPermissions {
-  view_purchase_orders: boolean;
-  view_product_details: boolean;
-  view_pricing: boolean;
-  view_delivery_schedules: boolean;
-  view_quality_metrics: boolean;
-  view_sustainability_data: boolean;
-  view_transparency_scores: boolean;
-  edit_order_confirmations: boolean;
-  edit_delivery_updates: boolean;
-  edit_quality_reports: boolean;
-  receive_notifications: boolean;
-  access_analytics: boolean;
+  operational_data: boolean;
+  commercial_data: boolean;
+  traceability_data: boolean;
+  quality_data: boolean;
+  location_data: boolean;
 }
 
 // Business relationship types

@@ -45,6 +45,26 @@ export interface PurchaseOrder {
   updated_at: string;
 }
 
+export interface Amendment {
+  id: string;
+  purchase_order_id: string;
+  amendment_number: string;
+  amendment_type: string;
+  status: 'pending' | 'approved' | 'rejected' | 'applied' | 'expired';
+  reason: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  changes: any[];
+  proposed_by_company_id: string;
+  requires_approval_from_company_id: string;
+  proposed_by_user_id: string;
+  proposed_at: string;
+  approved_at?: string;
+  applied_at?: string;
+  expires_at?: string;
+  notes?: string;
+  approval_notes?: string;
+}
+
 export interface PurchaseOrderWithDetails extends PurchaseOrder {
   buyer_company: {
     id: string;
@@ -62,6 +82,7 @@ export interface PurchaseOrderWithDetails extends PurchaseOrder {
     description: string;
     default_unit: string;
   };
+  amendments?: Amendment[];
 }
 
 export interface PurchaseOrderFilters {

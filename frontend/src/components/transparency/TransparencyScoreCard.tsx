@@ -152,42 +152,10 @@ const TransparencyScoreCard: React.FC<TransparencyScoreCardProps> = ({
           </div>
         </div>
 
-        {/* Traceability Breakdown */}
-        <div className="space-y-3">
-          <h4 className="font-medium text-neutral-900">Supply Chain Traceability</h4>
-          
-          {/* Progress bar */}
-          <div className="relative">
-            <div className="flex mb-2 items-center justify-between">
-              <span className="text-sm font-medium text-success-700">
-                Traced: {formatTransparency(metrics.traced_percentage)}
-              </span>
-              <span className="text-sm font-medium text-neutral-500">
-                Untraced: {formatTransparency(metrics.untraced_percentage)}
-              </span>
-            </div>
-            <div className="w-full bg-neutral-200 rounded-full h-2">
-              <div 
-                className="bg-success-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${metrics.traced_percentage}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Breakdown stats */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-neutral-600">Traced:</span>
-              <span className="font-medium text-success-700">
-                {formatTransparency(metrics.traced_percentage)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-600">Untraced:</span>
-              <span className="font-medium text-neutral-500">
-                {formatTransparency(metrics.untraced_percentage)}
-              </span>
-            </div>
+        {/* Last Updated */}
+        <div className="text-center pt-4 border-t border-neutral-200">
+          <div className="text-xs text-neutral-500">
+            Last updated: {new Date(metrics.last_updated).toLocaleDateString()}
           </div>
         </div>
       </CardBody>

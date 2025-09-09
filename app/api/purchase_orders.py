@@ -206,14 +206,15 @@ def get_purchase_order(
             detail="Purchase order not found"
         )
     
-    # Check access permissions
-    if (current_user.company_id != purchase_order.buyer_company["id"] and 
-        current_user.company_id != purchase_order.seller_company["id"]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only access purchase orders for your own company"
-        )
-    
+    # Check access permissions (admins may view all POs)
+    if current_user.role != 'admin':
+        if (current_user.company_id != purchase_order.buyer_company["id"] and
+            current_user.company_id != purchase_order.seller_company["id"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only access purchase orders for your own company"
+            )
+
     logger.info(
         "Purchase order retrieved",
         po_id=purchase_order_id,
