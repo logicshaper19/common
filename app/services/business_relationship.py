@@ -22,16 +22,25 @@ from app.schemas.business_relationship import (
     DataSharingPermission
 )
 from app.core.logging import get_logger
+from app.services.tier_requirements import TierRequirementsService
 
 logger = get_logger(__name__)
 
 
 class BusinessRelationshipService:
     """Service for managing business relationships and supplier onboarding."""
-    
+
     def __init__(self, db: Session):
         self.db = db
-        
+
+        # Mapping from frontend company types to database company types
+        self.COMPANY_TYPE_MAPPING = {
+            "originator": "plantation_grower",
+            "processor": "mill_processor",
+            "brand": "trader_aggregator",
+            "trader": "trader_aggregator"
+        }
+
         # Default data sharing permissions based on relationship type
         self.DEFAULT_PERMISSIONS = {
             RelationshipType.SUPPLIER: {
@@ -56,7 +65,11 @@ class BusinessRelationshipService:
                 "location_data": True
             }
         }
-    
+
+    def _map_company_type(self, frontend_type: str) -> str:
+        """Map frontend company type to database company type."""
+        return self.COMPANY_TYPE_MAPPING.get(frontend_type, frontend_type)
+
     def invite_supplier(
         self,
         invitation_request: SupplierInvitationRequest,
@@ -148,14 +161,40 @@ class BusinessRelationshipService:
         inviting_company_id: UUID,
         inviting_user_id: UUID
     ) -> Dict[str, Any]:
-        """Create pending company record and send invitation."""
-        
-        # Create pending company record
+        """Create pending company record and send invitation with tier validation."""
+
+        # Get tier requirements for validation
+        tier_service = TierRequirementsService(self.db)
+
+        # Determine sector_id - for now default to palm_oil, but this should come from request
+        sector_id = getattr(invitation_request, 'sector_id', 'palm_oil')
+
+        try:
+            # Get company type profile to determine tier level
+            profile = tier_service.get_company_type_profile(
+                invitation_request.company_type,
+                sector_id
+            )
+            tier_level = profile.tier_level
+            transparency_weight = profile.transparency_weight
+
+        except ValueError as e:
+            logger.warning(f"Could not determine tier for company type {invitation_request.company_type}: {e}")
+            tier_level = 1
+            transparency_weight = 0.5
+
+        # Create pending company record with tier information
+        # Map frontend company type to database company type
+        db_company_type = self._map_company_type(invitation_request.company_type)
+
         pending_company = Company(
             id=uuid4(),
             name=invitation_request.supplier_name,
-            company_type=invitation_request.company_type,
-            email=invitation_request.supplier_email
+            company_type=db_company_type,
+            email=invitation_request.supplier_email,
+            sector_id=sector_id,
+            tier_level=tier_level,
+            transparency_score=int(transparency_weight * 100)  # Convert to 0-100 scale
         )
         
         self.db.add(pending_company)

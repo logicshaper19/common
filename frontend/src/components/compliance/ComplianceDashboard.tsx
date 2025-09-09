@@ -8,6 +8,7 @@ import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
+import AnalyticsCard from '../ui/AnalyticsCard';
 import {
   ArrowPathIcon,
   MagnifyingGlassIcon,
@@ -215,36 +216,33 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({ classN
           {/* Summary Stats */}
           {dashboardData && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <Card>
-                <CardBody className="p-4">
-                  <div className="text-2xl font-bold">{dashboardData.total_count}</div>
-                  <div className="text-sm text-gray-600">Total Compliance Checks</div>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardBody className="p-4">
-                  <div className="text-2xl font-bold text-red-600">
-                    {dashboardData.results.filter((r: ComplianceDashboardItem) => r.status === 'fail').length}
-                  </div>
-                  <div className="text-sm text-gray-600">Failed Checks</div>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardBody className="p-4">
-                  <div className="text-2xl font-bold text-yellow-600">
-                    {dashboardData.results.filter((r: ComplianceDashboardItem) => r.status === 'warning').length}
-                  </div>
-                  <div className="text-sm text-gray-600">Warnings</div>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardBody className="p-4">
-                  <div className="text-2xl font-bold text-green-600">
-                    {dashboardData.results.filter((r: ComplianceDashboardItem) => r.status === 'pass').length}
-                  </div>
-                  <div className="text-sm text-gray-600">Passed Checks</div>
-                </CardBody>
-              </Card>
+              <AnalyticsCard
+                name="Total Checks"
+                value={dashboardData.total_count.toString()}
+                icon={CheckCircleIcon}
+                size="sm"
+              />
+              <AnalyticsCard
+                name="Failed"
+                value={dashboardData.results.filter((r: ComplianceDashboardItem) => r.status === 'fail').length.toString()}
+                changeType="decrease"
+                icon={XCircleIcon}
+                size="sm"
+              />
+              <AnalyticsCard
+                name="Warnings"
+                value={dashboardData.results.filter((r: ComplianceDashboardItem) => r.status === 'warning').length.toString()}
+                changeType="neutral"
+                icon={ExclamationTriangleIcon}
+                size="sm"
+              />
+              <AnalyticsCard
+                name="Passed"
+                value={dashboardData.results.filter((r: ComplianceDashboardItem) => r.status === 'pass').length.toString()}
+                changeType="increase"
+                icon={CheckCircleIcon}
+                size="sm"
+              />
             </div>
           )}
 

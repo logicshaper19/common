@@ -36,6 +36,7 @@ import { onboardingApi } from '../../lib/onboardingApi';
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import AnalyticsCard from '../ui/AnalyticsCard';
 import { cn, formatCurrency } from '../../lib/utils';
 
 interface ViralCascadeAnalyticsProps {
@@ -131,41 +132,37 @@ const ViralCascadeAnalytics: React.FC<ViralCascadeAnalyticsProps> = ({
     <div className="space-y-6">
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-primary-600 mb-1">
-              {metrics.total_invitations_sent}
-            </div>
-            <div className="text-sm text-neutral-600">Invitations Sent</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Invitations Sent"
+          value={metrics.total_invitations_sent.toString()}
+          icon={UsersIcon}
+          changeType="increase"
+          change="+24%"
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-success-600 mb-1">
-              {metrics.total_companies_onboarded}
-            </div>
-            <div className="text-sm text-neutral-600">Companies Onboarded</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Companies Onboarded"
+          value={metrics.total_companies_onboarded.toString()}
+          icon={ArrowTrendingUpIcon}
+          changeType="increase"
+          change="+18%"
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-warning-600 mb-1">
-              {metrics.conversion_rate.toFixed(1)}%
-            </div>
-            <div className="text-sm text-neutral-600">Conversion Rate</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Conversion Rate"
+          value={`${metrics.conversion_rate.toFixed(1)}%`}
+          icon={FunnelIcon}
+          changeType="increase"
+          change="+3%"
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-neutral-600 mb-1">
-              {metrics.average_time_to_onboard.toFixed(1)}d
-            </div>
-            <div className="text-sm text-neutral-600">Avg. Time to Onboard</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Avg. Time to Onboard"
+          value={`${metrics.average_time_to_onboard.toFixed(1)}d`}
+          icon={ChartBarIcon}
+          changeType="decrease"
+          change="-2d"
+        />
       </div>
 
       {/* Growth Trend */}

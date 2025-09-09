@@ -64,13 +64,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         
         if settings.debug:
             # Allow more permissive policies in development
+            # Permit API calls to local backend and websockets
             policy_parts.extend([
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' *",
-                "connect-src 'self' ws: wss:"
+                "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 ws: wss:"
             ])
-        
+
         return "; ".join(policy_parts)
-    
+
     def _default_permissions_policy(self) -> str:
         """Generate default Permissions Policy."""
         policies = [
@@ -124,10 +125,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         
         # Additional security headers
         response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
-        response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
-        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
-        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
-        
+        if settings.debug:
+            # Relax cross-origin isolation and resource policy in development for local API calls
+            response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+            response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+            response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        else:
+            response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+            response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+            response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+
         # Cache control for sensitive endpoints
         if self._is_sensitive_endpoint(request.url.path):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"

@@ -19,6 +19,7 @@ from app.schemas.product import (
     ProductCategory
 )
 from app.services.product import ProductService
+from app.services.seed_data import SeedDataService
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -266,3 +267,70 @@ async def validate_composition(
     )
     
     return result
+
+
+@router.post("/seed", response_model=dict)
+async def seed_products(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_admin)
+):
+    """
+    Seed initial products (admin only).
+
+    This endpoint allows admins to manually seed the database with
+    initial palm oil products if they haven't been created yet.
+    """
+    try:
+        seed_service = SeedDataService(db)
+        seed_service.seed_palm_oil_products()
+
+        # Count products after seeding
+        product_service = ProductService(db)
+        filters = ProductFilter(page=1, per_page=1000)
+        products, total_count = product_service.list_products(filters)
+
+        logger.info(
+            "Products seeded by admin",
+            admin_user_id=str(current_user.id),
+            total_products=total_count
+        )
+
+        return {
+            "message": "Products seeded successfully",
+            "total_products": total_count
+        }
+
+    except Exception as e:
+        logger.error("Failed to seed products", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to seed products"
+        )
+
+
+@router.get("/count", response_model=dict)
+async def get_products_count(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Get the total count of products in the database.
+
+    This endpoint helps check if products have been seeded.
+    """
+    try:
+        product_service = ProductService(db)
+        filters = ProductFilter(page=1, per_page=1)
+        _, total_count = product_service.list_products(filters)
+
+        return {
+            "total_products": total_count,
+            "has_products": total_count > 0
+        }
+
+    except Exception as e:
+        logger.error("Failed to get products count", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get products count"
+        )

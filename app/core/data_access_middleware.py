@@ -72,27 +72,46 @@ def require_data_access(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required"
                 )
-            
+
             if not db:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Database session not available"
                 )
-            
+
+            # Admin bypass: platform admins can access all data in dev/ops scenarios
+            try:
+                if getattr(current_user, 'role', None) == 'admin':
+                    return await func(*args, **kwargs) if hasattr(func, '__await__') else func(*args, **kwargs)
+            except Exception:
+                pass
+
             # Extract entity ID from common parameter names
-            entity_id = kwargs.get('po_id') or kwargs.get('entity_id') or kwargs.get('id')
+            entity_id = (
+                kwargs.get('purchase_order_id') or
+                kwargs.get('po_id') or
+                kwargs.get('entity_id') or
+                kwargs.get('id')
+            )
             if not entity_id and args:
                 # Try to find UUID in args
                 for arg in args:
                     if isinstance(arg, UUID):
                         entity_id = arg
                         break
-            
+
+            # Coerce entity_id to UUID if it's a string
+            if isinstance(entity_id, str):
+                try:
+                    entity_id = UUID(entity_id)
+                except Exception:
+                    entity_id = None
+
             # Determine target company ID
             target_company_id = None
             if entity_id:
                 target_company_id = _get_entity_owner_company(db, entity_type, entity_id)
-            
+
             # Check if accessing own company data
             if allow_own_company and target_company_id == current_user.company_id:
                 return await func(*args, **kwargs) if hasattr(func, '__await__') else func(*args, **kwargs)

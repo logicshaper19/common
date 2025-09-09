@@ -316,6 +316,7 @@ class PurchaseOrderWithDetails(BaseModel):
     input_materials: Optional[List[Dict[str, Any]]]
     origin_data: Optional[Dict[str, Any]]
     notes: Optional[str]
+    amendments: Optional[List[Dict[str, Any]]] = []  # Amendment details
     created_at: datetime
     updated_at: datetime
 

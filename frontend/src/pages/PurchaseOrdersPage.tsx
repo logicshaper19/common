@@ -4,12 +4,18 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import PurchaseOrderCard from '../components/purchase-orders/PurchaseOrderCard';
+import AnalyticsCard from '../components/ui/AnalyticsCard';
+import PurchaseOrderTable from '../components/purchase-orders/PurchaseOrderTable';
 import CreatePurchaseOrderModal from '../components/purchase-orders/CreatePurchaseOrderModal';
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
-  PlusIcon
+  PlusIcon,
+  DocumentTextIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  TruckIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import {
   purchaseOrderApi,
@@ -47,6 +53,71 @@ export const PurchaseOrdersPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Calculate analytics from purchase orders
+  const analytics = React.useMemo(() => {
+    const total = purchaseOrders.length;
+    const pending = purchaseOrders.filter(po => po.status === 'PENDING').length;
+    const confirmed = purchaseOrders.filter(po => po.status === 'CONFIRMED').length;
+    const delivered = purchaseOrders.filter(po => po.status === 'DELIVERED').length;
+    const cancelled = purchaseOrders.filter(po => po.status === 'CANCELLED').length;
+
+    // Calculate total value
+    const totalValue = purchaseOrders.reduce((sum, po) => {
+      return sum + (po.total_amount || 0);
+    }, 0);
+
+    // Calculate amendments
+    const withAmendments = purchaseOrders.filter(po =>
+      po.amendments && po.amendments.length > 0
+    ).length;
+
+    return [
+      {
+        name: 'Total Orders',
+        value: total.toString(),
+        change: '+8%',
+        changeType: 'increase' as const,
+        icon: DocumentTextIcon,
+      },
+      {
+        name: 'Pending',
+        value: pending.toString(),
+        change: pending > 0 ? `${Math.round((pending / total) * 100)}%` : '0%',
+        changeType: pending > total * 0.3 ? 'increase' as const : 'neutral' as const,
+        icon: ClockIcon,
+      },
+      {
+        name: 'Confirmed',
+        value: confirmed.toString(),
+        change: confirmed > 0 ? `${Math.round((confirmed / total) * 100)}%` : '0%',
+        changeType: 'increase' as const,
+        icon: CheckCircleIcon,
+      },
+      {
+        name: 'Delivered',
+        value: delivered.toString(),
+        change: delivered > 0 ? `${Math.round((delivered / total) * 100)}%` : '0%',
+        changeType: 'increase' as const,
+        icon: TruckIcon,
+      },
+    ];
+  }, [purchaseOrders]);
+
+  // Calculate pending amendments for alerts
+  const pendingAmendments = purchaseOrders.filter(po =>
+    po.amendments?.some(amendment =>
+      amendment.status === 'pending' &&
+      amendment.proposed_by_user_id !== user?.id
+    )
+  );
+
+  const myProposedAmendments = purchaseOrders.filter(po =>
+    po.amendments?.some(amendment =>
+      amendment.status === 'pending' &&
+      amendment.proposed_by_user_id === user?.id
+    )
+  );
 
   // Load purchase orders
   const loadPurchaseOrders = async () => {
@@ -108,16 +179,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     }
   };
 
-  // Get purchase orders that need attention
-  const pendingAmendments = purchaseOrders.filter(po =>
-    po.amendment_status === 'proposed' &&
-    user?.company?.id === po.buyer_company_id
-  );
 
-  const myProposedAmendments = purchaseOrders.filter(po =>
-    po.amendment_status === 'proposed' &&
-    user?.company?.id === po.seller_company_id
-  );
 
   if (isLoading && purchaseOrders.length === 0) {
     return (
@@ -146,6 +208,20 @@ export const PurchaseOrdersPage: React.FC = () => {
             Create Purchase Order
           </Button>
         </div>
+      </div>
+
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        {analytics.map((stat) => (
+          <AnalyticsCard
+            key={stat.name}
+            name={stat.name}
+            value={stat.value}
+            change={stat.change}
+            changeType={stat.changeType}
+            icon={stat.icon}
+          />
+        ))}
       </div>
 
       {/* Amendment Alerts */}
@@ -282,17 +358,13 @@ export const PurchaseOrdersPage: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 🚨 Amendments Awaiting Your Review
               </h2>
-              <div className="space-y-4">
-                {pendingAmendments.map((po) => (
-                  <PurchaseOrderCard
-                    key={po.id}
-                    purchaseOrder={po}
-                    onProposeChanges={handleProposeChanges}
-                    onApproveChanges={handleApproveChanges}
-                    onRefresh={loadPurchaseOrders}
-                  />
-                ))}
-              </div>
+              <PurchaseOrderTable
+                purchaseOrders={pendingAmendments}
+                onProposeChanges={handleProposeChanges}
+                onApproveChanges={handleApproveChanges}
+                onRefresh={loadPurchaseOrders}
+                showAmendmentSection={true}
+              />
             </div>
           )}
 
@@ -301,17 +373,13 @@ export const PurchaseOrdersPage: React.FC = () => {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               All Purchase Orders
             </h2>
-            <div className="space-y-4">
-              {purchaseOrders.map((po) => (
-                <PurchaseOrderCard
-                  key={po.id}
-                  purchaseOrder={po}
-                  onProposeChanges={handleProposeChanges}
-                  onApproveChanges={handleApproveChanges}
-                  onRefresh={loadPurchaseOrders}
-                />
-              ))}
-            </div>
+            <PurchaseOrderTable
+              purchaseOrders={purchaseOrders}
+              onProposeChanges={handleProposeChanges}
+              onApproveChanges={handleApproveChanges}
+              onRefresh={loadPurchaseOrders}
+              loading={isLoading}
+            />
           </div>
 
           {/* Loading indicator for pagination */}

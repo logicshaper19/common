@@ -154,9 +154,17 @@ def list_business_relationships(
         per_page
     )
     
-    # Convert to response format
+    # Convert to response format with company details
     relationship_responses = []
     for rel in relationships:
+        # Get company details
+        from app.models.company import Company
+        buyer_company = db.query(Company).filter(Company.id == rel.buyer_company_id).first()
+        seller_company = db.query(Company).filter(Company.id == rel.seller_company_id).first()
+        invited_by_company = None
+        if rel.invited_by_company_id:
+            invited_by_company = db.query(Company).filter(Company.id == rel.invited_by_company_id).first()
+
         response = BusinessRelationshipResponse(
             id=rel.id,
             buyer_company_id=rel.buyer_company_id,
@@ -166,7 +174,10 @@ def list_business_relationships(
             data_sharing_permissions=rel.data_sharing_permissions,
             invited_by_company_id=rel.invited_by_company_id,
             established_at=rel.established_at,
-            terminated_at=rel.terminated_at
+            terminated_at=rel.terminated_at,
+            buyer_company_name=buyer_company.name if buyer_company else None,
+            seller_company_name=seller_company.name if seller_company else None,
+            invited_by_company_name=invited_by_company.name if invited_by_company else None
         )
         relationship_responses.append(response)
     

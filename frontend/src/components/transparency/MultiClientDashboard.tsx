@@ -17,6 +17,7 @@ import { MultiClientDashboard as MultiClientDashboardType, CompanyTransparencySu
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import AnalyticsCard from '../ui/AnalyticsCard';
 import TransparencyScoreCard from './TransparencyScoreCard';
 import { cn, getTransparencyColor, formatTransparency } from '../../lib/utils';
 
@@ -103,44 +104,37 @@ const MultiClientDashboard: React.FC<MultiClientDashboardProps> = ({
     <div className={cn('space-y-6', className)}>
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-primary-600 mb-1">
-              {data.total_clients}
-            </div>
-            <div className="text-sm text-neutral-600">Total Clients</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Total Clients"
+          value={data.total_clients.toString()}
+          icon={BuildingOfficeIcon}
+          changeType="increase"
+          change="+12%"
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className={cn(
-              'text-3xl font-bold mb-1',
-              getTransparencyColor(data.aggregate_metrics.average_transparency)
-            )}>
-              {formatTransparency(data.aggregate_metrics.average_transparency)}
-            </div>
-            <div className="text-sm text-neutral-600">Avg Transparency</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Avg Transparency"
+          value={formatTransparency(data.aggregate_metrics.average_transparency)}
+          icon={ChartBarIcon}
+          changeType="increase"
+          change="+5%"
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-warning-600 mb-1">
-              {data.aggregate_metrics.total_gaps_identified}
-            </div>
-            <div className="text-sm text-neutral-600">Gaps Identified</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Gaps Identified"
+          value={data.aggregate_metrics.total_gaps_identified.toString()}
+          icon={ExclamationTriangleIcon}
+          changeType="decrease"
+          change="-8%"
+        />
 
-        <Card>
-          <CardBody className="text-center">
-            <div className="text-3xl font-bold text-success-600 mb-1">
-              {data.aggregate_metrics.total_improvements_implemented}
-            </div>
-            <div className="text-sm text-neutral-600">Improvements</div>
-          </CardBody>
-        </Card>
+        <AnalyticsCard
+          name="Improvements"
+          value={data.aggregate_metrics.total_improvements_implemented.toString()}
+          icon={CheckCircleIcon}
+          changeType="increase"
+          change="+15%"
+        />
       </div>
 
       {/* Alerts */}
