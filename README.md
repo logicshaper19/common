@@ -6,11 +6,24 @@ A FastAPI-based backend for supply chain transparency platform with unified Purc
 
 - **Unified Purchase Order System**: Single source of truth for supply chain transactions
 - **Dual Confirmation Model**: Different interfaces for processors vs originators
-- **Transparency Calculations**: Real-time supply chain visibility scoring
+- **Transparency Calculations**: Simplified, deterministic supply chain visibility scoring (TTM/TTP)
 - **Viral Onboarding**: Cascade supplier invitation system
 - **Business Relationship Management**: Sophisticated data sharing controls
 - **Background Processing**: Async transparency calculations with Celery
 - **Comprehensive Audit**: Full transaction history and event logging
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[Architecture & Design](docs/architecture/)** - System architecture and design patterns
+- **[API Documentation](docs/api/)** - REST API documentation and guides
+- **[Connectors & Integrations](docs/connectors/)** - External system integration documentation
+- **[Development Guides](docs/development/)** - Development guides and implementation details
+- **[Testing & QA](docs/)** - Testing strategies and procedures
+- **[User & Admin Guides](docs/)** - End-user and administrator documentation
+
+**Quick Start**: See [docs/README.md](docs/README.md) for a complete documentation index.
 
 ## Technology Stack
 
