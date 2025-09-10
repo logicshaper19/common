@@ -1,7 +1,7 @@
 """
 Purchase order API endpoints.
 """
-from typing import List
+from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from math import ceil
@@ -21,6 +21,7 @@ from app.schemas.purchase_order import (
     TraceabilityResponse,
     PurchaseOrderStatus,
     SellerConfirmation,
+    PurchaseOrderConfirmation,
     BuyerApprovalRequest,
     DiscrepancyResponse,
     DiscrepancyDetail,
@@ -350,6 +351,104 @@ def seller_confirm_purchase_order(
 
     # Convert to response format
     return purchase_order_service.get_purchase_order_with_details(purchase_order_id)
+
+
+@router.post("/{purchase_order_id}/confirm", response_model=Dict[str, Any])
+@require_po_access(AccessType.WRITE)
+def confirm_purchase_order(
+    purchase_order_id: str,
+    confirmation: PurchaseOrderConfirmation,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Simple confirmation of a purchase order by the seller.
+
+    This endpoint provides a simplified confirmation workflow without
+    complex discrepancy detection. Suitable for straightforward confirmations.
+    """
+    from datetime import datetime
+    from app.services.po_history import POHistoryService
+    from app.services.notification import NotificationService
+
+    purchase_order_service = PurchaseOrderService(db)
+    history_service = POHistoryService(db)
+    notification_service = NotificationService(db)
+
+    # Get the purchase order
+    po = purchase_order_service.get_purchase_order(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+
+    # Verify user is from seller company
+    if current_user.company_id != po.seller_company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the seller company can confirm this purchase order"
+        )
+
+    # Check if PO is in a confirmable state
+    if po.status not in [PurchaseOrderStatus.PENDING.value, PurchaseOrderStatus.AWAITING_CONFIRMATION.value]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Purchase order cannot be confirmed in current status: {po.status}"
+        )
+
+    # Update PO with confirmation details
+    po.status = PurchaseOrderStatus.CONFIRMED.value
+    po.confirmed_at = datetime.utcnow()
+    po.confirmed_by_user_id = current_user.id
+
+    # Add confirmation details if provided
+    if confirmation.delivery_date:
+        po.confirmed_delivery_date = confirmation.delivery_date
+    if confirmation.notes:
+        po.seller_notes = confirmation.notes
+    if confirmation.confirmed_quantity:
+        po.confirmed_quantity = confirmation.confirmed_quantity
+    if confirmation.confirmed_unit:
+        po.unit = confirmation.confirmed_unit
+
+    # Log confirmation in history
+    history_service.log_po_confirmed(
+        purchase_order_id=po.id,
+        user_id=current_user.id,
+        company_id=current_user.company_id,
+        po_number=po.po_number
+    )
+
+    # Create notification for buyer
+    try:
+        notification_service.create_notification(
+            user_id=po.buyer_user_id,
+            type="po_confirmed",
+            title="Purchase Order Confirmed",
+            message=f"PO #{po.po_number} has been confirmed by {po.seller_company.name}",
+            data={"purchase_order_id": str(po.id)}
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send confirmation notification: {e}")
+
+    db.commit()
+    db.refresh(po)
+
+    logger.info(
+        "Purchase order confirmed successfully",
+        po_id=purchase_order_id,
+        user_id=str(current_user.id),
+        company_id=str(current_user.company_id)
+    )
+
+    return {
+        "success": True,
+        "message": "Purchase order confirmed successfully",
+        "purchase_order_id": str(po.id),
+        "status": po.status,
+        "confirmed_at": po.confirmed_at.isoformat() if po.confirmed_at else None
+    }
 
 
 @router.post("/{purchase_order_id}/buyer-approve", response_model=PurchaseOrderResponse)

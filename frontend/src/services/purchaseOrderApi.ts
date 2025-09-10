@@ -166,6 +166,21 @@ export interface AmendmentResponse {
   purchase_order_id: string;
 }
 
+export interface PurchaseOrderConfirmation {
+  delivery_date?: string;
+  notes?: string;
+  confirmed_quantity?: number;
+  confirmed_unit?: string;
+}
+
+export interface ConfirmationResponse {
+  success: boolean;
+  message: string;
+  purchase_order_id: string;
+  status: string;
+  confirmed_at?: string;
+}
+
 export const purchaseOrderApi = {
   // Get all purchase orders with filtering
   getPurchaseOrders: async (filters?: PurchaseOrderFilters): Promise<PurchaseOrderListResponse> => {
@@ -226,6 +241,12 @@ export const purchaseOrderApi = {
 
   approveChanges: async (id: string, approval: ApproveChangesRequest): Promise<AmendmentResponse> => {
     const response = await apiClient.put(`/purchase-orders/${id}/approve-changes`, approval);
+    return response.data;
+  },
+
+  // Simple confirmation API function
+  confirmPurchaseOrder: async (id: string, confirmation: PurchaseOrderConfirmation): Promise<ConfirmationResponse> => {
+    const response = await apiClient.post(`/purchase-orders/${id}/confirm`, confirmation);
     return response.data;
   }
 };

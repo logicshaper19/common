@@ -11,6 +11,7 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { transparencyApi } from '../lib/transparencyApi';
 import { useTransparencyMetricsWithUpdates } from '../hooks/useTransparencyUpdates';
 import { 
@@ -34,6 +35,7 @@ import { cn } from '../lib/utils';
 
 const TransparencyDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'deterministic' | 'overview' | 'visualization' | 'gaps' | 'multi-client'>('deterministic');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,11 @@ const TransparencyDashboard: React.FC = () => {
   const [supplyChainData, setSupplyChainData] = useState<SupplyChainVisualization | null>(null);
   const [gapAnalysis, setGapAnalysis] = useState<GapAnalysisItem[]>([]);
   const [multiClientData, setMultiClientData] = useState<MultiClientDashboardType | null>(null);
-  
+
+  // Client filtering for consultant users
+  const [selectedClient, setSelectedClient] = useState<string>('all');
+  const [clientCompanies, setClientCompanies] = useState<any[]>([]);
+
   // View options
   const [viewOptions, setViewOptions] = useState<ViewOptions>({
     layout: 'hierarchical',
@@ -63,6 +69,36 @@ const TransparencyDashboard: React.FC = () => {
   useEffect(() => {
     loadDashboardData();
   }, [user]);
+
+  // Load client companies for consultant users
+  useEffect(() => {
+    if (user?.role === 'consultant') {
+      fetchClientCompanies();
+    }
+  }, [user]);
+
+  const fetchClientCompanies = async () => {
+    try {
+      // For now, we'll use a mock implementation
+      // In a real implementation, you'd call an API endpoint like:
+      // const response = await consultantApi.getClientCompanies();
+
+      // Mock client companies for demonstration
+      const mockClients = [
+        { id: 'client-1', name: 'Acme Palm Oil Co.' },
+        { id: 'client-2', name: 'Global Commodities Ltd.' },
+        { id: 'client-3', name: 'Sustainable Sourcing Inc.' }
+      ];
+
+      setClientCompanies(mockClients);
+    } catch (error) {
+      console.error('Error fetching client companies:', error);
+      showToast({
+        type: 'error',
+        message: 'Failed to load client companies'
+      });
+    }
+  };
 
   const loadDashboardData = async () => {
     if (!user?.company?.id) return;
@@ -165,15 +201,23 @@ const TransparencyDashboard: React.FC = () => {
       // 3. Update gap status in the database
       // 4. Track progress and follow-up dates
 
-      // For now, show user feedback
-      alert(`Action Taken: ${actionMessage}\n\nGap: ${gap.title}\nRecommendation: ${recommendation}`);
+      // Show user feedback using toast instead of alert
+      showToast({
+        type: 'success',
+        title: 'Gap Action Created',
+        message: `${actionMessage} - Gap: ${gap.title}`
+      });
 
       // Refresh gap analysis to reflect any changes
       await loadDashboardData();
 
     } catch (error) {
       console.error('Failed to handle gap action:', error);
-      alert('Failed to process gap action. Please try again.');
+      showToast({
+        type: 'error',
+        title: 'Action Failed',
+        message: 'Failed to process gap action. Please try again.'
+      });
     }
   };
 
@@ -185,6 +229,36 @@ const TransparencyDashboard: React.FC = () => {
   const handleViewDetails = (clientId: string) => {
     console.log('View details for client:', clientId);
     // TODO: Navigate to client details page
+  };
+
+  // Client selector component for consultant users
+  const ClientSelector = () => {
+    if (user?.role !== 'consultant') return null;
+
+    return (
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select Client
+        </label>
+        <select
+          value={selectedClient}
+          onChange={(e) => setSelectedClient(e.target.value)}
+          className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="all">All Clients</option>
+          {clientCompanies.map(client => (
+            <option key={client.id} value={client.id}>
+              {client.name}
+            </option>
+          ))}
+        </select>
+        {selectedClient !== 'all' && (
+          <p className="text-sm text-gray-500 mt-1">
+            Viewing data for: {clientCompanies.find(c => c.id === selectedClient)?.name}
+          </p>
+        )}
+      </div>
+    );
   };
 
   // Determine which tabs to show based on user role
@@ -268,6 +342,9 @@ const TransparencyDashboard: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Client Selector for Consultant Users */}
+      <ClientSelector />
 
       {/* Tab Navigation */}
       <div className="border-b border-neutral-200">

@@ -37,6 +37,9 @@ class Settings(BaseSettings):
 
     # Security
     force_https: bool = Field(default=False, alias="FORCE_HTTPS")
+
+    # API Configuration
+    api_base_url: str = Field(default="http://localhost:8000", alias="API_BASE_URL")
     
     # Transparency Calculation
     transparency_degradation_factor: float = Field(default=0.95, alias="TRANSPARENCY_DEGRADATION_FACTOR")

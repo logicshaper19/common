@@ -103,13 +103,30 @@ async def get_documents(
     if company_id != str(current_user.company_id):
         if current_user.role != 'admin':
             raise HTTPException(status_code=403, detail="Access denied")
-        # Log admin access for audit trail
-        logger.info(
-            "Admin override: viewing documents for different company",
-            admin_user_id=str(current_user.id),
-            admin_company_id=str(current_user.company_id),
-            target_company_id=company_id
-        )
+
+        # Enhanced admin audit logging
+        from app.services.audit import AuditService
+        audit_service = AuditService(db)
+
+        try:
+            await audit_service.log_admin_action(
+                admin_user_id=current_user.id,
+                action_type="document_list_access_override",
+                target_resource_type="document_list",
+                target_resource_id=f"company_{company_id}",
+                target_company_id=UUID(company_id),
+                details={
+                    "access_type": "document_list_view",
+                    "target_company_id": company_id,
+                    "filters": {
+                        "po_id": po_id,
+                        "document_type": document_type
+                    }
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to log admin override action: {e}")
+            # Continue with the request even if audit logging fails
     
     documents = await storage_service.get_documents(
         company_id=company_id,
@@ -142,8 +159,43 @@ async def get_document(
         raise HTTPException(status_code=404, detail="Document not found")
     
     # Security check: user must have access to this document
-    if (document.company_id != current_user.company_id and 
-        document.on_behalf_of_company_id != current_user.company_id):
+    has_access = False
+    access_reason = "direct_access"
+
+    # Check normal access permissions
+    if (document.company_id == current_user.company_id or
+        document.on_behalf_of_company_id == current_user.company_id):
+        has_access = True
+
+    # Admin override check
+    elif current_user.role == 'admin':
+        has_access = True
+        access_reason = "admin_override"
+
+        # Enhanced admin audit logging
+        from app.services.audit import AuditService
+        audit_service = AuditService(db)
+
+        try:
+            await audit_service.log_admin_action(
+                admin_user_id=current_user.id,
+                action_type="document_access_override",
+                target_resource_type="document",
+                target_resource_id=str(document_id),
+                target_company_id=document.company_id,
+                details={
+                    "document_name": document.filename,
+                    "document_type": document.document_type,
+                    "file_size": document.file_size,
+                    "original_company": document.company.name if document.company else "Unknown",
+                    "access_reason": "admin_override"
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to log admin override action: {e}")
+            # Continue with the request even if audit logging fails
+
+    if not has_access:
         raise HTTPException(status_code=403, detail="Access denied")
     
     return DocumentResponse.from_orm(document)
@@ -152,17 +204,19 @@ async def get_document(
 @router.delete("/{document_id}")
 async def delete_document(
     document_id: UUID,
+    deletion_reason: Optional[str] = Query(None, description="Reason for deletion (required for admin overrides)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Delete a document (soft delete)"""
-    
+
     storage_service = DocumentStorageService(db)
-    
+
     try:
         success = await storage_service.delete_document(
             document_id=str(document_id),
-            user_id=str(current_user.id)
+            user_id=str(current_user.id),
+            deletion_reason=deletion_reason
         )
 
         if success:

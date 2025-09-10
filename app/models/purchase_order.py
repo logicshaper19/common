@@ -93,12 +93,14 @@ class PurchaseOrder(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     confirmed_at = Column(DateTime(timezone=True))
+    confirmed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 
     # Relationships
     buyer_company = relationship("Company", foreign_keys=[buyer_company_id])
     seller_company = relationship("Company", foreign_keys=[seller_company_id])
     product = relationship("Product")
     amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
+    confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])
 
     # Performance indexes for frequently queried fields and transparency calculations
     __table_args__ = (

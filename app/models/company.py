@@ -65,6 +65,7 @@ class Company(Base):
     sector = relationship("Sector", back_populates="companies")
     team_invitations = relationship("TeamInvitation", back_populates="company")
     brands = relationship("Brand", back_populates="company", cascade="all, delete-orphan")
+    gap_actions = relationship("GapAction", foreign_keys="GapAction.company_id", back_populates="company")
 
     # Performance indexes for frequently queried fields
     __table_args__ = (

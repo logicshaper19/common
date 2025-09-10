@@ -413,34 +413,84 @@ class DocumentStorageService:
         
         return query.order_by(Document.created_at.desc()).all()
     
-    async def delete_document(self, document_id: str, user_id: str) -> bool:
+    async def delete_document(
+        self,
+        document_id: str,
+        user_id: str,
+        deletion_reason: Optional[str] = None
+    ) -> bool:
         """Delete a document (soft delete by updating status)"""
-        
+
+        from app.models.user import User
+        from app.services.audit import AuditService
+
         document = self.db.query(Document).filter(Document.id == document_id).first()
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
-        
-        # Check permissions (user must be uploader or have admin rights)
-        if document.uploaded_by_user_id != user_id:
-            # Admin override: check if user is admin
-            from app.models.user import User
-            user = self.db.query(User).filter(User.id == user_id).first()
-            if not user or user.role != 'admin':
-                raise HTTPException(status_code=403, detail="Not authorized to delete this document")
 
-            # Log admin override for audit trail
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Check permissions
+        can_delete = False
+        deletion_type = "user_deletion"
+
+        # Normal deletion check (user owns document)
+        if document.uploaded_by_user_id == user_id:
+            can_delete = True
+
+        # Admin override check
+        elif user.role == 'admin':
+            can_delete = True
+            deletion_type = "admin_override_deletion"
+
+            # Enhanced admin audit logging
+            audit_service = AuditService(self.db)
+
+            try:
+                await audit_service.log_admin_action(
+                    admin_user_id=user.id,
+                    action_type="document_deletion_override",
+                    target_resource_type="document",
+                    target_resource_id=str(document_id),
+                    target_company_id=document.company_id,
+                    details={
+                        "document_name": document.filename,
+                        "document_type": document.document_type,
+                        "file_size": document.file_size,
+                        "original_uploader": document.uploaded_by.full_name if document.uploaded_by else "Unknown",
+                        "original_uploader_id": str(document.uploaded_by_user_id),
+                        "deletion_reason": deletion_reason or "No reason provided",
+                        "company_name": document.company.name if document.company else "Unknown"
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to log admin deletion override: {e}")
+                # Continue with deletion even if audit logging fails
+
+        if not can_delete:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this document")
+
+        try:
+            # Update validation status instead of hard delete
+            document.validation_status = 'deleted'
+            self.db.commit()
+
             logger.info(
-                "Admin override: deleting document uploaded by different user",
-                admin_user_id=str(user_id),
+                "Document deleted successfully",
                 document_id=str(document_id),
-                original_uploader_id=str(document.uploaded_by_user_id)
+                deletion_type=deletion_type,
+                user_id=str(user_id),
+                admin_override=deletion_type == "admin_override_deletion"
             )
-        
-        # Update validation status instead of hard delete
-        document.validation_status = 'deleted'
-        self.db.commit()
-        
-        return True
+
+            return True
+
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to delete document: {e}")
+            raise HTTPException(status_code=500, detail="Failed to delete document")
 
     async def get_documents_by_po(self, po_id: str) -> List[Document]:
         """

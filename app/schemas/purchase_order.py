@@ -387,6 +387,14 @@ class DiscrepancyDetail(BaseModel):
     difference: Optional[str] = None
 
 
+class PurchaseOrderConfirmation(BaseModel):
+    """Schema for simple purchase order confirmation."""
+    delivery_date: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+    confirmed_quantity: Optional[Decimal] = Field(None, gt=0, decimal_places=3)
+    confirmed_unit: Optional[str] = Field(None, max_length=50)
+
+
 class BuyerApprovalRequest(BaseModel):
     """Schema for buyer approval of seller confirmation with discrepancies."""
     approve: bool
