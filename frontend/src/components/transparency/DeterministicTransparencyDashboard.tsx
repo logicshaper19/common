@@ -38,6 +38,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useDeterministicTransparency } from '../../hooks/useDeterministicTransparency';
 import { useAuth } from '../../contexts/AuthContext';
+import { GapActionsPanel } from './GapActionsPanel';
 
 interface DeterministicTransparencyDashboardProps {
   companyId?: string;
@@ -309,9 +310,18 @@ export const DeterministicTransparencyDashboard: React.FC<DeterministicTranspare
                         </TableCell>
                         <TableCell>{gap.trace_depth}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center space-x-2">
+                            <Button variant="ghost" size="sm">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <GapActionsPanel
+                              gap={gap}
+                              onActionCreated={() => {
+                                // Refresh gaps data
+                                fetchTransparencyGaps();
+                              }}
+                            />
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

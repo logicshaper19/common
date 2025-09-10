@@ -20,6 +20,14 @@ from app.services.deterministic_transparency import (
     TransparencyGap,
     SupplyChainTrace
 )
+from app.services.gap_action_service import GapActionService
+from app.schemas.gap_action import (
+    GapActionRequest,
+    GapActionUpdate,
+    GapActionResponse,
+    GapActionListResponse,
+    GapActionCreateResponse
+)
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -381,4 +389,202 @@ def get_transparency_audit_trail(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get transparency audit trail: {str(e)}"
+        )
+
+
+# Gap Actions Endpoints
+
+@router.post("/companies/{company_id}/gaps/{gap_id}/actions", response_model=GapActionCreateResponse)
+def create_gap_action(
+    company_id: UUID,
+    gap_id: str,
+    action: GapActionRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create an action to resolve a transparency gap.
+
+    This endpoint allows users to create actionable items for resolving transparency gaps,
+    such as requesting data from suppliers, contacting suppliers directly, or marking
+    gaps as resolved through offline processes.
+
+    **Action Types:**
+    - `request_data`: Formal request for additional traceability data
+    - `contact_supplier`: Direct communication with supplier
+    - `mark_resolved`: Mark gap as resolved through other means
+
+    **Permissions:**
+    - User must belong to the specified company
+    - Only company members can create actions for their gaps
+    """
+    try:
+        # Verify user belongs to the company
+        if current_user.company_id != company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: User does not belong to this company"
+            )
+
+        # Create gap action
+        gap_action_service = GapActionService(db)
+        gap_action = gap_action_service.create_gap_action(
+            company_id=company_id,
+            gap_id=gap_id,
+            action_request=action,
+            created_by_user_id=current_user.id
+        )
+
+        logger.info(
+            f"Gap action created for company {company_id}, gap {gap_id} "
+            f"by user {current_user.id}"
+        )
+
+        return GapActionCreateResponse(
+            success=True,
+            action_id=gap_action.id,
+            message=f"Gap action '{action.action_type}' created successfully"
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error creating gap action: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create gap action: {str(e)}"
+        )
+
+
+@router.get("/companies/{company_id}/gap-actions", response_model=GapActionListResponse)
+def get_gap_actions(
+    company_id: UUID,
+    status: Optional[str] = Query(None, description="Filter by action status"),
+    gap_id: Optional[str] = Query(None, description="Filter by specific gap ID"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of actions to return"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get gap actions for a company.
+
+    Returns all gap actions created by the company, with optional filtering
+    by status or specific gap ID.
+
+    **Status Values:**
+    - `pending`: Action created but not yet started
+    - `in_progress`: Action is being worked on
+    - `resolved`: Action has been completed
+    - `cancelled`: Action was cancelled
+
+    **Permissions:**
+    - User must belong to the specified company
+    - Users can only see actions for their own company
+    """
+    try:
+        # Verify user belongs to the company
+        if current_user.company_id != company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: User does not belong to this company"
+            )
+
+        # Get gap actions
+        gap_action_service = GapActionService(db)
+        actions = gap_action_service.get_gap_actions(
+            company_id=company_id,
+            status=status,
+            gap_id=gap_id,
+            limit=limit
+        )
+
+        # Convert to response format
+        action_responses = [
+            gap_action_service.to_response(action) for action in actions
+        ]
+
+        logger.info(
+            f"Retrieved {len(actions)} gap actions for company {company_id} "
+            f"(status: {status or 'all'}, gap_id: {gap_id or 'all'})"
+        )
+
+        return GapActionListResponse(
+            success=True,
+            actions=action_responses,
+            total_count=len(action_responses),
+            message="Gap actions retrieved successfully"
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting gap actions: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get gap actions: {str(e)}"
+        )
+
+
+@router.put("/companies/{company_id}/gap-actions/{action_id}")
+def update_gap_action(
+    company_id: UUID,
+    action_id: UUID,
+    update: GapActionUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update gap action status.
+
+    Allows updating the status and resolution notes of a gap action.
+    Typically used to mark actions as in progress, resolved, or cancelled.
+
+    **Status Transitions:**
+    - `pending` → `in_progress`, `resolved`, `cancelled`
+    - `in_progress` → `resolved`, `cancelled`
+    - `resolved` and `cancelled` are final states
+
+    **Permissions:**
+    - User must belong to the specified company
+    - Users can only update actions for their own company
+    """
+    try:
+        # Verify user belongs to the company
+        if current_user.company_id != company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: User does not belong to this company"
+            )
+
+        # Update gap action
+        gap_action_service = GapActionService(db)
+        updated_action = gap_action_service.update_gap_action(
+            action_id=action_id,
+            company_id=company_id,
+            update_request=update,
+            updated_by_user_id=current_user.id
+        )
+
+        logger.info(
+            f"Gap action {action_id} updated to status '{update.status}' "
+            f"by user {current_user.id}"
+        )
+
+        return {
+            "success": True,
+            "message": f"Gap action updated to '{update.status}' successfully",
+            "action": gap_action_service.to_response(updated_action)
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error updating gap action: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update gap action: {str(e)}"
         )

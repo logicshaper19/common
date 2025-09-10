@@ -19,6 +19,13 @@ interface CertificateMetadata {
   certificationBody?: string;
   millName?: string;
   millCode?: string;
+  // Enhanced metadata fields
+  tags: string[];
+  category: string;
+  expiryDate: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high';
+  complianceStatus: 'pending' | 'approved' | 'rejected' | 'expired';
 }
 
 export const CertificateUpload: React.FC<CertificateUploadProps> = ({
@@ -31,7 +38,14 @@ export const CertificateUpload: React.FC<CertificateUploadProps> = ({
 }) => {
   const [uploadedCertificates, setUploadedCertificates] = useState<any[]>([]);
   const [showMetadataForm, setShowMetadataForm] = useState<string | null>(null);
-  const [certificateMetadata, setCertificateMetadata] = useState<CertificateMetadata>({});
+  const [certificateMetadata, setCertificateMetadata] = useState<CertificateMetadata>({
+    tags: [],
+    category: '',
+    expiryDate: '',
+    description: '',
+    priority: 'medium',
+    complianceStatus: 'pending'
+  });
 
   const handleUploadComplete = (document: any) => {
     setUploadedCertificates(prev => [...prev, document]);
@@ -39,11 +53,33 @@ export const CertificateUpload: React.FC<CertificateUploadProps> = ({
     onUploadComplete?.(document);
   };
 
-  const handleMetadataSubmit = (documentId: string) => {
-    // TODO: Update document with metadata
-    console.log('Updating document metadata:', documentId, certificateMetadata);
-    setShowMetadataForm(null);
-    setCertificateMetadata({});
+  const handleMetadataSubmit = async (documentId: string) => {
+    try {
+      // TODO: Replace with actual API call
+      // await documentsApi.updateDocumentMetadata(documentId, certificateMetadata);
+      console.log('Updating document metadata:', documentId, certificateMetadata);
+
+      // Update local state
+      setUploadedCertificates(prev =>
+        prev.map(cert =>
+          cert.id === documentId
+            ? { ...cert, metadata: certificateMetadata }
+            : cert
+        )
+      );
+
+      setShowMetadataForm(null);
+      setCertificateMetadata({
+        tags: [],
+        category: '',
+        expiryDate: '',
+        description: '',
+        priority: 'medium',
+        complianceStatus: 'pending'
+      });
+    } catch (error) {
+      console.error('Failed to update document metadata:', error);
+    }
   };
 
   const getCertificateTypeOptions = () => {
@@ -236,6 +272,127 @@ export const CertificateUpload: React.FC<CertificateUploadProps> = ({
                             placeholder="e.g., Makmur Selalu Mill"
                           />
                         </div>
+
+                        {/* Enhanced Metadata Fields */}
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-700 mb-1">
+                            Category
+                          </label>
+                          <select
+                            value={certificateMetadata.category}
+                            onChange={(e) => setCertificateMetadata(prev => ({
+                              ...prev,
+                              category: e.target.value
+                            }))}
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          >
+                            <option value="">Select category...</option>
+                            <option value="certification">Certification</option>
+                            <option value="compliance">Compliance</option>
+                            <option value="quality">Quality Assurance</option>
+                            <option value="sustainability">Sustainability</option>
+                            <option value="audit">Audit Report</option>
+                            <option value="legal">Legal Documentation</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-700 mb-1">
+                            Priority Level
+                          </label>
+                          <select
+                            value={certificateMetadata.priority}
+                            onChange={(e) => setCertificateMetadata(prev => ({
+                              ...prev,
+                              priority: e.target.value as 'low' | 'medium' | 'high'
+                            }))}
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          >
+                            <option value="low">Low Priority</option>
+                            <option value="medium">Medium Priority</option>
+                            <option value="high">High Priority</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-700 mb-1">
+                            Compliance Status
+                          </label>
+                          <select
+                            value={certificateMetadata.complianceStatus}
+                            onChange={(e) => setCertificateMetadata(prev => ({
+                              ...prev,
+                              complianceStatus: e.target.value as 'pending' | 'approved' | 'rejected' | 'expired'
+                            }))}
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          >
+                            <option value="pending">Pending Review</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="expired">Expired</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-neutral-700 mb-1">
+                            Expiry Date (Optional)
+                          </label>
+                          <input
+                            type="date"
+                            value={certificateMetadata.expiryDate}
+                            onChange={(e) => setCertificateMetadata(prev => ({
+                              ...prev,
+                              expiryDate: e.target.value
+                            }))}
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Description Field */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-neutral-700 mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          value={certificateMetadata.description}
+                          onChange={(e) => setCertificateMetadata(prev => ({
+                            ...prev,
+                            description: e.target.value
+                          }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          placeholder="Brief description of the document and its purpose..."
+                        />
+                      </div>
+
+                      {/* Tags Field */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-neutral-700 mb-1">
+                          Tags (comma-separated)
+                        </label>
+                        <input
+                          type="text"
+                          value={certificateMetadata.tags.join(', ')}
+                          onChange={(e) => setCertificateMetadata(prev => ({
+                            ...prev,
+                            tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)
+                          }))}
+                          className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          placeholder="e.g., RSPO, sustainable, certified, mill"
+                        />
+                        {certificateMetadata.tags.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {certificateMetadata.tags.map((tag, index) => (
+                              <span
+                                key={index}
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex justify-end space-x-3 mt-4">

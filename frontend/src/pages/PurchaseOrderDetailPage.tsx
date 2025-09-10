@@ -16,14 +16,14 @@ import {
   ShareIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
-import { purchaseOrderApi, PurchaseOrderWithDetails, Amendment, ProposeChangesRequest, SellerConfirmation } from '../services/purchaseOrderApi';
+import { purchaseOrderApi, PurchaseOrderWithDetails, Amendment, ProposeChangesRequest, SellerConfirmation, PurchaseOrderConfirmation, ConfirmationResponse } from '../services/purchaseOrderApi';
 import { useToast } from '../contexts/ToastContext';
 import { useAmendments } from '../hooks/useAmendments';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import AmendmentModal from '../components/purchase-orders/AmendmentModal';
-import ConfirmationModal from '../components/purchase-orders/ConfirmationModal';
+import SimpleConfirmationModal from '../components/purchase-orders/SimpleConfirmationModal';
 import { cn, formatCurrency, formatDate } from '../lib/utils';
 
 const PurchaseOrderDetailPage: React.FC = () => {
@@ -157,21 +157,20 @@ const PurchaseOrderDetailPage: React.FC = () => {
     if (!id || !purchaseOrder) return;
 
     try {
-      // Convert confirmation data to SellerConfirmation format
-      const sellerConfirmation: SellerConfirmation = {
-        confirmed_quantity: confirmation.confirmed_quantity || purchaseOrder.quantity,
-        confirmed_unit_price: confirmation.confirmed_unit_price || purchaseOrder.unit_price,
-        confirmed_delivery_date: confirmation.confirmed_delivery_date || purchaseOrder.delivery_date,
-        confirmed_delivery_location: confirmation.confirmed_delivery_location || purchaseOrder.delivery_location,
-        seller_notes: confirmation.seller_notes || undefined
+      // Use simple confirmation format
+      const simpleConfirmation: PurchaseOrderConfirmation = {
+        delivery_date: confirmation.confirmed_delivery_date || undefined,
+        notes: confirmation.seller_notes || undefined,
+        confirmed_quantity: confirmation.confirmed_quantity || undefined,
+        confirmed_unit: confirmation.confirmed_unit || undefined
       };
 
-      await purchaseOrderApi.sellerConfirmPurchaseOrder(id, sellerConfirmation);
+      const response: ConfirmationResponse = await purchaseOrderApi.confirmPurchaseOrder(id, simpleConfirmation);
 
       showToast({
         type: 'success',
         title: 'Order Confirmed',
-        message: 'Purchase order has been successfully confirmed.'
+        message: response.message || 'Purchase order has been successfully confirmed.'
       });
 
       setShowConfirmationModal(false);
@@ -460,7 +459,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
       )}
 
       {showConfirmationModal && (
-        <ConfirmationModal
+        <SimpleConfirmationModal
           isOpen={showConfirmationModal}
           onClose={() => setShowConfirmationModal(false)}
           purchaseOrder={purchaseOrder}

@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.purchase_order import PurchaseOrder
+from app.services.deterministic_transparency import TransparencyGap
 from app.services.transparency_engine import TransparencyCalculationEngine
 from app.services.transparency_visualization import TransparencyVisualizationService
 from app.core.logging import get_logger
@@ -578,3 +579,281 @@ async def get_company_transparency_summary(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get company transparency summary: {str(e)}"
         )
+
+
+@router.get("/v2/companies/{company_id}/recent-improvements")
+async def get_recent_improvements(
+    company_id: UUID,
+    days: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get recent transparency improvements for a company."""
+
+    try:
+        # Check access permissions
+        if not await _can_access_company_data(current_user, company_id, db):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Calculate date range
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+
+        # Get current transparency metrics
+        current_metrics = await _get_transparency_metrics(company_id, db)
+
+        # Get historical transparency metrics
+        historical_metrics = await _get_historical_transparency_metrics(
+            company_id, start_date, db
+        )
+
+        # Calculate improvements
+        improvements = _calculate_improvements(current_metrics, historical_metrics)
+
+        # Get recent actions that contributed to improvements
+        recent_actions = await _get_recent_improvement_actions(company_id, start_date, db)
+
+        return {
+            "success": True,
+            "period_days": days,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "improvements": improvements,
+            "recent_actions": recent_actions,
+            "summary": {
+                "total_improvements": len(improvements),
+                "best_improvement": max(improvements, key=lambda x: x.get("change_percentage", 0)) if improvements else None
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get recent improvements", company_id=str(company_id), error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get recent improvements: {str(e)}"
+        )
+
+
+async def _get_transparency_metrics(company_id: UUID, db: Session) -> Dict[str, Any]:
+    """Get current transparency metrics for a company."""
+
+    # Get all purchase orders for the company
+    pos = db.query(PurchaseOrder).filter(
+        PurchaseOrder.buyer_company_id == company_id
+    ).all()
+
+    if not pos:
+        return {
+            "transparency_to_mill_percentage": 0.0,
+            "transparency_to_plantation_percentage": 0.0,
+            "total_purchase_orders": 0,
+            "traced_purchase_orders": 0,
+            "total_volume": 0.0,
+            "traced_volume": 0.0
+        }
+
+    total_pos = len(pos)
+    traced_pos = 0
+    total_volume = 0.0
+    traced_volume = 0.0
+    mill_transparency_sum = 0.0
+    plantation_transparency_sum = 0.0
+
+    for po in pos:
+        total_volume += float(po.quantity or 0)
+
+        # Check if PO has transparency data
+        if hasattr(po, 'transparency_score') and po.transparency_score:
+            traced_pos += 1
+            traced_volume += float(po.quantity or 0)
+
+            # Add to transparency sums for averaging
+            mill_transparency_sum += po.transparency_score.get('mill_percentage', 0)
+            plantation_transparency_sum += po.transparency_score.get('plantation_percentage', 0)
+
+    # Calculate averages
+    mill_percentage = mill_transparency_sum / total_pos if total_pos > 0 else 0.0
+    plantation_percentage = plantation_transparency_sum / total_pos if total_pos > 0 else 0.0
+
+    return {
+        "transparency_to_mill_percentage": mill_percentage,
+        "transparency_to_plantation_percentage": plantation_percentage,
+        "total_purchase_orders": total_pos,
+        "traced_purchase_orders": traced_pos,
+        "total_volume": total_volume,
+        "traced_volume": traced_volume
+    }
+
+
+async def _get_historical_transparency_metrics(
+    company_id: UUID,
+    date: datetime,
+    db: Session
+) -> Optional[Dict[str, Any]]:
+    """Get transparency metrics from a specific historical date."""
+
+    # For now, we'll calculate historical metrics from PO data
+    # In a production system, you'd want to store daily snapshots
+    return await _calculate_historical_metrics(company_id, date, db)
+
+
+async def _calculate_historical_metrics(
+    company_id: UUID,
+    date: datetime,
+    db: Session
+) -> Dict[str, Any]:
+    """Calculate historical transparency metrics from PO data."""
+
+    # Get purchase orders that existed at the historical date
+    pos = db.query(PurchaseOrder).filter(
+        PurchaseOrder.buyer_company_id == company_id,
+        PurchaseOrder.created_at <= date
+    ).all()
+
+    if not pos:
+        return {
+            "transparency_to_mill_percentage": 0.0,
+            "transparency_to_plantation_percentage": 0.0,
+            "total_purchase_orders": 0,
+            "traced_purchase_orders": 0,
+            "total_volume": 0.0,
+            "traced_volume": 0.0
+        }
+
+    # Calculate metrics as of that date
+    total_pos = len(pos)
+    traced_pos = sum(1 for po in pos if hasattr(po, 'transparency_score') and po.transparency_score)
+    total_volume = sum(float(po.quantity or 0) for po in pos)
+    traced_volume = sum(float(po.quantity or 0) for po in pos if hasattr(po, 'transparency_score') and po.transparency_score)
+
+    # Calculate average transparency percentages
+    mill_sum = sum(po.transparency_score.get('mill_percentage', 0) for po in pos if hasattr(po, 'transparency_score') and po.transparency_score)
+    plantation_sum = sum(po.transparency_score.get('plantation_percentage', 0) for po in pos if hasattr(po, 'transparency_score') and po.transparency_score)
+
+    mill_percentage = mill_sum / traced_pos if traced_pos > 0 else 0.0
+    plantation_percentage = plantation_sum / traced_pos if traced_pos > 0 else 0.0
+
+    return {
+        "transparency_to_mill_percentage": mill_percentage,
+        "transparency_to_plantation_percentage": plantation_percentage,
+        "total_purchase_orders": total_pos,
+        "traced_purchase_orders": traced_pos,
+        "total_volume": total_volume,
+        "traced_volume": traced_volume
+    }
+
+
+def _calculate_improvements(
+    current: Dict[str, Any],
+    historical: Optional[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Calculate improvements between current and historical metrics."""
+
+    if not historical:
+        return []
+
+    improvements = []
+
+    # Mill transparency improvement
+    mill_current = current.get("transparency_to_mill_percentage", 0)
+    mill_historical = historical.get("transparency_to_mill_percentage", 0)
+    mill_change = mill_current - mill_historical
+
+    if mill_change > 0:
+        improvements.append({
+            "metric": "mill_transparency",
+            "label": "Mill Transparency",
+            "current_value": round(mill_current, 2),
+            "previous_value": round(mill_historical, 2),
+            "change": round(mill_change, 2),
+            "change_percentage": round((mill_change / mill_historical * 100) if mill_historical > 0 else 0, 2),
+            "trend": "improving",
+            "unit": "%"
+        })
+
+    # Plantation transparency improvement
+    plantation_current = current.get("transparency_to_plantation_percentage", 0)
+    plantation_historical = historical.get("transparency_to_plantation_percentage", 0)
+    plantation_change = plantation_current - plantation_historical
+
+    if plantation_change > 0:
+        improvements.append({
+            "metric": "plantation_transparency",
+            "label": "Plantation Transparency",
+            "current_value": round(plantation_current, 2),
+            "previous_value": round(plantation_historical, 2),
+            "change": round(plantation_change, 2),
+            "change_percentage": round((plantation_change / plantation_historical * 100) if plantation_historical > 0 else 0, 2),
+            "trend": "improving",
+            "unit": "%"
+        })
+
+    # PO tracing improvement
+    traced_current = current.get("traced_purchase_orders", 0)
+    traced_historical = historical.get("traced_purchase_orders", 0)
+    traced_change = traced_current - traced_historical
+
+    if traced_change > 0:
+        improvements.append({
+            "metric": "traced_orders",
+            "label": "Traced Purchase Orders",
+            "current_value": traced_current,
+            "previous_value": traced_historical,
+            "change": traced_change,
+            "change_percentage": round((traced_change / traced_historical * 100) if traced_historical > 0 else 0, 2),
+            "trend": "improving",
+            "unit": "orders"
+        })
+
+    return improvements
+
+
+async def _get_recent_improvement_actions(
+    company_id: UUID,
+    start_date: datetime,
+    db: Session
+) -> List[Dict[str, Any]]:
+    """Get recent actions that contributed to transparency improvements."""
+
+    actions = []
+
+    # Get recent gap actions that were resolved
+    from app.models.gap_action import GapAction
+    recent_gap_actions = db.query(GapAction).join(
+        TransparencyGap, GapAction.gap_id == TransparencyGap.id
+    ).filter(
+        TransparencyGap.company_id == company_id,
+        GapAction.created_at >= start_date,
+        GapAction.status == 'resolved'
+    ).all()
+
+    for action in recent_gap_actions:
+        actions.append({
+            "type": "gap_resolution",
+            "description": f"Resolved transparency gap: {action.action_type}",
+            "date": action.updated_at.isoformat() if action.updated_at else action.created_at.isoformat(),
+            "impact": "Improved supply chain visibility"
+        })
+
+    # Get recent document uploads
+    from app.models.document import Document
+    recent_documents = db.query(Document).filter(
+        Document.company_id == company_id,
+        Document.upload_date >= start_date,
+        Document.validation_status == 'validated'
+    ).limit(10).all()
+
+    for doc in recent_documents:
+        actions.append({
+            "type": "document_upload",
+            "description": f"Uploaded {doc.document_type}: {doc.filename}",
+            "date": doc.upload_date.isoformat(),
+            "impact": "Enhanced traceability documentation"
+        })
+
+    # Sort by date (most recent first)
+    actions.sort(key=lambda x: x["date"], reverse=True)
+
+    return actions[:10]  # Return top 10 recent actions
