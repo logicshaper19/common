@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.purchase_order import PurchaseOrder
 from app.services.deterministic_transparency import TransparencyGap, DeterministicTransparencyService
 from app.core.logging import get_logger
+from sqlalchemy import text
 from datetime import datetime, timedelta
 
 logger = get_logger(__name__)
@@ -133,8 +134,9 @@ async def get_transparency_metrics(
     """
     Get transparency metrics for a company.
 
-    SINGLE SOURCE OF TRUTH: Uses deterministic transparency based on explicit user-created links.
-    No fallbacks, no algorithmic guessing, 100% auditable.
+    PRIMARY SYSTEM: Simple, fast, and auditable SQL query against explicit user-created links.
+    No complex algorithms, no arbitrary weights, no fallbacks needed.
+    Transparency percentage = (traced_volume / total_volume) * 100
     """
     try:
         # Check if user has access to this company's data
@@ -145,27 +147,46 @@ async def get_transparency_metrics(
                 detail="Access denied to company transparency data"
             )
 
-        # SINGLE SOURCE OF TRUTH: Deterministic transparency calculation
-        deterministic_service = DeterministicTransparencyService(db)
-        deterministic_metrics = deterministic_service.get_company_transparency_metrics(
-            company_id=company_id,
-            refresh_data=False  # Use cached materialized view for performance
-        )
-
-        # Simple, auditable percentages - no complex scoring
-        mill_percentage = deterministic_metrics.transparency_to_mill_percentage
-        plantation_percentage = deterministic_metrics.transparency_to_plantation_percentage
-        overall_percentage = (mill_percentage + plantation_percentage) / 2
+        # PRIMARY SYSTEM: Simple, fast, and auditable SQL query
+        query = text("""
+            SELECT
+                SUM(CASE WHEN COALESCE(sct.is_traced_to_mill, FALSE) THEN po.quantity ELSE 0 END) / NULLIF(SUM(po.quantity), 0) * 100.0 AS ttm_percentage,
+                SUM(CASE WHEN COALESCE(sct.is_traced_to_plantation, FALSE) THEN po.quantity ELSE 0 END) / NULLIF(SUM(po.quantity), 0) * 100.0 AS ttp_percentage,
+                SUM(po.quantity) as total_volume,
+                COUNT(*) as total_pos,
+                COUNT(CASE WHEN COALESCE(sct.is_traced_to_mill, FALSE) OR COALESCE(sct.is_traced_to_plantation, FALSE) THEN 1 END) as traced_pos
+            FROM purchase_orders po
+            LEFT JOIN supply_chain_traceability sct ON po.id = sct.po_id
+            WHERE po.buyer_company_id = :company_id
+            AND po.status = 'CONFIRMED'
+        """)
+        
+        result = db.execute(query, {"company_id": str(company_id)}).fetchone()
+        
+        if not result or result.total_volume == 0:
+            mill_percentage = 0.0
+            plantation_percentage = 0.0
+            overall_percentage = 0.0
+            total_volume = 0
+            total_pos = 0
+            traced_pos = 0
+        else:
+            mill_percentage = float(result.ttm_percentage) if result.ttm_percentage else 0.0
+            plantation_percentage = float(result.ttp_percentage) if result.ttp_percentage else 0.0
+            overall_percentage = (mill_percentage + plantation_percentage) / 2
+            total_volume = float(result.total_volume)
+            total_pos = result.total_pos
+            traced_pos = result.traced_pos
 
         logger.info(
-            "Deterministic transparency calculated (SINGLE SOURCE OF TRUTH)",
+            "Primary transparency calculated (SINGLE SOURCE OF TRUTH)",
             company_id=str(company_id),
             mill_percentage=mill_percentage,
             plantation_percentage=plantation_percentage,
             overall_percentage=overall_percentage,
-            total_volume=float(deterministic_metrics.total_volume),
-            traced_pos=deterministic_metrics.traced_purchase_orders,
-            total_pos=deterministic_metrics.total_purchase_orders
+            total_volume=total_volume,
+            traced_pos=traced_pos,
+            total_pos=total_pos
         )
 
         return TransparencyMetrics(
