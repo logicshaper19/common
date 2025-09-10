@@ -16,7 +16,6 @@ from app.services.transparency_jobs import (
     invalidate_transparency_cache
 )
 # TransparencyScheduler not implemented yet - using job functions directly
-# from app.services.transparency_scheduler import TransparencyScheduler
 # Using RedisCache directly instead of non-existent TransparencyCache
 from app.core.redis import get_redis, RedisCache
 from app.services.job_monitor import TransparencyJobMonitor, JobStatus, JobPriority

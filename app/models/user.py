@@ -31,8 +31,14 @@ class User(Base):
     # Relationships
     # company = relationship("Company", back_populates="users")
     sector = relationship("Sector", back_populates="users")
-    # sent_invitations = relationship("TeamInvitation", foreign_keys="TeamInvitation.invited_by_user_id", back_populates="invited_by")
-    # accepted_invitations = relationship("TeamInvitation", foreign_keys="TeamInvitation.accepted_by_user_id", back_populates="accepted_by")
+    sent_invitations = relationship("TeamInvitation", 
+                                  foreign_keys="TeamInvitation.invited_by_user_id", 
+                                  back_populates="invited_by",
+                                  lazy="select")
+    accepted_invitations = relationship("TeamInvitation", 
+                                      foreign_keys="TeamInvitation.accepted_by_user_id", 
+                                      back_populates="accepted_by",
+                                      lazy="select")
 
     # Performance indexes for frequently queried fields
     __table_args__ = (

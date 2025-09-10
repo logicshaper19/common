@@ -156,14 +156,24 @@ def list_business_relationships(
     
     # Convert to response format with company details
     relationship_responses = []
+    
+    # Collect all unique company IDs to avoid N+1 queries
+    company_ids = set()
     for rel in relationships:
-        # Get company details
-        from app.models.company import Company
-        buyer_company = db.query(Company).filter(Company.id == rel.buyer_company_id).first()
-        seller_company = db.query(Company).filter(Company.id == rel.seller_company_id).first()
-        invited_by_company = None
+        company_ids.add(rel.buyer_company_id)
+        company_ids.add(rel.seller_company_id)
         if rel.invited_by_company_id:
-            invited_by_company = db.query(Company).filter(Company.id == rel.invited_by_company_id).first()
+            company_ids.add(rel.invited_by_company_id)
+    
+    # Fetch all companies in a single query
+    from app.models.company import Company
+    companies = {c.id: c for c in db.query(Company).filter(Company.id.in_(company_ids)).all()}
+    
+    # Build responses using pre-loaded company data
+    for rel in relationships:
+        buyer_company = companies.get(rel.buyer_company_id)
+        seller_company = companies.get(rel.seller_company_id)
+        invited_by_company = companies.get(rel.invited_by_company_id) if rel.invited_by_company_id else None
 
         response = BusinessRelationshipResponse(
             id=rel.id,

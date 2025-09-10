@@ -1,0 +1,43 @@
+{
+  "database": {
+    "pool_size": 10,
+    "max_overflow": 20,
+    "pool_timeout": 30,
+    "echo": false,
+    "pool_pre_ping": true
+  },
+  "redis": {
+    "pool_size": 10,
+    "timeout": 5,
+    "decode_responses": true
+  },
+  "security": {
+    "jwt_algorithm": "HS256",
+    "jwt_access_token_expire_minutes": 30,
+    "jwt_refresh_token_expire_days": 7,
+    "cors_credentials": true,
+    "rate_limit_requests_per_minute": 100,
+    "rate_limit_burst_size": 10
+  },
+  "monitoring": {
+    "log_level": "INFO",
+    "prometheus_enabled": false,
+    "grafana_enabled": false
+  },
+  "email": {
+    "from_address": "noreply@common.co",
+    "enabled": true
+  },
+  "deployment": {
+    "replicas": 1,
+    "health_check_grace_period": 60,
+    "deployment_timeout": 600,
+    "auto_scaling_enabled": false,
+    "min_replicas": 1,
+    "max_replicas": 10
+  },
+  "transparency_degradation_factor": 0.95,
+  "transparency_calculation_timeout": 30,
+  "batch_processing_size": 100,
+  "cache_ttl_seconds": 3600
+}

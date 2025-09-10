@@ -14,6 +14,11 @@ from app.core.config_management import (
     validate_current_config,
     ConfigurationError
 )
+from app.core.environment_config import (
+    get_environment_config,
+    Environment as EnvEnum,
+    EnvironmentConfig
+)
 
 
 class Settings(BaseSettings):
@@ -281,3 +286,9 @@ def reload_settings() -> Settings:
     global settings
     settings = create_settings()
     return settings
+
+
+def get_environment_specific_config() -> EnvironmentConfig:
+    """Get environment-specific configuration."""
+    env = EnvEnum(os.getenv('ENVIRONMENT', 'development'))
+    return get_environment_config(env)

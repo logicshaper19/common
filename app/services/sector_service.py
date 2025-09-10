@@ -1,5 +1,18 @@
 """
-Sector service for managing sector configurations and templates
+Sector Service Module
+
+This module provides comprehensive sector management functionality including:
+- Sector creation, retrieval, and configuration
+- Tier management within sectors
+- Product management and categorization
+- User tier information and validation
+
+The SectorService class handles all business logic related to sectors,
+ensuring data consistency and proper error handling throughout the system.
+
+Author: System
+Version: 1.0.0
+Last Updated: 2024
 """
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -10,34 +23,144 @@ from app.schemas.sector import (
     SectorCreate, SectorUpdate, SectorTierCreate, SectorProductCreate,
     SectorConfig as SectorConfigSchema
 )
+from app.core.standardized_errors import (
+    raise_not_found_error,
+    raise_duplicate_error,
+    raise_business_error,
+    ErrorContext
+)
+from app.core.caching import (
+    cache_result,
+    CacheKey,
+    CacheConfig,
+    cache_invalidator
+)
 
 
 class SectorService:
-    """Service for managing sectors, tiers, and products"""
+    """
+    Service for managing sectors, tiers, and products.
+    
+    This service provides comprehensive functionality for managing sector-based
+    configurations, including sector definitions, tier structures, and product
+    categorizations. It ensures data consistency and proper business logic
+    enforcement throughout the sector management system.
+    
+    Attributes:
+        db (Session): SQLAlchemy database session for data operations
+        
+    Example:
+        >>> service = SectorService(db_session)
+        >>> sectors = service.get_all_sectors(active_only=True)
+        >>> sector = service.get_sector_by_id("apparel")
+        >>> tiers = service.get_sector_tiers("apparel")
+    """
     
     def __init__(self, db: Session):
+        """
+        Initialize the SectorService with a database session.
+        
+        Args:
+            db (Session): SQLAlchemy database session for data operations
+            
+        Raises:
+            ValueError: If database session is None or invalid
+        """
+        if not db:
+            raise ValueError("Database session is required")
         self.db = db
     
+    @cache_result(
+        key_func=lambda self, active_only=True: f"sectors:all:active_{active_only}",
+        ttl=CacheConfig.SECTOR_CONFIG_TTL
+    )
     def get_all_sectors(self, active_only: bool = True) -> List[Sector]:
-        """Get all sectors"""
+        """
+        Retrieve all sectors from the database with caching.
+        
+        Args:
+            active_only (bool, optional): If True, only return active sectors.
+                                        Defaults to True.
+        
+        Returns:
+            List[Sector]: List of sector objects matching the criteria
+            
+        Example:
+            >>> service = SectorService(db)
+            >>> all_sectors = service.get_all_sectors(active_only=False)
+            >>> active_sectors = service.get_all_sectors(active_only=True)
+        """
         query = self.db.query(Sector)
         if active_only:
             query = query.filter(Sector.is_active == True)
         return query.all()
     
-    async def get_sector_by_id(self, sector_id: str) -> Optional[Sector]:
-        """Get sector by ID"""
-        return self.db.query(Sector).filter(Sector.id == sector_id).first()
+    @cache_result(
+        key_func=lambda self, sector_id: CacheKey.sector_config(sector_id),
+        ttl=CacheConfig.SECTOR_CONFIG_TTL
+    )
+    def get_sector_by_id(self, sector_id: str) -> Sector:
+        """
+        Retrieve a specific sector by its unique identifier with caching.
+        
+        Args:
+            sector_id (str): The unique identifier of the sector to retrieve
+        
+        Returns:
+            Sector: The sector object with the specified ID
+            
+        Raises:
+            HTTPException: If sector with the given ID is not found
+            
+        Example:
+            >>> service = SectorService(db)
+            >>> sector = service.get_sector_by_id("apparel")
+            >>> print(sector.name)  # "Apparel & Textiles"
+        """
+        sector = self.db.query(Sector).filter(Sector.id == sector_id).first()
+        if not sector:
+            raise_not_found_error("Sector", sector_id)
+        return sector
     
-    async def create_sector(self, sector_data: SectorCreate) -> Sector:
-        """Create a new sector"""
+    def create_sector(self, sector_data: SectorCreate) -> Sector:
+        """
+        Create a new sector in the database.
+        
+        Args:
+            sector_data (SectorCreate): Pydantic model containing sector creation data
+        
+        Returns:
+            Sector: The newly created sector object
+            
+        Raises:
+            HTTPException: If a sector with the same ID already exists
+            ValueError: If sector_data is invalid or missing required fields
+            
+        Example:
+            >>> sector_data = SectorCreate(
+            ...     id="electronics",
+            ...     name="Electronics & Technology",
+            ...     description="Supply chain for electronics industry"
+            ... )
+            >>> new_sector = service.create_sector(sector_data)
+        """
+        # Check if sector already exists
+        existing_sector = self.db.query(Sector).filter(Sector.id == sector_data.id).first()
+        if existing_sector:
+            raise_duplicate_error("Sector", "id", sector_data.id)
+        
         sector = Sector(**sector_data.dict())
         self.db.add(sector)
         self.db.commit()
         self.db.refresh(sector)
+        
+        # Invalidate related caches
+        cache_invalidator.invalidate_sector_cache(sector.id)
+        invalidate_cache("sectors:all:*")
+        
         return sector
     
-    async def get_sector_tiers(self, sector_id: str) -> List[SectorTier]:
+    def get_sector_tiers(self, sector_id: str) -> List[SectorTier]:
         """Get all tiers for a sector"""
         return (
             self.db.query(SectorTier)
@@ -46,7 +169,7 @@ class SectorService:
             .all()
         )
     
-    async def get_tier_by_level(self, sector_id: str, level: int) -> Optional[SectorTier]:
+    def get_tier_by_level(self, sector_id: str, level: int) -> Optional[SectorTier]:
         """Get specific tier by sector and level"""
         return (
             self.db.query(SectorTier)
@@ -54,7 +177,7 @@ class SectorService:
             .first()
         )
     
-    async def create_sector_tier(self, tier_data: SectorTierCreate) -> SectorTier:
+    def create_sector_tier(self, tier_data: SectorTierCreate) -> SectorTier:
         """Create a new sector tier"""
         tier = SectorTier(**tier_data.dict())
         self.db.add(tier)
@@ -62,7 +185,7 @@ class SectorService:
         self.db.refresh(tier)
         return tier
     
-    async def get_sector_products(self, sector_id: str, tier_level: Optional[int] = None) -> List[SectorProduct]:
+    def get_sector_products(self, sector_id: str, tier_level: Optional[int] = None) -> List[SectorProduct]:
         """Get products for a sector, optionally filtered by tier level"""
         query = self.db.query(SectorProduct).filter(SectorProduct.sector_id == sector_id)
         
@@ -72,7 +195,7 @@ class SectorService:
         
         return query.all()
     
-    async def create_sector_product(self, product_data: SectorProductCreate) -> SectorProduct:
+    def create_sector_product(self, product_data: SectorProductCreate) -> SectorProduct:
         """Create a new sector product"""
         product = SectorProduct(**product_data.dict())
         self.db.add(product)
@@ -80,14 +203,14 @@ class SectorService:
         self.db.refresh(product)
         return product
     
-    async def get_sector_config(self, sector_id: str) -> Optional[SectorConfigSchema]:
+    def get_sector_config(self, sector_id: str) -> Optional[SectorConfigSchema]:
         """Get complete sector configuration"""
-        sector = await self.get_sector_by_id(sector_id)
+        sector = self.get_sector_by_id(sector_id)
         if not sector:
             return None
         
-        tiers = await self.get_sector_tiers(sector_id)
-        products = await self.get_sector_products(sector_id)
+        tiers = self.get_sector_tiers(sector_id)
+        products = self.get_sector_products(sector_id)
         
         return SectorConfigSchema(
             sector=sector,
@@ -95,9 +218,9 @@ class SectorService:
             products=products
         )
     
-    async def get_user_tier_info(self, sector_id: str, tier_level: int) -> Optional[Dict[str, Any]]:
+    def get_user_tier_info(self, sector_id: str, tier_level: int) -> Optional[Dict[str, Any]]:
         """Get tier information for a user"""
-        tier = await self.get_tier_by_level(sector_id, tier_level)
+        tier = self.get_tier_by_level(sector_id, tier_level)
         if not tier:
             return None
         
