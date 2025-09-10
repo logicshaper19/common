@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.file_security import file_security_validator, FileSecurityError
 from app.models.user import User
 from app.models.document import Document, ProxyRelationship
 from app.services.document_storage import DocumentStorageService
@@ -36,8 +37,48 @@ async def upload_document(
     """
     Upload a document with metadata.
     Supports both direct uploads and proxy uploads (cooperative on behalf of mill).
+    Enhanced with comprehensive security validation.
     """
-    
+
+    # Enhanced file security validation
+    try:
+        # Determine allowed file categories based on document type
+        allowed_categories = ['document']  # Default
+        if document_type in ['rspo_certificate', 'bci_certificate']:
+            allowed_categories = ['document', 'image']
+        elif document_type == 'catchment_polygon':
+            allowed_categories = ['geographic', 'archive']
+        elif document_type in ['harvest_record', 'member_list']:
+            allowed_categories = ['spreadsheet', 'document']
+
+        # Perform comprehensive file validation
+        validation_result = await file_security_validator.validate_file_upload(
+            file=file,
+            allowed_categories=allowed_categories,
+            require_virus_scan=True
+        )
+
+        if not validation_result['is_valid']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": "File validation failed",
+                    "error_code": "INVALID_FILE",
+                    "errors": validation_result.get('errors', []),
+                    "warnings": validation_result.get('warnings', [])
+                }
+            )
+
+    except FileSecurityError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": e.message,
+                "error_code": e.error_code or "FILE_SECURITY_ERROR",
+                "file_name": e.file_name
+            }
+        )
+
     # Parse compliance regulations if provided
     regulations_list = []
     if compliance_regulations:
@@ -46,9 +87,9 @@ async def upload_document(
             regulations_list = json.loads(compliance_regulations)
         except json.JSONDecodeError:
             regulations_list = [compliance_regulations]  # Single regulation as string
-    
+
     storage_service = DocumentStorageService(db)
-    
+
     try:
         document = await storage_service.upload_document(
             file=file,

@@ -46,28 +46,138 @@ class Migration:
 
 class MigrationManager:
     """
-    Database migration manager with version control.
-    
+    Enhanced database migration manager with comprehensive version control.
+
     Features:
-    - Version-controlled migrations
-    - Checksum validation
-    - Rollback support
-    - Migration history tracking
-    - Dry-run capability
-    - Parallel migration detection
+    - Version-controlled migrations with dependency tracking
+    - Checksum validation and integrity verification
+    - Safe rollback support with data preservation
+    - Migration history tracking and audit
+    - Dry-run capability with impact analysis
+    - Parallel migration detection and conflict resolution
+    - Backward compatibility validation
+    - Data migration support with transformation pipelines
     """
-    
+
     def __init__(self, database_url: str = None):
         self.database_url = database_url or settings.database_url
         self.migrations_dir = Path(__file__).parent.parent / "migrations"
         self.migrations_dir.mkdir(exist_ok=True)
-        
+
         # Create engine and session
         self.engine = create_engine(self.database_url)
         self.SessionLocal = sessionmaker(bind=self.engine)
-        
+
         # Initialize migration tracking table
         self._init_migration_table()
+
+        # Migration state tracking
+        self.current_migration = None
+        self.migration_context = None
+
+    def create_migration_with_transaction(
+        self,
+        name: str,
+        description: str = "",
+        dependencies: List[str] = None,
+        backward_compatible: bool = True
+    ) -> str:
+        """
+        Create a new migration with comprehensive metadata.
+
+        Args:
+            name: Migration name
+            description: Detailed description
+            dependencies: List of migration IDs this depends on
+            backward_compatible: Whether migration is backward compatible
+
+        Returns:
+            Migration ID
+        """
+        migration_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{name}"
+
+        # Create migration file with enhanced template
+        migration_file = self.migrations_dir / f"{migration_id}.py"
+
+        template = f'''"""
+{description}
+
+Migration ID: {migration_id}
+Created: {datetime.now().isoformat()}
+Dependencies: {dependencies or []}
+Backward Compatible: {backward_compatible}
+"""
+
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+from app.core.transaction_management import robust_transaction
+from app.core.data_integrity import get_data_integrity_manager
+
+# Migration metadata
+revision = '{migration_id}'
+down_revision = '{dependencies[0] if dependencies else None}'
+branch_labels = None
+depends_on = {dependencies if dependencies else None}
+backward_compatible = {backward_compatible}
+
+
+def upgrade():
+    """Apply migration changes."""
+    # Get database connection
+    connection = op.get_bind()
+
+    # Use robust transaction management
+    with connection.begin() as trans:
+        try:
+            # Add your migration logic here
+            pass
+
+        except Exception as e:
+            trans.rollback()
+            raise Exception(f"Migration {migration_id} failed: {{e}}")
+
+
+def downgrade():
+    """Rollback migration changes."""
+    # Get database connection
+    connection = op.get_bind()
+
+    with connection.begin() as trans:
+        try:
+            # Add your rollback logic here
+            pass
+
+        except Exception as e:
+            trans.rollback()
+            raise Exception(f"Migration {migration_id} rollback failed: {{e}}")
+
+
+def validate_data_integrity():
+    """Validate data integrity after migration."""
+    from sqlalchemy.orm import sessionmaker
+    Session = sessionmaker(bind=op.get_bind())
+
+    with Session() as session:
+        integrity_manager = get_data_integrity_manager(session)
+
+        # Add validation logic here
+        violations = []
+
+        if violations:
+            raise Exception(f"Data integrity violations detected: {{violations}}")
+
+
+def estimate_migration_time():
+    """Estimate migration execution time."""
+    # Add estimation logic based on data size
+    return "< 1 minute"  # Default estimate
+'''
+
+        migration_file.write_text(template)
+
+        logger.info(f"Created migration: {migration_id}")
+        return migration_id
     
     def _init_migration_table(self):
         """Initialize the migration tracking table."""

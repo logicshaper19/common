@@ -8,6 +8,10 @@ import structlog
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.service_dependencies import get_sector_service
+from app.core.events import publish_event, EventType
+from app.core.service_protocols import SectorServiceProtocol
+from app.services.sector_service import SectorService
 from app.models.user import User
 from app.schemas.sector import (
     Sector, SectorCreate, SectorUpdate,
@@ -15,7 +19,6 @@ from app.schemas.sector import (
     SectorProduct, SectorProductCreate, SectorProductUpdate,
     SectorConfig, UserSectorInfo
 )
-from app.services.sector_service import SectorService
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -26,20 +29,27 @@ async def get_sectors(
     active_only: bool = True,
     db: Session = Depends(get_db)
 ):
-    """Get all available sectors (public endpoint)"""
-    sector_service = SectorService(db)
-    sectors = await sector_service.get_all_sectors(active_only=active_only)
-    return sectors
+    """Get all available sectors (public endpoint)."""
+    try:
+        # Direct database query to test
+        from app.models.sector import Sector
+        query = db.query(Sector)
+        if active_only:
+            query = query.filter(Sector.is_active == True)
+        sectors = query.all()
+        return sectors
+    except Exception as e:
+        logger.error(f"Error in get_sectors: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
 @router.get("/sectors/{sector_id}", response_model=Sector)
 async def get_sector(
     sector_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    sector_service: SectorServiceProtocol = Depends(get_sector_service)
 ):
-    """Get a specific sector by ID"""
-    sector_service = SectorService(db)
+    """Get a specific sector by ID with dependency injection."""
     sector = await sector_service.get_sector_by_id(sector_id)
     if not sector:
         raise HTTPException(
@@ -152,18 +162,34 @@ async def get_user_sector_info(
 @router.post("/sectors", response_model=Sector)
 async def create_sector(
     sector_data: SectorCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    sector_service: SectorServiceProtocol = Depends(get_sector_service)
 ):
-    """Create a new sector (admin only)"""
+    """Create a new sector (admin only) with event publishing."""
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can create sectors"
         )
-    
-    sector_service = SectorService(db)
-    return await sector_service.create_sector(sector_data)
+
+    # Use context manager for proper transaction handling
+    with sector_service:
+        sector = await sector_service.create_sector(sector_data.dict())
+
+        # Publish event for other services to react
+        publish_event(
+            EventType.SYSTEM_STARTUP,  # Using closest available event type
+            {
+                "sector_id": sector["id"],
+                "sector_name": sector["name"],
+                "created_by": str(current_user.id),
+                "action": "sector_created"
+            },
+            user_id=current_user.id,
+            source_service="sector_api"
+        )
+
+        return sector
 
 
 @router.post("/sectors/{sector_id}/tiers", response_model=SectorTier)

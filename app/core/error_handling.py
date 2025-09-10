@@ -13,6 +13,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
+from app.core.circuit_breaker import CircuitBreakerError
 
 logger = get_logger(__name__)
 
@@ -71,6 +72,9 @@ class ErrorCode(str, Enum):
     # Service Unavailable (503)
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
     MAINTENANCE_MODE = "MAINTENANCE_MODE"
+    CIRCUIT_BREAKER_OPEN = "CIRCUIT_BREAKER_OPEN"
+    TIMEOUT_ERROR = "TIMEOUT_ERROR"
+    CONFIGURATION_ERROR = "CONFIGURATION_ERROR"
 
 
 class ErrorDetail(BaseModel):
@@ -255,6 +259,57 @@ class ErrorHandler:
             message=message,
             headers=headers
         )
+
+    @staticmethod
+    def circuit_breaker_error(
+        circuit_name: str,
+        message: Optional[str] = None
+    ) -> CommonHTTPException:
+        """Create a circuit breaker error."""
+        if message is None:
+            message = f"Service '{circuit_name}' is temporarily unavailable"
+
+        return CommonHTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            error_code=ErrorCode.CIRCUIT_BREAKER_OPEN,
+            message=message,
+            context={"circuit_name": circuit_name}
+        )
+
+    @staticmethod
+    def timeout_error(
+        operation: str,
+        timeout_seconds: int,
+        context: Optional[Dict[str, Any]] = None
+    ) -> CommonHTTPException:
+        """Create a timeout error."""
+        return CommonHTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            error_code=ErrorCode.TIMEOUT_ERROR,
+            message=f"Operation '{operation}' timed out after {timeout_seconds} seconds",
+            context={
+                "operation": operation,
+                "timeout_seconds": timeout_seconds,
+                **(context or {})
+            }
+        )
+
+    @staticmethod
+    def configuration_error(
+        message: str,
+        config_key: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None
+    ) -> CommonHTTPException:
+        """Create a configuration error."""
+        return CommonHTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code=ErrorCode.CONFIGURATION_ERROR,
+            message=message,
+            context={
+                "config_key": config_key,
+                **(context or {})
+            }
+        )
     
     @staticmethod
     def internal_server_error(
@@ -316,10 +371,56 @@ async def common_exception_handler(request: Request, exc: CommonHTTPException) -
     )
 
 
+async def circuit_breaker_exception_handler(request: Request, exc: CircuitBreakerError) -> JSONResponse:
+    """Handle circuit breaker exceptions."""
+    error_response = ErrorHandler.create_error_response(
+        request=request,
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        error_code=ErrorCode.CIRCUIT_BREAKER_OPEN,
+        message=str(exc),
+        context={
+            "circuit_name": exc.circuit_name,
+            "circuit_state": exc.state.value
+        }
+    )
+
+    logger.warning(
+        "Circuit breaker exception",
+        circuit_name=exc.circuit_name,
+        circuit_state=exc.state.value,
+        path=request.url.path,
+        method=request.method,
+        request_id=error_response.request_id
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=jsonable_encoder(error_response)
+    )
+
+
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions with proper logging and response."""
     request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
-    
+
+    # Enhanced exception categorization
+    if isinstance(exc, TimeoutError):
+        error_code = ErrorCode.TIMEOUT_ERROR
+        status_code = status.HTTP_504_GATEWAY_TIMEOUT
+        message = "Request timed out. Please try again."
+    elif isinstance(exc, ConnectionError):
+        error_code = ErrorCode.EXTERNAL_SERVICE_ERROR
+        status_code = status.HTTP_502_BAD_GATEWAY
+        message = "External service unavailable. Please try again later."
+    elif isinstance(exc, PermissionError):
+        error_code = ErrorCode.PERMISSION_DENIED
+        status_code = status.HTTP_403_FORBIDDEN
+        message = "Permission denied."
+    else:
+        error_code = ErrorCode.INTERNAL_SERVER_ERROR
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        message = "An unexpected error occurred. Please try again later."
+
     # Log the full exception with traceback
     logger.error(
         "Unhandled exception occurred",
@@ -330,18 +431,21 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         request_id=request_id,
         traceback=traceback.format_exc()
     )
-    
-    # Create generic error response (don't expose internal details)
+
+    # Create categorized error response
     error_response = ErrorHandler.create_error_response(
         request=request,
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        error_code=ErrorCode.INTERNAL_SERVER_ERROR,
-        message="An unexpected error occurred. Please try again later.",
-        context={"error_type": type(exc).__name__}
+        status_code=status_code,
+        error_code=error_code,
+        message=message,
+        context={
+            "error_type": type(exc).__name__,
+            "categorized": True
+        }
     )
-    
+
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code=status_code,
         content=jsonable_encoder(error_response)
     )
 

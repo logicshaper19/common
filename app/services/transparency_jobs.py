@@ -13,7 +13,7 @@ from app.celery_app import celery_app
 from app.core.database import get_db
 from app.core.redis import get_redis, RedisCache
 from app.core.logging import get_logger
-from app.services.transparency_engine import TransparencyCalculationEngine, TransparencyResult
+from app.services.deterministic_transparency import DeterministicTransparencyService
 from app.models.purchase_order import PurchaseOrder
 from app.models.audit_event import AuditEvent
 
@@ -140,36 +140,52 @@ def calculate_transparency_async(self, po_id: str, force_recalculation: bool = F
             except Exception as cache_error:
                 logger.warning("Cache lookup failed, proceeding with calculation", error=str(cache_error))
         
-        # Calculate transparency scores
-        transparency_engine = TransparencyCalculationEngine(db)
-        result = transparency_engine.calculate_transparency(
-            po_id=UUID(po_id),
-            force_recalculation=force_recalculation,
-            include_detailed_analysis=False  # Skip detailed analysis for background jobs
+        # SINGLE SOURCE OF TRUTH: Deterministic transparency calculation
+        deterministic_service = DeterministicTransparencyService(db)
+
+        # Refresh materialized view for accurate calculation
+        deterministic_service._refresh_materialized_view()
+
+        # Get deterministic transparency for the PO's company
+        deterministic_metrics = deterministic_service.get_company_transparency_metrics(
+            company_id=po.buyer_company_id,
+            refresh_data=False  # Already refreshed above
         )
-        
-        # Update purchase order with new scores
-        po.transparency_to_mill = result.ttm_score
-        po.transparency_to_plantation = result.ttp_score
-        po.transparency_calculated_at = result.calculated_at
-        db.commit()
-        
-        # Prepare result for caching and return
+
+        # Simple percentages - no complex scoring needed
+        mill_percentage = deterministic_metrics.transparency_to_mill_percentage
+        plantation_percentage = deterministic_metrics.transparency_to_plantation_percentage
+        overall_percentage = (mill_percentage + plantation_percentage) / 2
+
+        # Create result dict for caching and return
         result_dict = {
-            "po_id": str(result.po_id),
-            "ttm_score": result.ttm_score,
-            "ttp_score": result.ttp_score,
-            "confidence_level": result.confidence_level,
-            "traced_percentage": result.traced_percentage,
-            "untraced_percentage": result.untraced_percentage,
-            "total_nodes": result.total_nodes,
-            "max_depth": result.max_depth,
-            "circular_references": [str(ref) for ref in result.circular_references],
-            "degradation_applied": result.degradation_applied,
-            "calculated_at": result.calculated_at.isoformat(),
-            "calculation_duration_ms": result.calculation_duration_ms,
-            "task_id": self.request.id
+            "po_id": po_id,
+            "mill_percentage": mill_percentage,
+            "plantation_percentage": plantation_percentage,
+            "overall_percentage": overall_percentage,
+            "confidence_level": 1.0,  # Always 100% - based on explicit user actions
+            "traced_percentage": overall_percentage,
+            "untraced_percentage": 100.0 - overall_percentage,
+            "total_purchase_orders": deterministic_metrics.total_purchase_orders,
+            "traced_purchase_orders": deterministic_metrics.traced_purchase_orders,
+            "total_volume": float(deterministic_metrics.total_volume),
+            "traced_volume": float(deterministic_metrics.traced_to_mill_volume + deterministic_metrics.traced_to_plantation_volume),
+            "calculated_at": deterministic_metrics.calculation_timestamp.isoformat(),
+            "calculation_method": "deterministic_single_source_of_truth",
+            "execution_time_seconds": (datetime.utcnow() - start_time).total_seconds()
         }
+
+        logger.info(
+            "Deterministic transparency calculation completed (SINGLE SOURCE OF TRUTH)",
+            po_id=po_id,
+            mill_percentage=mill_percentage,
+            plantation_percentage=plantation_percentage,
+            overall_percentage=overall_percentage,
+            method="deterministic_single_source_of_truth"
+        )
+
+        # Add task ID to result dict
+        result_dict["task_id"] = self.request.id
         
         # Cache the result for 1 hour
         try:

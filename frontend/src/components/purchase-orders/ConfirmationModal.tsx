@@ -1,14 +1,16 @@
 /**
  * Confirmation Modal Component
- * Modal for sellers to confirm purchase orders
+ * Modal for sellers to confirm purchase orders with originator detection
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { PurchaseOrderWithDetails } from '../../services/purchaseOrderApi';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import Button from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
+import OriginatorConfirmationForm from '../origin/OriginatorConfirmationForm';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ interface ConfirmationRequest {
   confirmed_delivery_date: string;
   confirmed_delivery_location: string;
   seller_notes?: string;
+  origin_data?: any; // Origin data for originators
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -31,9 +34,13 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   purchaseOrder,
   onSubmit,
 }) => {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
-  
+  const [isOriginator, setIsOriginator] = useState(false);
+  const [showOriginForm, setShowOriginForm] = useState(false);
+  const [originData, setOriginData] = useState(null);
+
   // Confirmation fields - start with original values
   const [confirmedQuantity, setConfirmedQuantity] = useState(Number(purchaseOrder.quantity));
   const [confirmedPrice, setConfirmedPrice] = useState(Number(purchaseOrder.unit_price));
@@ -41,9 +48,78 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   const [confirmedLocation, setConfirmedLocation] = useState(purchaseOrder.delivery_location);
   const [sellerNotes, setSellerNotes] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Detect if user is an originator
+  useEffect(() => {
+    const checkOriginatorStatus = () => {
+      // Check if user's company is an originator based on multiple criteria
+      const companyType = user?.company?.company_type;
+      const sectorId = user?.sector_id;
+      const tierLevel = user?.tier_level;
+
+      // Check if company type indicates originator
+      const isOriginatorType = companyType === 'originator' || companyType === 'plantation';
+
+      // Check if sector/tier indicates originator (T6/T7 in palm oil)
+      const isOriginatorTier = (sectorId === 'palm_oil' && (tierLevel === 6 || tierLevel === 7)) ||
+                              (sectorId === 'apparel' && tierLevel === 6);
+
+      // Check if user has originator permissions
+      const hasOriginatorPermissions = user?.permissions?.includes('add_origin_data') ||
+                                      user?.permissions?.includes('provide_farmer_data');
+
+      const originatorStatus = Boolean(isOriginatorType || isOriginatorTier || hasOriginatorPermissions);
+      setIsOriginator(originatorStatus);
+
+      // For raw materials from originators, show origin form by default
+      if (originatorStatus && purchaseOrder.product.category === 'raw_material') {
+        setShowOriginForm(true);
+      }
+    };
+
+    if (user && isOpen) {
+      checkOriginatorStatus();
+    }
+  }, [user, isOpen, purchaseOrder.product.category]);
+
+  // Handle origin data submission
+  const handleOriginDataSubmit = async (submittedOriginData: any) => {
+    setOriginData(submittedOriginData);
+
+    // Proceed with standard confirmation including origin data
+    const confirmation: ConfirmationRequest = {
+      confirmed_quantity: confirmedQuantity,
+      confirmed_unit_price: confirmedPrice,
+      confirmed_delivery_date: confirmedDeliveryDate,
+      confirmed_delivery_location: confirmedLocation,
+      seller_notes: sellerNotes.trim() || undefined,
+      origin_data: submittedOriginData
+    };
+
+    setLoading(true);
+
+    try {
+      await onSubmit(confirmation);
+      onClose();
+
+      showToast({
+        type: 'success',
+        title: 'Order Confirmed with Origin Data',
+        message: 'Purchase order has been confirmed with complete origin information.'
+      });
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to confirm order. Please try again.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStandardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (confirmedQuantity <= 0) {
       showToast({
         type: 'error',
@@ -62,20 +138,32 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       return;
     }
 
+    // Check if originator should provide origin data
+    if (isOriginator && purchaseOrder.product.category === 'raw_material' && !originData) {
+      showToast({
+        type: 'warning',
+        title: 'Origin Data Required',
+        message: 'As an originator, please provide origin data for this raw material.'
+      });
+      setShowOriginForm(true);
+      return;
+    }
+
     setLoading(true);
-    
+
     try {
       const confirmation: ConfirmationRequest = {
         confirmed_quantity: confirmedQuantity,
         confirmed_unit_price: confirmedPrice,
         confirmed_delivery_date: confirmedDeliveryDate,
         confirmed_delivery_location: confirmedLocation,
-        seller_notes: sellerNotes.trim() || undefined
+        seller_notes: sellerNotes.trim() || undefined,
+        origin_data: originData
       };
 
       await onSubmit(confirmation);
       onClose();
-      
+
       showToast({
         type: 'success',
         title: 'Order Confirmed',
@@ -99,11 +187,46 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Show originator form if required
+  if (showOriginForm && isOriginator) {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+          <div className="fixed inset-0 bg-neutral-500 bg-opacity-75 transition-opacity" onClick={onClose} />
+
+          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-neutral-900">
+                  Originator Confirmation - {purchaseOrder.po_number}
+                </h3>
+                <button
+                  onClick={onClose}
+                  className="text-neutral-400 hover:text-neutral-600"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+
+              <OriginatorConfirmationForm
+                purchaseOrderId={purchaseOrder.po_number}
+                productType={purchaseOrder.product.name}
+                onSubmit={handleOriginDataSubmit}
+                onCancel={() => setShowOriginForm(false)}
+                isLoading={loading}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-neutral-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
+
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
           <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
             <div className="flex items-center justify-between mb-4">
@@ -124,7 +247,38 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleStandardSubmit} className="space-y-6">
+
+              {/* Originator Status Indicator */}
+              {isOriginator && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                    <div>
+                      <p className="text-sm font-medium text-green-800">
+                        Originator Status Detected
+                      </p>
+                      <p className="text-sm text-green-700">
+                        {purchaseOrder.product.category === 'raw_material'
+                          ? 'Origin data capture is required for this raw material.'
+                          : 'You can optionally provide origin data for enhanced traceability.'
+                        }
+                      </p>
+                      {!showOriginForm && purchaseOrder.product.category === 'raw_material' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => setShowOriginForm(true)}
+                        >
+                          Add Origin Data
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* Original vs Confirmed Comparison */}
               <Card>
                 <CardBody>

@@ -53,8 +53,8 @@ class TeamInvitation(Base):
     
     # Relationships
     company = relationship("Company", back_populates="team_invitations")
-    invited_by = relationship("User", foreign_keys=[invited_by_user_id], back_populates="sent_invitations")
-    accepted_by = relationship("User", foreign_keys=[accepted_by_user_id], back_populates="accepted_invitations")
+    # invited_by = relationship("User", foreign_keys=[invited_by_user_id], back_populates="sent_invitations")
+    # accepted_by = relationship("User", foreign_keys=[accepted_by_user_id], back_populates="accepted_invitations")
     
     # Performance indexes
     __table_args__ = (

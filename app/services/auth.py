@@ -12,13 +12,17 @@ from app.models.user import User
 from app.models.company import Company
 from app.schemas.auth import UserRegister, UserCreate, CompanyCreate
 from app.core.security import (
-    hash_password, 
-    verify_password, 
-    create_access_token, 
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    verify_refresh_token,
     create_user_token_data
 )
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.auth_rate_limiting import get_auth_rate_limiter, AuthAttemptResult
+from app.core.password_policy import PasswordPolicy, PasswordValidationResult
 
 logger = get_logger(__name__)
 
@@ -60,10 +64,10 @@ class AuthService:
     def create_access_token_for_user(self, user: User) -> Tuple[str, int]:
         """
         Create an access token for a user.
-        
+
         Args:
             user: User object
-            
+
         Returns:
             Tuple of (token, expires_in_seconds)
         """
@@ -73,25 +77,140 @@ class AuthService:
             role=user.role,
             company_id=user.company_id
         )
-        
+
         expires_delta = timedelta(minutes=settings.jwt_access_token_expire_minutes)
         access_token = create_access_token(data=token_data, expires_delta=expires_delta)
-        
+
         return access_token, settings.jwt_access_token_expire_minutes * 60
+
+    def create_refresh_token_for_user(self, user: User) -> Tuple[str, int]:
+        """
+        Create a refresh token for a user.
+
+        Args:
+            user: User object
+
+        Returns:
+            Tuple of (refresh_token, expires_in_seconds)
+        """
+        token_data = create_user_token_data(
+            user_id=user.id,
+            email=user.email,
+            role=user.role,
+            company_id=user.company_id
+        )
+
+        expires_delta = timedelta(days=settings.jwt_refresh_token_expire_days)
+        refresh_token = create_refresh_token(data=token_data, expires_delta=expires_delta)
+
+        return refresh_token, settings.jwt_refresh_token_expire_days * 24 * 60 * 60
+
+    def create_token_pair_for_user(self, user: User) -> Tuple[str, str, int, int]:
+        """
+        Create both access and refresh tokens for a user.
+
+        Args:
+            user: User object
+
+        Returns:
+            Tuple of (access_token, refresh_token, access_expires_in, refresh_expires_in)
+        """
+        access_token, access_expires_in = self.create_access_token_for_user(user)
+        refresh_token, refresh_expires_in = self.create_refresh_token_for_user(user)
+
+        return access_token, refresh_token, access_expires_in, refresh_expires_in
+
+    def refresh_access_token(self, refresh_token: str) -> Tuple[str, int]:
+        """
+        Create a new access token using a refresh token.
+
+        Args:
+            refresh_token: Valid refresh token
+
+        Returns:
+            Tuple of (new_access_token, expires_in_seconds)
+
+        Raises:
+            HTTPException: If refresh token is invalid or user not found
+        """
+        # Verify the refresh token
+        payload = verify_refresh_token(refresh_token)
+
+        # Extract user ID from token
+        user_id_str = payload.get("sub")
+        if user_id_str is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Get user from database
+        user = self.db.query(User).filter(User.id == user_id_str).first()
+        if user is None:
+            logger.warning("User not found for refresh token", user_id=user_id_str)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Check if user is still active
+        if not user.is_active:
+            logger.warning("Inactive user attempted token refresh", user_id=user_id_str)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is inactive",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Create new access token
+        access_token, expires_in = self.create_access_token_for_user(user)
+
+        logger.info("Access token refreshed", user_id=user_id_str, email=user.email)
+
+        return access_token, expires_in
     
     def register_user_and_company(self, user_data: UserRegister) -> Tuple[User, Company]:
         """
         Register a new user and company.
-        
+
         Args:
             user_data: User registration data
-            
+
         Returns:
             Tuple of (User, Company)
-            
+
         Raises:
-            HTTPException: If email already exists
+            HTTPException: If email already exists or password is weak
         """
+        # Validate password policy
+        password_policy = PasswordPolicy()
+        user_info = {
+            "email": user_data.email,
+            "first_name": getattr(user_data, 'first_name', None),
+            "last_name": getattr(user_data, 'last_name', None),
+            "company_name": user_data.company_name
+        }
+
+        validation_result = password_policy.validate_password(user_data.password, user_info)
+
+        if not validation_result.is_valid:
+            logger.warning(
+                "Password policy violation during registration",
+                email=user_data.email,
+                errors=validation_result.errors,
+                score=validation_result.score
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": "Password does not meet security requirements",
+                    "error_code": "WEAK_PASSWORD",
+                    "validation_result": validation_result.to_dict()
+                }
+            )
+
         # Check if user email already exists
         existing_user = self.db.query(User).filter(User.email == user_data.email).first()
         if existing_user:

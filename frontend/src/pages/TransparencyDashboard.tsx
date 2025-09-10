@@ -95,6 +95,7 @@ const TransparencyDashboard: React.FC = () => {
       console.error('Error fetching client companies:', error);
       showToast({
         type: 'error',
+        title: 'Error',
         message: 'Failed to load client companies'
       });
     }

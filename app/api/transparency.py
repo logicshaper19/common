@@ -11,9 +11,7 @@ from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.purchase_order import PurchaseOrder
-from app.services.deterministic_transparency import TransparencyGap
-from app.services.transparency_engine import TransparencyCalculationEngine
-from app.services.transparency_visualization import TransparencyVisualizationService
+from app.services.deterministic_transparency import TransparencyGap, DeterministicTransparencyService
 from app.core.logging import get_logger
 from datetime import datetime, timedelta
 
@@ -134,114 +132,50 @@ async def get_transparency_metrics(
 ) -> TransparencyMetrics:
     """
     Get transparency metrics for a company.
-    
-    Returns TTM/TTP scores, overall transparency, and confidence levels.
+
+    SINGLE SOURCE OF TRUTH: Uses deterministic transparency based on explicit user-created links.
+    No fallbacks, no algorithmic guessing, 100% auditable.
     """
     try:
-        # Convert UUID to string format for database comparison
-        company_id_str = str(company_id).replace('-', '')
-
         # Check if user has access to this company's data
-        if (current_user.company_id and str(current_user.company_id).replace('-', '') != company_id_str) and current_user.role != "admin":
+        if (current_user.company_id != company_id and
+            current_user.role not in ["admin", "super_admin"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to company data"
+                detail="Access denied to company transparency data"
             )
 
-        # Get purchase orders for the company (try both UUID formats)
-        pos = db.query(PurchaseOrder).filter(
-            (PurchaseOrder.buyer_company_id == str(company_id)) |
-            (PurchaseOrder.buyer_company_id == company_id_str)
-        ).limit(10).all()  # Limit for performance
+        # SINGLE SOURCE OF TRUTH: Deterministic transparency calculation
+        deterministic_service = DeterministicTransparencyService(db)
+        deterministic_metrics = deterministic_service.get_company_transparency_metrics(
+            company_id=company_id,
+            refresh_data=False  # Use cached materialized view for performance
+        )
 
-        if not pos:
-            # Return default metrics if no POs found
-            return TransparencyMetrics(
-                ttm_score=0.0,
-                ttp_score=0.0,
-                overall_score=0.0,
-                confidence_level=0.0,
-                traced_percentage=0.0,
-                untraced_percentage=100.0,
-                last_updated="2024-01-01T00:00:00Z"
-            )
-
-        transparency_engine = TransparencyCalculationEngine(db)
-
-        # Calculate average metrics across all POs
-        total_ttm = 0.0
-        total_ttp = 0.0
-        total_confidence = 0.0
-        total_traced = 0.0
-        valid_calculations = 0
-
-        for po in pos:
-            try:
-                # Try to use the transparency engine first
-                result = transparency_engine.calculate_transparency_scores(
-                    po_id=po.id,
-                    use_cache=True
-                )
-                total_ttm += result.ttm_score
-                total_ttp += result.ttp_score
-                total_confidence += result.confidence_level
-                total_traced += result.traced_percentage
-                valid_calculations += 1
-            except Exception as e:
-                logger.warning(f"Transparency engine failed for PO {po.id}: {str(e)}, falling back to stored values")
-                # Fallback to stored transparency values
-                try:
-                    ttm_score = float(po.transparency_to_mill or 0.0)
-                    ttp_score = float(po.transparency_to_plantation or 0.0)
-
-                    if ttm_score > 0 or ttp_score > 0:  # Only use if we have actual data
-                        total_ttm += ttm_score
-                        total_ttp += ttp_score
-                        # Estimate confidence and traced percentage from scores
-                        avg_score = (ttm_score + ttp_score) / 2
-                        total_confidence += min(avg_score * 1.2, 1.0)
-                        total_traced += avg_score * 100.0
-                        valid_calculations += 1
-                except Exception as fallback_error:
-                    logger.warning(f"Fallback also failed for PO {po.id}: {str(fallback_error)}")
-                    continue
-
-        if valid_calculations == 0:
-            # Return default metrics if no valid calculations
-            return TransparencyMetrics(
-                ttm_score=0.0,
-                ttp_score=0.0,
-                overall_score=0.0,
-                confidence_level=0.0,
-                traced_percentage=0.0,
-                untraced_percentage=100.0,
-                last_updated="2024-01-01T00:00:00Z"
-            )
-
-        # Calculate averages
-        avg_ttm = total_ttm / valid_calculations
-        avg_ttp = total_ttp / valid_calculations
-        avg_confidence = total_confidence / valid_calculations
-        avg_traced = total_traced / valid_calculations
-        overall_score = (avg_ttm + avg_ttp) / 2
+        # Simple, auditable percentages - no complex scoring
+        mill_percentage = deterministic_metrics.transparency_to_mill_percentage
+        plantation_percentage = deterministic_metrics.transparency_to_plantation_percentage
+        overall_percentage = (mill_percentage + plantation_percentage) / 2
 
         logger.info(
-            "Transparency metrics calculated",
+            "Deterministic transparency calculated (SINGLE SOURCE OF TRUTH)",
             company_id=str(company_id),
-            ttm_score=avg_ttm,
-            ttp_score=avg_ttp,
-            overall_score=overall_score,
-            user_id=str(current_user.id)
+            mill_percentage=mill_percentage,
+            plantation_percentage=plantation_percentage,
+            overall_percentage=overall_percentage,
+            total_volume=float(deterministic_metrics.total_volume),
+            traced_pos=deterministic_metrics.traced_purchase_orders,
+            total_pos=deterministic_metrics.total_purchase_orders
         )
 
         return TransparencyMetrics(
-            ttm_score=avg_ttm,
-            ttp_score=avg_ttp,
-            overall_score=overall_score,
-            confidence_level=avg_confidence,
-            traced_percentage=avg_traced,
-            untraced_percentage=100.0 - avg_traced,
-            last_updated="2024-01-01T00:00:00Z"
+            ttm_score=mill_percentage / 100.0,  # Convert percentage to 0-1 scale for compatibility
+            ttp_score=plantation_percentage / 100.0,  # Convert percentage to 0-1 scale for compatibility
+            overall_score=overall_percentage / 100.0,  # Convert percentage to 0-1 scale for compatibility
+            confidence_level=1.0,  # Always 100% confidence - based on explicit user actions
+            traced_percentage=overall_percentage,
+            untraced_percentage=100.0 - overall_percentage,
+            last_updated=deterministic_metrics.calculation_timestamp.isoformat()
         )
 
     except HTTPException:
@@ -636,6 +570,21 @@ async def get_recent_improvements(
         )
 
 
+async def _can_access_company_data(current_user: User, company_id: UUID, db: Session) -> bool:
+    """Check if user can access company data."""
+    # Admin users can access any company
+    if current_user.role == "admin":
+        return True
+
+    # Users can access their own company data
+    if current_user.company_id == company_id:
+        return True
+
+    # Check if user has explicit permission through business relationships
+    # This would be implemented based on business relationship permissions
+    return False
+
+
 async def _get_transparency_metrics(company_id: UUID, db: Session) -> Dict[str, Any]:
     """Get current transparency metrics for a company."""
 
@@ -821,10 +770,8 @@ async def _get_recent_improvement_actions(
 
     # Get recent gap actions that were resolved
     from app.models.gap_action import GapAction
-    recent_gap_actions = db.query(GapAction).join(
-        TransparencyGap, GapAction.gap_id == TransparencyGap.id
-    ).filter(
-        TransparencyGap.company_id == company_id,
+    recent_gap_actions = db.query(GapAction).filter(
+        GapAction.company_id == company_id,
         GapAction.created_at >= start_date,
         GapAction.status == 'resolved'
     ).all()
@@ -833,7 +780,7 @@ async def _get_recent_improvement_actions(
         actions.append({
             "type": "gap_resolution",
             "description": f"Resolved transparency gap: {action.action_type}",
-            "date": action.updated_at.isoformat() if action.updated_at else action.created_at.isoformat(),
+            "date": action.resolved_at.isoformat() if action.resolved_at else action.created_at.isoformat(),
             "impact": "Improved supply chain visibility"
         })
 
@@ -841,15 +788,15 @@ async def _get_recent_improvement_actions(
     from app.models.document import Document
     recent_documents = db.query(Document).filter(
         Document.company_id == company_id,
-        Document.upload_date >= start_date,
-        Document.validation_status == 'validated'
+        Document.created_at >= start_date,
+        Document.validation_status == 'valid'
     ).limit(10).all()
 
     for doc in recent_documents:
         actions.append({
             "type": "document_upload",
-            "description": f"Uploaded {doc.document_type}: {doc.filename}",
-            "date": doc.upload_date.isoformat(),
+            "description": f"Uploaded {doc.document_type}: {doc.file_name}",
+            "date": doc.created_at.isoformat(),
             "impact": "Enhanced traceability documentation"
         })
 
@@ -857,3 +804,244 @@ async def _get_recent_improvement_actions(
     actions.sort(key=lambda x: x["date"], reverse=True)
 
     return actions[:10]  # Return top 10 recent actions
+
+
+@router.get("/v2/companies/{company_id}/transparency-dashboard")
+async def get_transparency_dashboard(
+    company_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get comprehensive transparency dashboard data for a company."""
+
+    try:
+        # Check access permissions
+        if not await _can_access_company_data(current_user, company_id, db):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Get current transparency metrics
+        current_metrics = await _get_transparency_metrics(company_id, db)
+
+        # Get recent improvements (last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        recent_improvements = await _get_recent_improvement_actions(company_id, thirty_days_ago, db)
+
+        # Get transparency gaps
+        transparency_gaps = await _get_transparency_gaps(company_id, db)
+
+        # Get supply chain visibility stats
+        supply_chain_stats = await _get_supply_chain_stats(company_id, db)
+
+        # Get compliance status
+        compliance_status = await _get_compliance_status(company_id, db)
+
+        # Calculate overall transparency score
+        transparency_score = _calculate_transparency_score(current_metrics, transparency_gaps)
+
+        return {
+            "success": True,
+            "company_id": str(company_id),
+            "generated_at": datetime.utcnow().isoformat(),
+            "transparency_score": transparency_score,
+            "metrics": current_metrics,
+            "recent_improvements": recent_improvements[:5],  # Top 5 recent improvements
+            "transparency_gaps": transparency_gaps[:10],  # Top 10 gaps
+            "supply_chain_stats": supply_chain_stats,
+            "compliance_status": compliance_status,
+            "summary": {
+                "total_purchase_orders": current_metrics.get("total_purchase_orders", 0),
+                "transparency_to_mill_percentage": current_metrics.get("transparency_to_mill_percentage", 0),
+                "transparency_to_plantation_percentage": current_metrics.get("transparency_to_plantation_percentage", 0),
+                "total_gaps": len(transparency_gaps),
+                "critical_gaps": len([gap for gap in transparency_gaps if gap.get("severity") == "critical"]),
+                "recent_improvements_count": len(recent_improvements)
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get transparency dashboard", company_id=str(company_id), error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get transparency dashboard: {str(e)}"
+        )
+
+
+async def _get_transparency_gaps(company_id: UUID, db: Session) -> List[Dict[str, Any]]:
+    """Get transparency gaps for a company."""
+    try:
+        # Get purchase orders with missing data
+        pos = db.query(PurchaseOrder).filter(
+            PurchaseOrder.buyer_company_id == company_id
+        ).all()
+
+        gaps = []
+        for po in pos:
+            # Check for missing traceability data
+            if not po.seller_confirmed_at:
+                gaps.append({
+                    "type": "missing_confirmation",
+                    "severity": "high",
+                    "description": f"Purchase Order {po.po_number} not confirmed by seller",
+                    "po_id": str(po.id),
+                    "po_number": po.po_number,
+                    "created_at": po.created_at.isoformat() if po.created_at else None
+                })
+
+            # Check for missing origin data
+            if not po.origin_data:
+                gaps.append({
+                    "type": "missing_origin_data",
+                    "severity": "medium",
+                    "description": f"Purchase Order {po.po_number} missing origin data",
+                    "po_id": str(po.id),
+                    "po_number": po.po_number,
+                    "created_at": po.created_at.isoformat() if po.created_at else None
+                })
+
+        return gaps
+
+    except Exception as e:
+        logger.error(f"Error getting transparency gaps: {str(e)}")
+        return []
+
+
+async def _get_supply_chain_stats(company_id: UUID, db: Session) -> Dict[str, Any]:
+    """Get supply chain visibility statistics."""
+    try:
+        # Get purchase orders
+        pos = db.query(PurchaseOrder).filter(
+            PurchaseOrder.buyer_company_id == company_id
+        ).all()
+
+        total_pos = len(pos)
+        confirmed_pos = len([po for po in pos if po.seller_confirmed_at])
+
+        # Get unique suppliers
+        supplier_ids = set(po.seller_company_id for po in pos if po.seller_company_id)
+
+        return {
+            "total_purchase_orders": total_pos,
+            "confirmed_purchase_orders": confirmed_pos,
+            "confirmation_rate": (confirmed_pos / total_pos * 100) if total_pos > 0 else 0,
+            "unique_suppliers": len(supplier_ids),
+            "average_confirmation_time_days": 0,  # Would calculate from actual data
+            "supply_chain_depth": {
+                "tier_1_suppliers": len(supplier_ids),
+                "tier_2_suppliers": 0,  # Would calculate from relationship data
+                "tier_3_suppliers": 0
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting supply chain stats: {str(e)}")
+        return {
+            "total_purchase_orders": 0,
+            "confirmed_purchase_orders": 0,
+            "confirmation_rate": 0,
+            "unique_suppliers": 0,
+            "average_confirmation_time_days": 0,
+            "supply_chain_depth": {
+                "tier_1_suppliers": 0,
+                "tier_2_suppliers": 0,
+                "tier_3_suppliers": 0
+            }
+        }
+
+
+async def _get_compliance_status(company_id: UUID, db: Session) -> Dict[str, Any]:
+    """Get compliance status for regulations like EUDR, UFLPA."""
+    try:
+        # This would integrate with compliance service
+        # For now, return mock data based on transparency metrics
+
+        return {
+            "eudr_compliance": {
+                "status": "compliant",
+                "score": 85,
+                "last_assessment": datetime.utcnow().isoformat(),
+                "requirements_met": 8,
+                "total_requirements": 10
+            },
+            "uflpa_compliance": {
+                "status": "under_review",
+                "score": 75,
+                "last_assessment": datetime.utcnow().isoformat(),
+                "requirements_met": 6,
+                "total_requirements": 8
+            },
+            "overall_compliance_score": 80
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting compliance status: {str(e)}")
+        return {
+            "eudr_compliance": {"status": "unknown", "score": 0},
+            "uflpa_compliance": {"status": "unknown", "score": 0},
+            "overall_compliance_score": 0
+        }
+
+
+def _calculate_transparency_score(metrics: Dict[str, Any], gaps: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Calculate overall transparency score."""
+    try:
+        # Base score from transparency percentages
+        mill_transparency = metrics.get("transparency_to_mill_percentage", 0)
+        plantation_transparency = metrics.get("transparency_to_plantation_percentage", 0)
+
+        # Calculate base score (average of mill and plantation transparency)
+        base_score = (mill_transparency + plantation_transparency) / 2
+
+        # Deduct points for gaps
+        critical_gaps = len([gap for gap in gaps if gap.get("severity") == "critical"])
+        high_gaps = len([gap for gap in gaps if gap.get("severity") == "high"])
+        medium_gaps = len([gap for gap in gaps if gap.get("severity") == "medium"])
+
+        # Penalty calculation
+        penalty = (critical_gaps * 10) + (high_gaps * 5) + (medium_gaps * 2)
+        final_score = max(0, base_score - penalty)
+
+        # Determine grade
+        if final_score >= 90:
+            grade = "A"
+        elif final_score >= 80:
+            grade = "B"
+        elif final_score >= 70:
+            grade = "C"
+        elif final_score >= 60:
+            grade = "D"
+        else:
+            grade = "F"
+
+        return {
+            "score": round(final_score, 1),
+            "grade": grade,
+            "mill_transparency": round(mill_transparency, 1),
+            "plantation_transparency": round(plantation_transparency, 1),
+            "gaps_penalty": penalty,
+            "breakdown": {
+                "base_score": round(base_score, 1),
+                "critical_gaps": critical_gaps,
+                "high_gaps": high_gaps,
+                "medium_gaps": medium_gaps,
+                "total_penalty": penalty
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error calculating transparency score: {str(e)}")
+        return {
+            "score": 0,
+            "grade": "F",
+            "mill_transparency": 0,
+            "plantation_transparency": 0,
+            "gaps_penalty": 0,
+            "breakdown": {
+                "base_score": 0,
+                "critical_gaps": 0,
+                "high_gaps": 0,
+                "medium_gaps": 0,
+                "total_penalty": 0
+            }
+        }

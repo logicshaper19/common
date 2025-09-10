@@ -15,8 +15,10 @@ from app.services.transparency_jobs import (
     bulk_recalculate_transparency,
     invalidate_transparency_cache
 )
-from app.services.transparency_scheduler import TransparencyScheduler
-from app.services.transparency_cache import TransparencyCache
+# TransparencyScheduler not implemented yet - using job functions directly
+# from app.services.transparency_scheduler import TransparencyScheduler
+# Using RedisCache directly instead of non-existent TransparencyCache
+from app.core.redis import get_redis, RedisCache
 from app.services.job_monitor import TransparencyJobMonitor, JobStatus, JobPriority
 from app.core.logging import get_logger
 
@@ -99,14 +101,12 @@ async def schedule_transparency_calculation(
     with configurable priority and delay settings.
     """
     try:
-        scheduler = TransparencyScheduler(db)
-        
-        task_id = scheduler.schedule_po_transparency_update(
-            po_id=request.purchase_order_id,
-            trigger_event="manual_request",
-            delay_seconds=request.delay_seconds,
-            force_recalculation=request.force_recalculation
-        )
+        # Direct job scheduling using available functions
+        task_id = calculate_transparency_async.apply_async(
+            args=[str(request.purchase_order_id)],
+            countdown=request.delay_seconds,
+            priority=request.priority.value if request.priority else 5
+        ).id
         
         logger.info(
             "Transparency calculation scheduled via API",
@@ -423,13 +423,21 @@ async def warm_transparency_cache(
     Pre-calculates transparency scores for specified POs to improve response times.
     """
     try:
-        cache = TransparencyCache()
-        result = await cache.warm_cache(request.purchase_order_ids, request.priority)
-        
+        # Use bulk recalculation to warm cache
+        task_id = bulk_recalculate_transparency.apply_async(
+            args=[request.purchase_order_ids],
+            kwargs={"force_recalculation": False},  # Don't force, just ensure cached
+            priority=request.priority.value if request.priority else 5
+        ).id
+
         return JobResponse(
             success=True,
-            message=f"Cache warming scheduled for {result['scheduled']} purchase orders",
-            details=result
+            message=f"Cache warming scheduled for {len(request.purchase_order_ids)} purchase orders",
+            details={
+                "task_id": task_id,
+                "scheduled": len(request.purchase_order_ids),
+                "purchase_order_ids": request.purchase_order_ids
+            }
         )
         
     except Exception as e:

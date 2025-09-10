@@ -15,6 +15,10 @@ import {
   BeakerIcon,
   UserPlusIcon,
   UserGroupIcon,
+  ArchiveBoxIcon,
+  QueueListIcon,
+  MapIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth, usePermissions } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
@@ -54,6 +58,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       name: 'Products',
       href: '/products',
       icon: CubeIcon,
+    },
+    {
+      name: 'Inventory',
+      href: '/inventory',
+      icon: ArchiveBoxIcon,
+    },
+    {
+      name: 'Batches',
+      href: '/inventory/batches',
+      icon: QueueListIcon,
+    },
+    {
+      name: 'Originator',
+      href: '/originator',
+      icon: MapIcon,
+    },
+    {
+      name: 'Farm Management',
+      href: '/originator/farms',
+      icon: BuildingOfficeIcon,
+    },
+    {
+      name: 'Certifications',
+      href: '/originator/certifications',
+      icon: ShieldCheckIcon,
     },
     {
       name: 'Companies',

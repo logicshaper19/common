@@ -233,7 +233,7 @@ export function PermissionGate({
     ? permissions.every(p => p)
     : permissions.some(p => p);
 
-  return hasAccess ? <Fragment>{children}</Fragment> : <Fragment>{fallback}</Fragment>;
+  return hasAccess ? <Fragment>{children}</Fragment> : <Fragment>{fallback ? (React.isValidElement(fallback) ? fallback : fallback) : null}</Fragment>;
 }
 
 // Hook for role-based styling

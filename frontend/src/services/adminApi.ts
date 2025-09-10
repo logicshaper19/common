@@ -2,7 +2,7 @@
  * Admin API Service
  * Handles admin override operations and audit trail management
  */
-import { apiClient } from './apiClient';
+import { apiClient } from '../lib/api';
 
 export interface AdminOverrideRequest {
   resourceType: 'document' | 'purchase_order' | 'company';

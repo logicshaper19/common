@@ -3,11 +3,16 @@ import { Card, CardBody } from './Card';
 import { cn } from '../../lib/utils';
 
 export interface AnalyticsCardProps {
-  name: string;
+  // Support both naming patterns
+  name?: string;
+  title?: string;
   value: string | number;
   change?: string;
+  subtitle?: string;
   changeType?: 'increase' | 'decrease' | 'neutral';
-  icon?: React.ComponentType<{ className?: string }>;
+  // Support both icon patterns
+  icon?: React.ComponentType<{ className?: string }> | React.ReactNode;
+  trend?: { value: number; isPositive: boolean };
   href?: string;
   onClick?: () => void;
   className?: string;
@@ -18,10 +23,13 @@ export interface AnalyticsCardProps {
 
 const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
   name,
+  title,
   value,
   change,
+  subtitle,
   changeType = 'neutral',
-  icon: Icon,
+  icon,
+  trend,
   href,
   onClick,
   className,
@@ -29,6 +37,14 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
   showIcon = true,
   showChange = true,
 }) => {
+  // Support both naming patterns
+  const displayName = name || title;
+  const displayChange = change || (trend ? `${trend.value}%` : undefined);
+  const displayChangeType = changeType || (trend ? (trend.isPositive ? 'increase' : 'decrease') : 'neutral');
+
+  // Handle both icon patterns
+  const IconComponent = typeof icon === 'function' ? icon : null;
+  const iconElement = typeof icon === 'object' && icon !== null && !IconComponent ? icon : null;
   const handleClick = () => {
     if (onClick) {
       onClick();
@@ -69,7 +85,7 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
   const sizeConfig = sizeClasses[size];
 
   const getChangeColor = () => {
-    switch (changeType) {
+    switch (displayChangeType) {
       case 'increase':
         return 'text-emerald-700 bg-emerald-50';
       case 'decrease':
@@ -80,7 +96,7 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
   };
 
   const getChangeIcon = () => {
-    switch (changeType) {
+    switch (displayChangeType) {
       case 'increase':
         return '↗';
       case 'decrease':
@@ -103,13 +119,18 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className={cn('text-neutral-500 mb-2', sizeConfig.nameText)}>
-              {name}
+              {displayName}
             </p>
+            {subtitle && (
+              <p className={cn('text-neutral-400 text-xs mb-1')}>
+                {subtitle}
+              </p>
+            )}
             <div className="flex items-baseline space-x-2">
               <p className={cn('text-neutral-900', sizeConfig.valueText)}>
                 {value}
               </p>
-              {showChange && change && (
+              {showChange && displayChange && (
                 <div className="flex items-center">
                   <span
                     className={cn(
@@ -119,15 +140,21 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
                       getChangeColor()
                     )}
                   >
-                    {getChangeIcon()} {change}
+                    {getChangeIcon()} {displayChange}
                   </span>
                 </div>
               )}
             </div>
           </div>
-          {showIcon && Icon && (
+          {showIcon && (IconComponent || iconElement) && (
             <div className="flex-shrink-0 ml-3">
-              <Icon className={cn('text-neutral-400', sizeConfig.iconSize)} />
+              {IconComponent ? (
+                <IconComponent className={cn('text-neutral-400', sizeConfig.iconSize)} />
+              ) : (
+                <div className={cn('text-neutral-400', sizeConfig.iconSize)}>
+                  {React.isValidElement(iconElement) ? iconElement : null}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -19,6 +19,9 @@ import TeamManagement from './pages/TeamManagement';
 import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
 import PurchaseOrderDetailPage from './pages/PurchaseOrderDetailPage';
 import ProductsRouter from './components/products/ProductsRouter';
+import InventoryRouter from './components/inventory/InventoryRouter';
+import OriginatorRouter from './components/origin/OriginatorRouter';
+import OriginatorFeaturesDemo from './pages/OriginatorFeaturesDemo';
 
 function App() {
   return (
@@ -57,6 +60,54 @@ function App() {
             <Route path="products" element={
               <ProtectedRoute>
                 <ProductsRouter />
+              </ProtectedRoute>
+            } />
+
+            <Route path="inventory" element={
+              <ProtectedRoute>
+                <InventoryRouter />
+              </ProtectedRoute>
+            } />
+
+            <Route path="inventory/batches" element={
+              <ProtectedRoute>
+                <InventoryRouter view="batches" />
+              </ProtectedRoute>
+            } />
+
+            <Route path="inventory/analytics" element={
+              <ProtectedRoute>
+                <InventoryRouter view="analytics" />
+              </ProtectedRoute>
+            } />
+
+            <Route path="originator" element={
+              <ProtectedRoute>
+                <OriginatorRouter />
+              </ProtectedRoute>
+            } />
+
+            <Route path="originator/farms" element={
+              <ProtectedRoute>
+                <OriginatorRouter view="farms" />
+              </ProtectedRoute>
+            } />
+
+            <Route path="originator/certifications" element={
+              <ProtectedRoute>
+                <OriginatorRouter view="certifications" />
+              </ProtectedRoute>
+            } />
+
+            <Route path="originator/origin-data" element={
+              <ProtectedRoute>
+                <OriginatorRouter view="origin-data" />
+              </ProtectedRoute>
+            } />
+
+            <Route path="originator/demo" element={
+              <ProtectedRoute>
+                <OriginatorFeaturesDemo />
               </ProtectedRoute>
             } />
 
