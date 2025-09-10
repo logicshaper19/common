@@ -10,6 +10,12 @@ from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
 from app.services.purchase_order import PurchaseOrderService
+from app.core.permissions import (
+    require_po_creation_permission,
+    require_po_confirmation_permission,
+    get_permission_checker,
+    PermissionChecker
+)
 from app.schemas.purchase_order import (
     PurchaseOrderCreate,
     PurchaseOrderUpdate,
@@ -45,6 +51,7 @@ router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
 
 
 @router.post("/", response_model=PurchaseOrderResponse)
+@require_po_creation_permission
 # # @rate_limit(RateLimitType.STANDARD)  # Temporarily disabled for testing
 async def create_purchase_order(
     purchase_order: PurchaseOrderCreate,
@@ -357,6 +364,7 @@ def seller_confirm_purchase_order(
 
 
 @router.post("/{purchase_order_id}/confirm", response_model=Dict[str, Any])
+@require_po_confirmation_permission
 @require_po_access(AccessType.WRITE)
 def confirm_purchase_order(
     purchase_order_id: str,

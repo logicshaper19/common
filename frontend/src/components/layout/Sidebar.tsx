@@ -20,9 +20,10 @@ import {
   MapIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
-import { useAuth, usePermissions } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 import Button from '../ui/Button';
+import { shouldShowNavigationItem, getDashboardConfig } from '../../utils/permissions';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -39,21 +40,25 @@ interface NavigationItem {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
+  
+  if (!user) return null;
+  
+  const dashboardConfig = getDashboardConfig(user);
 
-  // Navigation items
+  // Navigation items with permission-based visibility
   const navigation: NavigationItem[] = [
     {
       name: 'Dashboard',
       href: '/dashboard',
       icon: HomeIcon,
     },
-    {
+    // Purchase Orders - visible to users who can create or confirm POs
+    ...(dashboardConfig.can_create_po || dashboardConfig.can_confirm_po ? [{
       name: 'Purchase Orders',
       href: '/purchase-orders',
       icon: DocumentTextIcon,
       badge: '12', // This would come from API
-    },
+    }] : []),
     {
       name: 'Products',
       href: '/products',
@@ -69,53 +74,57 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       href: '/inventory/batches',
       icon: QueueListIcon,
     },
-    {
+    // Originator features - only for originator companies
+    ...(dashboardConfig.can_report_farm_data ? [{
       name: 'Originator',
       href: '/originator',
       icon: MapIcon,
-    },
-    {
+    }] : []),
+    ...(dashboardConfig.can_report_farm_data ? [{
       name: 'Farm Management',
       href: '/originator/farms',
       icon: BuildingOfficeIcon,
-    },
-    {
+    }] : []),
+    ...(dashboardConfig.can_manage_certifications ? [{
       name: 'Certifications',
       href: '/originator/certifications',
       icon: ShieldCheckIcon,
-    },
-    {
-      name: 'Companies',
-      href: '/companies',
-      icon: BuildingOfficeIcon,
-      requiredRole: 'admin',
-    },
-    {
+    }] : []),
+    // Team management - only for admins
+    ...(dashboardConfig.can_manage_team ? [{
+      name: 'Team',
+      href: '/team',
+      icon: UserGroupIcon,
+    }] : []),
+    // Transparency - visible to most users
+    ...(dashboardConfig.can_view_analytics ? [{
       name: 'Transparency',
       href: '/transparency',
       icon: ChartBarIcon,
-    },
+    }] : []),
     {
       name: 'Supplier Onboarding',
       href: '/onboarding',
       icon: UserPlusIcon,
     },
-    {
-      name: 'Team',
-      href: '/team',
-      icon: UserGroupIcon,
-    },
-    {
-      name: 'Users',
-      href: '/users',
-      icon: UsersIcon,
-      requiredRole: 'admin',
-    },
-    {
+    // Settings - only for admins
+    ...(dashboardConfig.can_manage_settings ? [{
       name: 'Settings',
       href: '/settings',
       icon: Cog6ToothIcon,
-    },
+    }] : []),
+    // Trader-specific features
+    ...(dashboardConfig.can_manage_trader_chain ? [{
+      name: 'Trader Chain',
+      href: '/trader-chain',
+      icon: QueueListIcon,
+    }] : []),
+    ...(dashboardConfig.can_view_margin_analysis ? [{
+      name: 'Margin Analysis',
+      href: '/margin-analysis',
+      icon: ChartBarIcon,
+    }] : []),
+    // Demo features - only for development
     {
       name: 'Confirmation Demo',
       href: '/confirmation-demo',
@@ -124,11 +133,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     },
   ];
 
-  // Filter navigation items based on user permissions
-  const filteredNavigation = navigation.filter(item => {
-    if (!item.requiredRole) return true;
-    return hasPermission(item.requiredRole);
-  });
+  // Navigation items are already filtered by permissions in the array definition
+  const filteredNavigation = navigation;
 
   // Navigation link component
   const NavigationLink: React.FC<{ item: NavigationItem }> = ({ item }) => (
