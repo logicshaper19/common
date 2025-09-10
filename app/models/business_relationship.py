@@ -3,6 +3,7 @@ Business Relationship model for the Common supply chain platform.
 """
 from sqlalchemy import Column, String, DateTime, ForeignKey, func, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 import uuid
 
 from app.core.database import Base
@@ -23,6 +24,11 @@ class BusinessRelationship(Base):
     invited_by_company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"))  # For tracking viral cascade
     established_at = Column(DateTime(timezone=True), server_default=func.now())
     terminated_at = Column(DateTime(timezone=True))
+    
+    # Relationships
+    buyer_company = relationship("Company", foreign_keys=[buyer_company_id])
+    seller_company = relationship("Company", foreign_keys=[seller_company_id])
+    invited_by_company = relationship("Company", foreign_keys=[invited_by_company_id])
     
     __table_args__ = (
         UniqueConstraint('buyer_company_id', 'seller_company_id', name='unique_business_relationship'),

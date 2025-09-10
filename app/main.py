@@ -35,6 +35,7 @@ from app.core.circuit_breaker import CircuitBreakerError
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
 from app.api.admin import router as admin_router
+from app.api.users import router as users_router
 from app.api.products import router as products_router
 from app.api.purchase_orders import router as purchase_orders_router
 from app.api.confirmation import router as confirmation_router
@@ -166,7 +167,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Add standard CORS middleware for development (last to process requests, first to add headers)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:8080", "http://127.0.0.1:3000", "http://127.0.0.1:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -280,6 +281,7 @@ app.include_router(health_router, prefix="/health", tags=["Health"])
 # V1 API endpoints
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(companies_router, prefix="/api/v1/companies", tags=["Companies"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["Purchase Orders"])

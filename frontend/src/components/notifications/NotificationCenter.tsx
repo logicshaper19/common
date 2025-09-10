@@ -341,14 +341,14 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
               <div className="flex items-center justify-center h-32">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
               </div>
-            ) : notifications.length === 0 ? (
+            ) : (notifications || []).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-neutral-500">
                 <BellIcon className="h-12 w-12 mb-2" />
                 <p className="text-sm">No notifications</p>
               </div>
             ) : (
               <div className="divide-y divide-neutral-200">
-                {notifications.map((notification) => (
+                {(notifications || []).map((notification) => (
                   <NotificationItem
                     key={notification.id}
                     notification={notification}

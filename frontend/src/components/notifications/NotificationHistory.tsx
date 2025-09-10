@@ -121,7 +121,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
 
   // Select all visible notifications
   const selectAllVisible = () => {
-    const visibleIds = notifications.map(n => n.id);
+    const visibleIds = (notifications || []).map(n => n.id);
     setSelectedNotifications(new Set(visibleIds));
   };
 
@@ -314,7 +314,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={selectAllVisible}
-                  disabled={notifications.length === 0}
+                  disabled={(notifications || []).length === 0}
                 >
                   Select All
                 </Button>
@@ -340,12 +340,12 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
         )}
 
         {/* Notification List */}
-        {isLoading && notifications.length === 0 ? (
+        {isLoading && (notifications || []).length === 0 ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
             <p className="mt-2 text-neutral-600">Loading notifications...</p>
           </div>
-        ) : notifications.length === 0 ? (
+        ) : (notifications || []).length === 0 ? (
           <div className="text-center py-8">
             <ClockIcon className="h-12 w-12 text-neutral-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-neutral-900 mb-2">No notifications found</h3>
@@ -358,7 +358,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({
           </div>
         ) : (
           <div className="space-y-2">
-            {notifications.map((notification) => (
+            {(notifications || []).map((notification) => (
               <div
                 key={notification.id}
                 className={cn(

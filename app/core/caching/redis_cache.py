@@ -102,7 +102,7 @@ class RedisCacheManager:
     
     def __init__(self, redis_url: str = None):
         """Initialize Redis cache manager."""
-        self.redis_url = redis_url or settings.REDIS_URL
+        self.redis_url = redis_url or settings.redis_url
         self._redis_client = None
         self._connection_pool = None
         self._is_connected = False
