@@ -1,0 +1,19 @@
+{
+  "debug": true,
+  "database": {
+    "echo": false
+  },
+  "monitoring": {
+    "log_level": "ERROR"
+  },
+  "email": {
+    "enabled": false
+  },
+  "security": {
+    "rate_limit_requests_per_minute": 10000
+  },
+  "deployment": {
+    "replicas": 1,
+    "auto_scaling_enabled": false
+  }
+}

@@ -14,16 +14,23 @@ from app.core.config import settings
 from app.core.database import init_db, get_db
 from app.core.logging import configure_logging, log_request, log_response, get_logger
 from app.core.redis import init_redis, close_redis
-from app.core.documentation import custom_openapi, get_custom_swagger_ui_html, get_custom_redoc_html
+from app.core.documentation import custom_openapi
+from app.core.api_versioning import setup_api_versioning, get_version_manager
 from app.core.validation import validation_exception_handler
 from app.core.security_headers import SecurityHeadersMiddleware, CORSSecurityMiddleware
-from app.core.versioning import APIVersion, create_versioned_router, get_api_version_info
 from app.core.error_handling import (
     CommonHTTPException,
     common_exception_handler,
     general_exception_handler,
     circuit_breaker_exception_handler
 )
+from app.core.standardized_errors import (
+    StandardizedErrorHandler,
+    ErrorContext,
+    get_error_handler
+)
+from app.core.caching import cache_warm_up, get_cache_manager
+from app.core.rate_limiting import RateLimitMiddleware, advanced_rate_limiter
 from app.core.circuit_breaker import CircuitBreakerError
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
@@ -38,7 +45,6 @@ from app.api.audit import router as audit_router
 from app.api.data_access import router as data_access_router
 from app.api.transparency_visualization import router as transparency_visualization_router
 from app.api.transparency import router as transparency_router
-# from app.api.viral_analytics import router as viral_analytics_router
 from app.api.origin_data import router as origin_data_router
 from app.api.business_relationships import router as business_relationships_router
 from app.api.batches import router as batches_router
@@ -131,6 +137,9 @@ app = FastAPI(
 # Set custom OpenAPI schema
 app.openapi = lambda: custom_openapi(app)
 
+# Setup API versioning
+setup_api_versioning(app)
+
 # Add trusted host middleware (first to process requests)
 app.add_middleware(
     TrustedHostMiddleware,
@@ -171,10 +180,12 @@ app.add_middleware(
 
 
 # Enhanced middleware with correlation ID support
-# from app.core.correlation_middleware import CorrelationIDMiddleware
 
 # Add correlation ID middleware
 # app.add_middleware(CorrelationIDMiddleware)
+
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
 
 
 # Add exception handlers
@@ -183,6 +194,57 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(CircuitBreakerError, circuit_breaker_exception_handler)
 app.add_exception_handler(CommonHTTPException, common_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
+
+# Add standardized error handler
+@app.exception_handler(Exception)
+async def standardized_exception_handler(request: Request, exc: Exception):
+    """Standardized exception handler for all unhandled exceptions."""
+    error_handler = get_error_handler()
+    
+    # Create error context
+    context = ErrorContext(
+        request_id=getattr(request.state, 'request_id', None),
+        endpoint=str(request.url.path),
+        method=request.method,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get('user-agent')
+    )
+    
+    # Handle the exception
+    error = error_handler.handle_exception(exc, context)
+    
+    # Log the error
+    error_handler.log_error(error)
+    
+    # Return standardized response
+    return error_handler.to_json_response(error)
+
+
+# Application startup event
+@app.on_event("startup")
+async def startup_event():
+    """Application startup event handler."""
+    logger.info("Starting up application...")
+    
+    # Initialize Redis
+    await init_redis()
+    
+    # Initialize service container
+    service_container = ServiceContainer()
+    service_container.initialize()
+    
+    # Setup API versioning
+    version_manager = get_version_manager()
+    setup_api_versioning(app, version_manager)
+    
+    # Warm up cache
+    try:
+        cache_warm_up()
+        logger.info("Cache warm-up completed")
+    except Exception as e:
+        logger.warning(f"Cache warm-up failed: {e}")
+    
+    logger.info("Application startup completed")
 
 
 # Custom documentation endpoints
@@ -228,7 +290,6 @@ app.include_router(audit_router, prefix="/api/v1", tags=["Audit"])
 app.include_router(data_access_router, prefix="/api/v1", tags=["Data Access"])
 app.include_router(transparency_visualization_router, prefix="/api/v1", tags=["Transparency Visualization"])
 app.include_router(transparency_router, prefix="/api/v1", tags=["Transparency"])
-# app.include_router(viral_analytics_router, prefix="/api/v1", tags=["Viral Analytics"])
 app.include_router(origin_data_router, prefix="/api/v1", tags=["Origin Data"])
 app.include_router(business_relationships_router, prefix="/api/v1", tags=["Business Relationships"])
 app.include_router(batches_router, prefix="/api/v1", tags=["Batch Tracking"])

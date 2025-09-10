@@ -1,0 +1,15 @@
+{
+  "debug": true,
+  "database": {
+    "echo": true
+  },
+  "monitoring": {
+    "log_level": "DEBUG"
+  },
+  "security": {
+    "rate_limit_requests_per_minute": 1000
+  },
+  "email": {
+    "enabled": false
+  }
+}

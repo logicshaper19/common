@@ -1,0 +1,22 @@
+{
+  "version": "v1",
+  "status": "active",
+  "release_date": "2024-01-01T00:00:00Z",
+  "description": "Initial API version with core functionality for the Common Supply Chain Platform",
+  "breaking_changes": [],
+  "new_features": [
+    "Purchase Order management system",
+    "Transparency calculations (TTM/TTP)",
+    "User authentication and authorization",
+    "Company and business relationship management",
+    "Product catalog management",
+    "Batch tracking and inventory management",
+    "Document management and verification",
+    "Audit logging and compliance tracking",
+    "Notification system",
+    "Admin dashboard and user management"
+  ],
+  "bug_fixes": [],
+  "migration_guide": null,
+  "changelog_url": "https://docs.common.co/api/v1/changelog"
+}

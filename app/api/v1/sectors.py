@@ -50,7 +50,7 @@ async def get_sector(
     sector_service: SectorServiceProtocol = Depends(get_sector_service)
 ):
     """Get a specific sector by ID with dependency injection."""
-    sector = await sector_service.get_sector_by_id(sector_id)
+    sector = sector_service.get_sector_by_id(sector_id)
     if not sector:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -67,7 +67,7 @@ async def get_sector_config(
 ):
     """Get complete configuration for a sector"""
     sector_service = SectorService(db)
-    config = await sector_service.get_sector_config(sector_id)
+    config = sector_service.get_sector_config(sector_id)
     if not config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -84,7 +84,7 @@ async def get_sector_tiers(
 ):
     """Get tier definitions for a sector"""
     sector_service = SectorService(db)
-    tiers = await sector_service.get_sector_tiers(sector_id)
+    tiers = sector_service.get_sector_tiers(sector_id)
     return tiers
 
 
@@ -97,7 +97,7 @@ async def get_sector_tier(
 ):
     """Get specific tier by sector and level"""
     sector_service = SectorService(db)
-    tier = await sector_service.get_tier_by_level(sector_id, tier_level)
+    tier = sector_service.get_tier_by_level(sector_id, tier_level)
     if not tier:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -115,7 +115,7 @@ async def get_sector_products(
 ):
     """Get products for a sector, optionally filtered by tier level"""
     sector_service = SectorService(db)
-    products = await sector_service.get_sector_products(sector_id, tier_level)
+    products = sector_service.get_sector_products(sector_id, tier_level)
     return products
 
 
@@ -142,7 +142,7 @@ async def get_user_sector_info(
             return UserSectorInfo()
 
         sector_service = SectorService(db)
-        tier_info = await sector_service.get_user_tier_info(
+        tier_info = sector_service.get_user_tier_info(
             current_user.sector_id,
             current_user.tier_level
         )
@@ -174,7 +174,7 @@ async def create_sector(
 
     # Use context manager for proper transaction handling
     with sector_service:
-        sector = await sector_service.create_sector(sector_data.dict())
+        sector = sector_service.create_sector(sector_data.dict())
 
         # Publish event for other services to react
         publish_event(
@@ -210,7 +210,7 @@ async def create_sector_tier(
     tier_data.sector_id = sector_id
     
     sector_service = SectorService(db)
-    return await sector_service.create_sector_tier(tier_data)
+    return sector_service.create_sector_tier(tier_data)
 
 
 @router.post("/sectors/{sector_id}/products", response_model=SectorProduct)
@@ -231,4 +231,4 @@ async def create_sector_product(
     product_data.sector_id = sector_id
     
     sector_service = SectorService(db)
-    return await sector_service.create_sector_product(product_data)
+    return sector_service.create_sector_product(product_data)

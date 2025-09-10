@@ -1,0 +1,21 @@
+{
+  "debug": false,
+  "monitoring": {
+    "log_level": "INFO",
+    "prometheus_enabled": true,
+    "sentry_dsn": "${SENTRY_DSN_STAGING}",
+    "new_relic_license_key": "${NEW_RELIC_LICENSE_KEY}"
+  },
+  "deployment": {
+    "replicas": 2,
+    "auto_scaling_enabled": true,
+    "min_replicas": 2,
+    "max_replicas": 10
+  },
+  "security": {
+    "allowed_origins": [
+      "https://app-staging.common.com",
+      "https://admin-staging.common.com"
+    ]
+  }
+}

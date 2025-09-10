@@ -496,7 +496,7 @@ class BusinessRelationshipService:
         per_page: int = 50
     ) -> Tuple[List[BusinessRelationship], int]:
         """
-        Get business relationships for a company.
+        Get business relationships for a company with optimized queries.
 
         Args:
             company_id: Company UUID
@@ -508,7 +508,13 @@ class BusinessRelationshipService:
         Returns:
             Tuple of (relationships, total_count)
         """
-        query = self.db.query(BusinessRelationship).filter(
+        from sqlalchemy.orm import joinedload
+        
+        query = self.db.query(BusinessRelationship).options(
+            joinedload(BusinessRelationship.buyer_company),
+            joinedload(BusinessRelationship.seller_company),
+            joinedload(BusinessRelationship.invited_by_company)
+        ).filter(
             or_(
                 BusinessRelationship.buyer_company_id == company_id,
                 BusinessRelationship.seller_company_id == company_id
