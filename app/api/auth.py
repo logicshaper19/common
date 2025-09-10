@@ -21,7 +21,7 @@ from app.schemas.auth import (
 )
 from app.services.auth import AuthService
 from app.core.logging import get_logger
-from app.core.rate_limiting import rate_limit, RateLimitType
+# from app.core.rate_limiting import rate_limit, RateLimitType
 from app.core.auth_rate_limiting import get_auth_rate_limiter, AuthAttemptResult
 from app.core.password_policy import PasswordPolicy
 from fastapi import Request
@@ -130,7 +130,7 @@ async def login(
 
 
 @router.post("/register", response_model=TokenPair)
-@rate_limit(RateLimitType.AUTH, per_user=False)  # Rate limit by IP for registration attempts
+# @rate_limit(RateLimitType.AUTH, per_user=False)  # Rate limit by IP for registration attempts
 async def register(
     user_data: UserRegister,
     db: Session = Depends(get_db)
@@ -170,7 +170,7 @@ async def register(
 
 
 @router.post("/refresh", response_model=Token)
-@rate_limit(RateLimitType.STANDARD, per_user=True)  # Rate limit by user for token refresh
+# @rate_limit(RateLimitType.STANDARD, per_user=True)  # Rate limit by user for token refresh
 async def refresh_token(
     refresh_request: RefreshTokenRequest,
     db: Session = Depends(get_db)

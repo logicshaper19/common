@@ -221,17 +221,17 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
                   <label className="flex items-center">
                     <input
                       type="checkbox"
-                      checked={preferences.global_settings.email_digest.enabled}
+                      checked={preferences?.global_settings?.email_digest?.enabled || false}
                       onChange={(e) => updateGlobalSetting('email_digest', 'enabled', e.target.checked)}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded"
                     />
                     <span className="ml-2 text-sm text-neutral-700">Enable email digest</span>
                   </label>
                   
-                  {preferences.global_settings.email_digest.enabled && (
+                  {(preferences?.global_settings?.email_digest?.enabled || false) && (
                     <div className="ml-6 space-y-2">
                       <Select
-                        value={preferences.global_settings.email_digest.frequency}
+                        value={preferences?.global_settings?.email_digest?.frequency || 'daily'}
                         onChange={(e) => updateGlobalSetting('email_digest', 'frequency', e.target.value)}
                         size="sm"
                         options={[
@@ -242,11 +242,11 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
                         ]}
                       />
                       
-                      {(preferences.global_settings.email_digest.frequency === 'daily' || 
-                        preferences.global_settings.email_digest.frequency === 'weekly') && (
+                      {((preferences?.global_settings?.email_digest?.frequency || 'daily') === 'daily' || 
+                        (preferences?.global_settings?.email_digest?.frequency || 'daily') === 'weekly') && (
                         <input
                           type="time"
-                          value={preferences.global_settings.email_digest.time}
+                          value={preferences?.global_settings?.email_digest?.time || '09:00'}
                           onChange={(e) => updateGlobalSetting('email_digest', 'time', e.target.value)}
                           className="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                         />
@@ -263,18 +263,18 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
                   <label className="flex items-center">
                     <input
                       type="checkbox"
-                      checked={preferences.global_settings.desktop_notifications.enabled}
+                      checked={preferences?.global_settings?.desktop_notifications?.enabled || false}
                       onChange={(e) => updateGlobalSetting('desktop_notifications', 'enabled', e.target.checked)}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded"
                     />
                     <span className="ml-2 text-sm text-neutral-700">Enable desktop notifications</span>
                   </label>
                   
-                  {preferences.global_settings.desktop_notifications.enabled && (
+                  {(preferences?.global_settings?.desktop_notifications?.enabled || false) && (
                     <label className="flex items-center ml-6">
                       <input
                         type="checkbox"
-                        checked={preferences.global_settings.desktop_notifications.sound}
+                        checked={preferences?.global_settings?.desktop_notifications?.sound || false}
                         onChange={(e) => updateGlobalSetting('desktop_notifications', 'sound', e.target.checked)}
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded"
                       />
@@ -291,7 +291,7 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
             <h3 className="text-lg font-medium text-neutral-900 mb-4">Notification Types</h3>
             
             <div className="space-y-4">
-              {Object.entries(preferences.preferences).map(([type, pref]) => {
+              {Object.entries(preferences?.preferences || {}).map(([type, pref]) => {
                 const notificationType = type as NotificationType;
                 
                 return (

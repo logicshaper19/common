@@ -17,9 +17,14 @@ from redis.asyncio import Redis
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.core.rate_limiting import get_rate_limiter, get_rate_limit_key
+# from app.core.rate_limiting import get_rate_limiter, get_rate_limit_key
 
 logger = get_logger(__name__)
+
+
+def get_rate_limit_key(request: Request) -> str:
+    """Generate rate limit key for request."""
+    return f"auth_rate_limit:ip:{request.client.host}"
 
 
 class AuthAttemptResult(str, Enum):

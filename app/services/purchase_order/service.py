@@ -744,3 +744,51 @@ class PurchaseOrderOrchestrator(BaseService):
         except Exception as e:
             logger.error("Failed to delete purchase order (admin)", po_id=po_id, error=str(e))
             raise PurchaseOrderError(f"Failed to delete purchase order: {str(e)}")
+    
+    # Abstract method implementations for BaseService
+    def _create_entity_impl(self, entity_type: str, entity_data: Dict[str, Any]) -> Any:
+        """Implementation-specific entity creation."""
+        if entity_type == "purchase_order":
+            # Convert dict to PurchaseOrderCreate schema
+            from app.schemas.purchase_order import PurchaseOrderCreate
+            po_data = PurchaseOrderCreate(**entity_data)
+            return self.create_purchase_order(po_data, entity_data.get("current_user_company_id"))
+        else:
+            raise ValueError(f"Unsupported entity type: {entity_type}")
+    
+    def _get_entity_impl(self, entity_type: str, entity_id: str) -> Any:
+        """Implementation-specific entity retrieval."""
+        if entity_type == "purchase_order":
+            return self.get_purchase_order(entity_id)
+        else:
+            raise ValueError(f"Unsupported entity type: {entity_type}")
+    
+    def _update_entity_impl(self, entity_type: str, entity_id: str, update_data: Dict[str, Any]) -> Any:
+        """Implementation-specific entity update."""
+        if entity_type == "purchase_order":
+            from app.schemas.purchase_order import PurchaseOrderUpdate
+            po_data = PurchaseOrderUpdate(**update_data)
+            return self.update_purchase_order(entity_id, po_data)
+        else:
+            raise ValueError(f"Unsupported entity type: {entity_type}")
+    
+    def _delete_entity_impl(self, entity_type: str, entity_id: str, soft_delete: bool) -> bool:
+        """Implementation-specific entity deletion."""
+        if entity_type == "purchase_order":
+            return self.delete_purchase_order(entity_id, "Admin deletion")
+        else:
+            raise ValueError(f"Unsupported entity type: {entity_type}")
+    
+    def _extract_entity_data(self, entity: Any) -> Dict[str, Any]:
+        """Extract data from entity for compensation."""
+        if hasattr(entity, '__dict__'):
+            return {k: v for k, v in entity.__dict__.items() if not k.startswith('_')}
+        return {}
+    
+    def _merge_entity_data(self, entity: Any, update_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge entity data with update data for validation."""
+        if hasattr(entity, '__dict__'):
+            merged_data = {k: v for k, v in entity.__dict__.items() if not k.startswith('_')}
+            merged_data.update(update_data)
+            return merged_data
+        return update_data

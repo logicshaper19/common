@@ -2,7 +2,7 @@
  * User Management Dashboard
  * Main dashboard for notification and user management
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BellIcon,
   UserCircleIcon,
@@ -36,6 +36,13 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({
   const { permissions } = useUIPermissions();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+
+  // Auto-open notification center when notifications tab is selected
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      setShowNotificationCenter(true);
+    }
+  }, [activeTab]);
 
   // Tab configuration
   const tabs = [
@@ -96,7 +103,7 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({
       case 'overview':
         return <OverviewTab />;
       case 'notifications':
-        return <NotificationCenter isOpen={true} onClose={() => {}} />;
+        return <NotificationCenter isOpen={showNotificationCenter} onClose={() => setShowNotificationCenter(false)} />;
       case 'preferences':
         return <NotificationPreferences />;
       case 'history':
@@ -225,24 +232,24 @@ const OverviewTab: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary-600">
-                    {summary.unread_count}
+                    {summary.unread_count || 0}
                   </div>
                   <div className="text-sm text-neutral-600">Unread</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-neutral-900">
-                    {summary.total_count}
+                    {summary.total_count || 0}
                   </div>
                   <div className="text-sm text-neutral-600">Total</div>
                 </div>
               </div>
               
-              {summary.high_priority_count > 0 && (
+              {(summary.high_priority_count || 0) > 0 && (
                 <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg">
                   <div className="flex items-center space-x-2">
                     <div className="h-2 w-2 bg-warning-500 rounded-full" />
                     <span className="text-sm font-medium text-warning-800">
-                      {summary.high_priority_count} high priority notifications
+                      {summary.high_priority_count || 0} high priority notifications
                     </span>
                   </div>
                 </div>
@@ -250,7 +257,7 @@ const OverviewTab: React.FC = () => {
               
               <div className="space-y-2">
                 <h4 className="font-medium text-neutral-900">Recent Notifications</h4>
-                {summary.recent_notifications.slice(0, 3).map((notification) => (
+                {(summary.recent_notifications || []).slice(0, 3).map((notification) => (
                   <div key={notification.id} className="text-sm">
                     <div className="font-medium text-neutral-900 truncate">
                       {notification.title}

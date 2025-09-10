@@ -171,12 +171,12 @@ async def get_transparency_metrics(
             total_pos = 0
             traced_pos = 0
         else:
-            mill_percentage = float(result.ttm_percentage) if result.ttm_percentage else 0.0
-            plantation_percentage = float(result.ttp_percentage) if result.ttp_percentage else 0.0
+            mill_percentage = float(result.ttm_percentage) if result.ttm_percentage is not None else 0.0
+            plantation_percentage = float(result.ttp_percentage) if result.ttp_percentage is not None else 0.0
             overall_percentage = (mill_percentage + plantation_percentage) / 2
-            total_volume = float(result.total_volume)
-            total_pos = result.total_pos
-            traced_pos = result.traced_pos
+            total_volume = float(result.total_volume) if result.total_volume is not None else 0.0
+            total_pos = result.total_pos if result.total_pos is not None else 0
+            traced_pos = result.traced_pos if result.traced_pos is not None else 0
 
         logger.info(
             "Primary transparency calculated (SINGLE SOURCE OF TRUTH)",
@@ -196,7 +196,7 @@ async def get_transparency_metrics(
             confidence_level=1.0,  # Always 100% confidence - based on explicit user actions
             traced_percentage=overall_percentage,
             untraced_percentage=100.0 - overall_percentage,
-            last_updated=deterministic_metrics.calculation_timestamp.isoformat()
+            last_updated=datetime.utcnow().isoformat()
         )
 
     except HTTPException:
