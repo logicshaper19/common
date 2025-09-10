@@ -13,6 +13,7 @@ from app.models.company import Company
 from app.models.product import Product
 from app.models.business_relationship import BusinessRelationship
 from app.core.logging import get_logger
+from app.core.input_validation import safe_execute_query, validate_sql_query_params
 
 logger = get_logger(__name__)
 
@@ -433,17 +434,18 @@ class QueryOptimizer:
         params: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Execute raw SQL query with optimization hints.
-        
+        Execute raw SQL query with optimization hints and security validation.
+
         Args:
             query: Raw SQL query
             params: Query parameters
-            
+
         Returns:
             Query results as list of dictionaries
         """
         try:
-            result = self.db.execute(text(query), params or {})
+            # Use safe query execution with parameter validation
+            result = safe_execute_query(self.db, query, params)
             columns = result.keys()
             return [dict(zip(columns, row)) for row in result.fetchall()]
         except Exception as e:

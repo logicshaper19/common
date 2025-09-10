@@ -18,7 +18,7 @@ class SectorService:
     def __init__(self, db: Session):
         self.db = db
     
-    async def get_all_sectors(self, active_only: bool = True) -> List[Sector]:
+    def get_all_sectors(self, active_only: bool = True) -> List[Sector]:
         """Get all sectors"""
         query = self.db.query(Sector)
         if active_only:

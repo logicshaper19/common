@@ -69,6 +69,7 @@ export interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {
   title?: string;
   subtitle?: string;
   action?: React.ReactNode;
+  icon?: React.ReactNode;
 }
 
 const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
@@ -78,6 +79,7 @@ const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
       title,
       subtitle,
       action,
+      icon,
       children,
       ...props
     },
@@ -92,22 +94,29 @@ const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
 
     return (
       <div ref={ref} className={headerClasses} {...props}>
-        <div className="min-w-0 flex-1">
-          {title && (
-            <h3 className="text-lg font-semibold text-neutral-900 truncate">
-              {title}
-            </h3>
+        <div className="min-w-0 flex-1 flex items-center">
+          {icon && (
+            <div className="mr-3 flex-shrink-0 text-neutral-600">
+              {React.isValidElement(icon) ? icon : null}
+            </div>
           )}
-          {subtitle && (
-            <p className="text-sm text-neutral-500 mt-1">
-              {subtitle}
-            </p>
-          )}
-          {children}
+          <div>
+            {title && (
+              <h3 className="text-lg font-semibold text-neutral-900 truncate">
+                {title}
+              </h3>
+            )}
+            {subtitle && (
+              <p className="text-sm text-neutral-500 mt-1">
+                {subtitle}
+              </p>
+            )}
+            {children}
+          </div>
         </div>
         {action && (
           <div className="ml-4 flex-shrink-0">
-            {action}
+            {React.isValidElement(action) ? action : null}
           </div>
         )}
       </div>

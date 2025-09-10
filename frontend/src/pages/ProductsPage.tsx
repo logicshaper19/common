@@ -209,7 +209,7 @@ const ProductsPage: React.FC = () => {
                 Try Again
               </Button>
             </div>
-          ) : products.length === 0 ? (
+          ) : !products || products.length === 0 ? (
             <div className="text-center py-12">
               <CubeIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 mb-4">No products found</p>

@@ -21,8 +21,10 @@ from app.core.versioning import APIVersion, create_versioned_router, get_api_ver
 from app.core.error_handling import (
     CommonHTTPException,
     common_exception_handler,
-    general_exception_handler
+    general_exception_handler,
+    circuit_breaker_exception_handler
 )
+from app.core.circuit_breaker import CircuitBreakerError
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
 from app.api.admin import router as admin_router
@@ -50,7 +52,12 @@ from app.api.erp_sync import router as erp_sync_router
 from app.api.v1.endpoints.brands import router as brands_router
 from app.api.tier_requirements import router as tier_requirements_router
 from app.api.deterministic_transparency import router as deterministic_transparency_router
+from app.api.admin_migration import router as admin_migration_router
+from app.api.companies import router as companies_router
 from app.services.seed_data import SeedDataService
+from app.core.service_container import get_container
+from app.services.event_handlers import initialize_event_handlers
+from app.core.input_validation_middleware import InputValidationMiddleware, SecurityHeadersValidationMiddleware
 
 # Configure logging
 configure_logging()
@@ -87,7 +94,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("Redis initialized")
         except Exception as e:
             logger.warning("Redis not available, continuing without caching", error=str(e))
-        
+
+        # Initialize service container
+        try:
+            container = get_container()
+            logger.info("Service container initialized")
+        except Exception as e:
+            logger.warning("Service container initialization failed", error=str(e))
+
+        # Initialize event handlers
+        try:
+            initialize_event_handlers()
+            logger.info("Event handlers initialized")
+        except Exception as e:
+            logger.warning("Event handlers initialization failed", error=str(e))
+
         yield
         
     finally:
@@ -119,6 +140,19 @@ app.add_middleware(
 # Add security headers middleware (second to process requests)
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Add input validation middleware (third to process requests) - temporarily disabled
+# app.add_middleware(
+#     InputValidationMiddleware,
+#     validate_query_params=True,
+#     validate_path_params=True,
+#     validate_request_body=True,
+#     max_request_size=10 * 1024 * 1024,  # 10MB
+#     excluded_paths=['/docs', '/redoc', '/openapi.json', '/health', '/metrics']
+# )
+
+# Add security headers validation middleware - temporarily disabled
+# app.add_middleware(SecurityHeadersValidationMiddleware)
+
 # Add standard CORS middleware for development (last to process requests, first to add headers)
 app.add_middleware(
     CORSMiddleware,
@@ -136,45 +170,17 @@ app.add_middleware(
 # )
 
 
-@app.middleware("http")
-async def logging_middleware(request: Request, call_next):
-    """
-    Log all HTTP requests and responses.
-    """
-    # Generate request ID
-    request_id = str(uuid.uuid4())
-    request.state.request_id = request_id
-    
-    # Log request
-    start_time = time.time()
-    log_request(
-        request_id=request_id,
-        method=request.method,
-        path=request.url.path,
-        query_params=str(request.query_params),
-        client_ip=request.client.host if request.client else None,
-    )
-    
-    # Process request
-    response = await call_next(request)
-    
-    # Log response
-    duration_ms = (time.time() - start_time) * 1000
-    log_response(
-        request_id=request_id,
-        status_code=response.status_code,
-        duration_ms=duration_ms,
-    )
-    
-    # Add request ID to response headers
-    response.headers["X-Request-ID"] = request_id
-    
-    return response
+# Enhanced middleware with correlation ID support
+# from app.core.correlation_middleware import CorrelationIDMiddleware
+
+# Add correlation ID middleware
+# app.add_middleware(CorrelationIDMiddleware)
 
 
 # Add exception handlers
 from fastapi.exceptions import RequestValidationError
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(CircuitBreakerError, circuit_breaker_exception_handler)
 app.add_exception_handler(CommonHTTPException, common_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
@@ -211,6 +217,7 @@ app.include_router(health_router, prefix="/health", tags=["Health"])
 # V1 API endpoints
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(companies_router, prefix="/api/v1/companies", tags=["Companies"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["Purchase Orders"])
 app.include_router(confirmation_router, prefix="/api/v1", tags=["Confirmation"])
@@ -235,6 +242,7 @@ app.include_router(erp_sync_router, prefix="/api/v1", tags=["ERP Sync"])
 app.include_router(brands_router, prefix="/api/v1/brands", tags=["Brands"])
 app.include_router(tier_requirements_router, tags=["Tier Requirements"])
 app.include_router(deterministic_transparency_router, prefix="/api/v1", tags=["Deterministic Transparency"])
+app.include_router(admin_migration_router, prefix="/api/v1", tags=["Admin Migration"])
 
 
 @app.get("/")

@@ -8,13 +8,21 @@ from typing import Any, Dict
 import structlog
 from structlog.stdlib import LoggerFactory
 
-from app.core.config import settings
-
 
 def configure_logging() -> None:
     """
     Configure structured logging for the application.
     """
+    # Lazy import to avoid circular dependency
+    try:
+        from app.core.config import settings
+        debug_mode = settings.debug
+        log_level = settings.log_level.upper()
+    except ImportError:
+        # Fallback configuration if settings not available
+        debug_mode = True
+        log_level = "DEBUG"
+
     # Configure structlog
     structlog.configure(
         processors=[
@@ -26,19 +34,19 @@ def configure_logging() -> None:
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer() if not settings.debug else structlog.dev.ConsoleRenderer(),
+            structlog.processors.JSONRenderer() if not debug_mode else structlog.dev.ConsoleRenderer(),
         ],
         context_class=dict,
         logger_factory=LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
-    
+
     # Configure standard library logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=getattr(logging, settings.log_level.upper()),
+        level=getattr(logging, log_level),
     )
 
 

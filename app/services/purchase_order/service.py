@@ -36,6 +36,8 @@ from .exceptions import (
     PurchaseOrderNotFoundError,
     PurchaseOrderValidationError
 )
+from app.services.base_service import BaseService, ServiceError, DataIntegrityServiceError
+from app.core.transaction_management import robust_transaction, OperationType
 
 logger = get_logger(__name__)
 
@@ -48,7 +50,7 @@ except ImportError:
     logger.warning("ERP sync service not available")
 
 
-class PurchaseOrderOrchestrator:
+class PurchaseOrderOrchestrator(BaseService):
     """Main orchestrator for purchase order operations."""
     
     def __init__(
@@ -61,6 +63,7 @@ class PurchaseOrderOrchestrator:
         po_generator: PONumberGenerator,
         traceability_service: TraceabilityService
     ):
+        super().__init__(db)  # Initialize BaseService
         self.db = db
         self.repository = repository
         self.validator = validator
@@ -104,76 +107,110 @@ class PurchaseOrderOrchestrator:
             product_id=str(po_data.product_id)
         )
         
-        try:
-            # Validate creation data
-            self.validator.validate_creation_data(po_data, current_user_company_id)
-            
-            # Calculate total amount
-            total_amount = po_data.quantity * po_data.unit_price
-            
-            # Generate PO number
-            po_number = self.po_generator.generate_unique()
-            
-            # Prepare data for creation
-            creation_data = {
-                "po_number": po_number,
-                "buyer_company_id": po_data.buyer_company_id,
-                "seller_company_id": po_data.seller_company_id,
-                "product_id": po_data.product_id,
-                "quantity": po_data.quantity,
-                "unit_price": po_data.unit_price,
-                "total_amount": total_amount,
-                "unit": po_data.unit,
-                "delivery_date": po_data.delivery_date,
-                "delivery_location": po_data.delivery_location,
-                "status": "draft",  # Default status
-                "composition": po_data.composition,
-                "input_materials": po_data.input_materials,
-                "origin_data": po_data.origin_data,
-                "notes": po_data.notes,
-                "created_at": datetime.utcnow()
+        # Use robust transaction management
+        with robust_transaction(
+            self.db,
+            metadata={
+                "service": "PurchaseOrderOrchestrator",
+                "operation": "create_purchase_order",
+                "buyer_company_id": str(po_data.buyer_company_id),
+                "seller_company_id": str(po_data.seller_company_id),
+                "product_id": str(po_data.product_id)
             }
-            
-            # Create purchase order
-            purchase_order = self.repository.create(creation_data)
-            
-            # Log creation - temporarily disabled due to audit system issues
+        ) as transaction_context:
+
             try:
-                self.audit_manager.log_creation(
-                    purchase_order,
-                    current_user_company_id,
-                    context={"creation_method": "api"}
+                # Validate creation data
+                self.validator.validate_creation_data(po_data, current_user_company_id)
+
+                # Calculate total amount
+                total_amount = po_data.quantity * po_data.unit_price
+
+                # Generate PO number
+                po_number = self.po_generator.generate_unique()
+
+                # Prepare data for creation
+                creation_data = {
+                    "po_number": po_number,
+                    "buyer_company_id": po_data.buyer_company_id,
+                    "seller_company_id": po_data.seller_company_id,
+                    "product_id": po_data.product_id,
+                    "quantity": po_data.quantity,
+                    "unit_price": po_data.unit_price,
+                    "total_amount": total_amount,
+                    "unit": po_data.unit,
+                    "delivery_date": po_data.delivery_date,
+                    "delivery_location": po_data.delivery_location,
+                    "status": "draft",  # Default status
+                    "composition": po_data.composition,
+                    "input_materials": po_data.input_materials,
+                    "origin_data": po_data.origin_data,
+                    "notes": po_data.notes,
+                    "created_at": datetime.utcnow()
+                }
+
+                # Validate data integrity
+                violations = self.integrity_manager.validate_entity_integrity("purchase_orders", creation_data)
+                critical_violations = [v for v in violations if v.severity.value in ["critical", "high"]]
+
+                if critical_violations:
+                    raise DataIntegrityServiceError(
+                        "Critical data integrity violations detected",
+                        violations=critical_violations
+                    )
+
+                # Create purchase order without auto-commit (transaction handles it)
+                purchase_order = PurchaseOrder(**creation_data)
+                self.db.add(purchase_order)
+                self.db.flush()  # Get ID without committing
+
+                # Track operation for transaction management
+                self.transaction_manager.add_operation(
+                    transaction_context,
+                    OperationType.CREATE,
+                    "purchase_orders",
+                    str(purchase_order.id),
+                    operation_data=creation_data,
+                    compensation_data={"entity_id": str(purchase_order.id)}
                 )
-            except Exception as audit_error:
-                logger.warning("Audit logging failed, continuing without audit", error=str(audit_error))
-                # Continue without failing the entire operation
+
+                # Log creation - temporarily disabled due to audit system issues
+                try:
+                    self.audit_manager.log_creation(
+                        purchase_order,
+                        current_user_company_id,
+                        context={"creation_method": "api"}
+                    )
+                except Exception as audit_error:
+                    logger.warning("Audit logging failed, continuing without audit", error=str(audit_error))
+                    # Continue without failing the entire operation
+
+                # Send notification
+                try:
+                    self.notification_manager.notify_po_created(
+                        purchase_order,
+                        current_user_company_id
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to send creation notification",
+                        po_id=str(purchase_order.id),
+                        error=str(e)
+                    )
             
-            # Send notification
-            try:
-                self.notification_manager.notify_po_created(
-                    purchase_order, 
-                    current_user_company_id
-                )
-            except Exception as e:
-                logger.warning(
-                    "Failed to send creation notification",
+                logger.info(
+                    "Purchase order created successfully",
                     po_id=str(purchase_order.id),
-                    error=str(e)
+                    po_number=po_number
                 )
-            
-            logger.info(
-                "Purchase order created successfully",
-                po_id=str(purchase_order.id),
-                po_number=po_number
-            )
-            
-            return purchase_order
-            
-        except PurchaseOrderValidationError:
-            raise
-        except Exception as e:
-            logger.error("Failed to create purchase order", error=str(e))
-            raise PurchaseOrderError(f"Failed to create purchase order: {str(e)}")
+
+                return purchase_order
+
+            except PurchaseOrderValidationError:
+                raise
+            except Exception as e:
+                logger.error("Failed to create purchase order", error=str(e))
+                raise PurchaseOrderError(f"Failed to create purchase order: {str(e)}")
     
     def get_purchase_order_by_id(self, po_id: str) -> Optional[PurchaseOrder]:
         """

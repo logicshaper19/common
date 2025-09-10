@@ -207,7 +207,7 @@ export function ProtectedRoute({
 
   // Not authenticated
   if (!isAuthenticated) {
-    return fallback ? <>{fallback}</> : <LoginRedirect />;
+    return fallback ? (React.isValidElement(fallback) ? fallback : <>{fallback}</>) : <LoginRedirect />;
   }
 
   // Check role permission if required

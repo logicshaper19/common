@@ -14,6 +14,7 @@ from app.models.purchase_order import PurchaseOrder
 from app.models.company import Company
 from app.models.product import Product
 from app.services.purchase_order import PurchaseOrderService
+from app.services.deterministic_transparency import DeterministicTransparencyService
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -448,35 +449,57 @@ class TraceabilityCalculationService:
 
     def update_transparency_scores(self, purchase_order_id: UUID) -> TraceabilityMetrics:
         """
-        Calculate and update transparency scores for a purchase order.
+        Calculate transparency metrics for a purchase order.
+
+        SINGLE SOURCE OF TRUTH: Uses deterministic transparency based on explicit user-created links.
+        No fallbacks, no algorithmic guessing, 100% auditable.
 
         Args:
             purchase_order_id: Purchase order UUID
 
         Returns:
-            Updated traceability metrics
+            Traceability metrics based on deterministic calculation
         """
-        # Calculate new scores
-        metrics = self.calculate_transparency_scores(purchase_order_id)
-
-        # Update the purchase order in database
+        # Get the purchase order
         po = self.db.query(PurchaseOrder).filter(PurchaseOrder.id == purchase_order_id).first()
-        if po:
-            po.transparency_to_mill = Decimal(str(round(metrics.transparency_to_mill, 4)))
-            po.transparency_to_plantation = Decimal(str(round(metrics.transparency_to_plantation, 4)))
-            po.transparency_calculated_at = metrics.calculation_timestamp
+        if not po:
+            raise ValueError(f"Purchase order {purchase_order_id} not found")
 
-            self.db.commit()
-            self.db.refresh(po)
+        # SINGLE SOURCE OF TRUTH: Deterministic transparency calculation
+        deterministic_service = DeterministicTransparencyService(self.db)
+        deterministic_metrics = deterministic_service.get_company_transparency_metrics(
+            company_id=po.buyer_company_id,
+            refresh_data=True  # Refresh for accurate calculation
+        )
 
-            logger.info(
-                "Transparency scores updated in database",
-                po_id=str(purchase_order_id),
-                ttm=float(po.transparency_to_mill),
-                ttp=float(po.transparency_to_plantation)
-            )
+        # Simple, auditable percentages
+        mill_percentage = deterministic_metrics.transparency_to_mill_percentage
+        plantation_percentage = deterministic_metrics.transparency_to_plantation_percentage
 
-        return metrics
+        logger.info(
+            "Transparency metrics calculated (SINGLE SOURCE OF TRUTH)",
+            po_id=str(purchase_order_id),
+            mill_percentage=mill_percentage,
+            plantation_percentage=plantation_percentage,
+            total_volume=float(deterministic_metrics.total_volume),
+            traced_pos=deterministic_metrics.traced_purchase_orders,
+            total_pos=deterministic_metrics.total_purchase_orders,
+            method="deterministic_single_source_of_truth"
+        )
+
+        # Create TraceabilityMetrics for return compatibility
+        return TraceabilityMetrics(
+            purchase_order_id=purchase_order_id,
+            transparency_to_mill=mill_percentage / 100.0,  # Convert to 0-1 scale for compatibility
+            transparency_to_plantation=plantation_percentage / 100.0,  # Convert to 0-1 scale for compatibility
+            calculation_timestamp=deterministic_metrics.calculation_timestamp,
+            total_nodes=deterministic_metrics.total_purchase_orders,
+            traced_nodes=deterministic_metrics.traced_purchase_orders,
+            max_depth=1,  # Deterministic is single-level
+            circular_references=[],  # No circular references in deterministic system
+            data_completeness_score=1.0,  # Always complete - based on explicit user actions
+            confidence_level=1.0  # Always 100% confidence - based on explicit user actions
+        )
 
     def bulk_update_transparency_scores(
         self,

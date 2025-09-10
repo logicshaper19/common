@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import require_admin
+from app.core.service_dependencies import get_brand_service, get_admin_service, get_service_bundle
+from app.core.events import publish_event, EventType
 from app.models.user import User
 from app.schemas.brand import BrandCreate, BrandUpdate, BrandResponse, BrandWithCompany
-from app.services.brand_service import BrandService
+from app.core.service_protocols import BrandServiceProtocol, AdminServiceProtocol
 
 router = APIRouter()
 
@@ -18,20 +20,51 @@ router = APIRouter()
 @router.post("/", response_model=BrandResponse)
 def create_brand(
     brand_data: BrandCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_admin),
+    brand_service: BrandServiceProtocol = Depends(get_brand_service),
+    admin_service: AdminServiceProtocol = Depends(get_admin_service)
 ):
-    """Create a new brand."""
-    brand_service = BrandService(db)
-    
-    # Verify company exists
-    from app.services.admin_service import AdminService
-    admin_service = AdminService(db)
+    """
+    Create a new brand with proper dependency injection and event publishing.
+
+    This endpoint demonstrates:
+    - Clean dependency injection without tight coupling
+    - Event-driven architecture for notifications
+    - Proper transaction management
+    """
+
+    # Verify company exists using injected admin service
     company = admin_service.get_company_by_id(brand_data.company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
-    
-    return brand_service.create_brand(brand_data)
+
+    # Use context manager for proper transaction handling
+    with brand_service:
+        # Create brand
+        brand = brand_service.create_brand(brand_data.dict())
+
+        # Log admin action using injected service
+        admin_service.log_action(
+            f"Created brand: {brand['name']}",
+            current_user.id,
+            {"brand_id": brand["id"], "company_id": brand_data.company_id}
+        )
+
+        # Publish event for other services to react
+        publish_event(
+            EventType.BRAND_CREATED,
+            {
+                "brand_id": brand["id"],
+                "brand_name": brand["name"],
+                "company_id": str(brand_data.company_id),
+                "created_by": str(current_user.id)
+            },
+            user_id=current_user.id,
+            company_id=brand_data.company_id,
+            source_service="brand_api"
+        )
+
+        return BrandResponse(**brand)
 
 
 @router.get("/", response_model=List[BrandWithCompany])
@@ -130,17 +163,20 @@ def delete_brand(
 def get_company_brands(
     company_id: UUID,
     active_only: bool = Query(True, description="Only return active brands"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_admin),
+    brand_service: BrandServiceProtocol = Depends(get_brand_service),
+    admin_service: AdminServiceProtocol = Depends(get_admin_service)
 ):
-    """Get all brands for a specific company."""
-    brand_service = BrandService(db)
-    
-    # Verify company exists
-    from app.services.admin_service import AdminService
-    admin_service = AdminService(db)
+    """
+    Get all brands for a specific company with clean dependency injection.
+    """
+
+    # Verify company exists using injected admin service
     company = admin_service.get_company_by_id(company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
-    
-    return brand_service.get_brands_by_company(company_id, active_only)
+
+    # Get brands using injected service
+    brands = brand_service.get_brands_by_company(company_id, active_only)
+
+    return [BrandResponse(**brand) for brand in brands]

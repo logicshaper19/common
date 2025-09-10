@@ -81,6 +81,7 @@ export interface PurchaseOrderWithDetails extends PurchaseOrder {
     name: string;
     description: string;
     default_unit: string;
+    category: string;
   };
   amendments?: Amendment[];
 }

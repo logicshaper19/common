@@ -21,53 +21,93 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """
     Create a JWT access token.
-    
+
     Args:
         data: Data to encode in the token
         expires_delta: Token expiration time
-        
+
     Returns:
         Encoded JWT token
     """
     to_encode = data.copy()
-    
+
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
-    
-    to_encode.update({"exp": expire})
-    
+
+    to_encode.update({"exp": expire, "type": "access"})
+
     encoded_jwt = jwt.encode(
-        to_encode, 
-        settings.jwt_secret_key, 
+        to_encode,
+        settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm
     )
-    
+
     logger.debug("Access token created", expires_at=expire.isoformat())
     return encoded_jwt
 
 
-def verify_token(token: str) -> Dict[str, Any]:
+def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Create a JWT refresh token.
+
+    Args:
+        data: Data to encode in the token
+        expires_delta: Token expiration time
+
+    Returns:
+        Encoded JWT refresh token
+    """
+    to_encode = data.copy()
+
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        # Refresh tokens last longer than access tokens
+        expire = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_token_expire_days)
+
+    to_encode.update({"exp": expire, "type": "refresh"})
+
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm
+    )
+
+    logger.debug("Refresh token created", expires_at=expire.isoformat())
+    return encoded_jwt
+
+
+def verify_token(token: str, token_type: str = "access") -> Dict[str, Any]:
     """
     Verify and decode a JWT token.
-    
+
     Args:
         token: JWT token to verify
-        
+        token_type: Expected token type ("access" or "refresh")
+
     Returns:
         Decoded token payload
-        
+
     Raises:
         HTTPException: If token is invalid or expired
     """
     try:
         payload = jwt.decode(
-            token, 
-            settings.jwt_secret_key, 
+            token,
+            settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm]
         )
-        
+
+        # Check token type
+        if payload.get("type") != token_type:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token type. Expected {token_type}",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         # Check if token has expired
         exp = payload.get("exp")
         if exp is None:
@@ -76,16 +116,16 @@ def verify_token(token: str) -> Dict[str, Any]:
                 detail="Token missing expiration",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         if datetime.now(timezone.utc) > datetime.fromtimestamp(exp, tz=timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token expired",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         return payload
-        
+
     except JWTError as e:
         logger.warning("Invalid token provided", error=str(e))
         raise HTTPException(
@@ -93,6 +133,50 @@ def verify_token(token: str) -> Dict[str, Any]:
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def verify_refresh_token(token: str) -> Dict[str, Any]:
+    """
+    Verify and decode a JWT refresh token.
+
+    Args:
+        token: JWT refresh token to verify
+
+    Returns:
+        Decoded token payload
+
+    Raises:
+        HTTPException: If token is invalid or expired
+    """
+    return verify_token(token, token_type="refresh")
+
+
+def is_token_expired(token: str) -> bool:
+    """
+    Check if a token is expired without raising an exception.
+
+    Args:
+        token: JWT token to check
+
+    Returns:
+        True if token is expired, False otherwise
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+            options={"verify_exp": False}  # Don't verify expiration here
+        )
+
+        exp = payload.get("exp")
+        if exp is None:
+            return True
+
+        return datetime.now(timezone.utc) > datetime.fromtimestamp(exp, tz=timezone.utc)
+
+    except JWTError:
+        return True
 
 
 def hash_password(password: str) -> str:

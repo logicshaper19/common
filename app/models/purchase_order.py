@@ -84,23 +84,21 @@ class PurchaseOrder(Base):
     last_erp_sync_at = Column(DateTime(timezone=True))  # When last ERP sync was attempted
     erp_sync_error = Column(Text)  # Last ERP sync error message
 
-    # Transparency Scores (cached for performance)
-    transparency_to_mill = Column(Numeric(5, 4))  # TTM score (0.0000 to 1.0000)
-    transparency_to_plantation = Column(Numeric(5, 4))  # TTP score (0.0000 to 1.0000)
-    transparency_calculated_at = Column(DateTime(timezone=True))
+    # Transparency is now calculated in real-time from supply_chain_traceability materialized view
+    # No stored transparency scores needed - deterministic calculation is the single source of truth
 
     # Timeline
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     confirmed_at = Column(DateTime(timezone=True))
-    confirmed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    # confirmed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))  # TODO: Add this column to database
 
     # Relationships
     buyer_company = relationship("Company", foreign_keys=[buyer_company_id])
     seller_company = relationship("Company", foreign_keys=[seller_company_id])
     product = relationship("Product")
     amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
-    confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])
+    # confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])  # TODO: Add when column exists
 
     # Performance indexes for frequently queried fields and transparency calculations
     __table_args__ = (
@@ -112,8 +110,7 @@ class PurchaseOrder(Base):
         Index('idx_po_created_at', 'created_at'),
         Index('idx_po_confirmed_at', 'confirmed_at'),
         Index('idx_po_delivery_date', 'delivery_date'),
-        Index('idx_po_transparency_calculated', 'transparency_calculated_at'),
-        Index('idx_po_transparency_scores', 'transparency_to_mill', 'transparency_to_plantation'),
+
         # Composite indexes for complex queries
         Index('idx_po_buyer_status', 'buyer_company_id', 'status'),
         Index('idx_po_seller_status', 'seller_company_id', 'status'),
@@ -121,7 +118,7 @@ class PurchaseOrder(Base):
         Index('idx_po_buyer_created', 'buyer_company_id', 'created_at'),
         Index('idx_po_seller_created', 'seller_company_id', 'created_at'),
         Index('idx_po_status_created', 'status', 'created_at'),
-        Index('idx_po_transparency_status', 'transparency_calculated_at', 'status'),
+
         # Indexes for transparency graph traversal
         Index('idx_po_input_materials', 'input_materials'),  # For JSON queries
         Index('idx_po_origin_data', 'origin_data'),  # For JSON queries

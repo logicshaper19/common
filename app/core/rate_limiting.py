@@ -20,8 +20,9 @@ logger = get_logger(__name__)
 class RateLimitType(str, Enum):
     """Rate limit types for different endpoint categories."""
     STANDARD = "standard"          # 100 requests per minute
-    HEAVY = "heavy"               # 10 requests per minute  
-    AUTH = "auth"                 # 5 requests per minute
+    HEAVY = "heavy"               # 10 requests per minute
+    AUTH = "auth"                 # 5 requests per minute (strict for brute force protection)
+    AUTH_STRICT = "auth_strict"   # 3 requests per minute (very strict for failed attempts)
     UPLOAD = "upload"             # 3 requests per minute
     ADMIN = "admin"               # 200 requests per minute
 
@@ -30,11 +31,12 @@ class RateLimitConfig:
     """Rate limit configuration for different endpoint types."""
     
     LIMITS = {
-        RateLimitType.STANDARD: {"requests": 100, "window": 60},  # 100/minute
-        RateLimitType.HEAVY: {"requests": 10, "window": 60},      # 10/minute
-        RateLimitType.AUTH: {"requests": 5, "window": 60},        # 5/minute
-        RateLimitType.UPLOAD: {"requests": 3, "window": 60},      # 3/minute
-        RateLimitType.ADMIN: {"requests": 200, "window": 60},     # 200/minute
+        RateLimitType.STANDARD: {"requests": 100, "window": 60},     # 100/minute
+        RateLimitType.HEAVY: {"requests": 10, "window": 60},         # 10/minute
+        RateLimitType.AUTH: {"requests": 5, "window": 60},           # 5/minute (brute force protection)
+        RateLimitType.AUTH_STRICT: {"requests": 3, "window": 300},   # 3/5minutes (very strict)
+        RateLimitType.UPLOAD: {"requests": 3, "window": 60},         # 3/minute
+        RateLimitType.ADMIN: {"requests": 200, "window": 60},        # 200/minute
     }
     
     @classmethod

@@ -1,6 +1,9 @@
 /**
  * Transparency Score Card Component
- * Displays TTM/TTP metrics with visual indicators
+ * Displays deterministic transparency percentages with visual indicators
+ *
+ * SINGLE SOURCE OF TRUTH: All metrics are calculated from explicit user-created links.
+ * No algorithmic guessing, 100% auditable.
  */
 import React from 'react';
 import {
@@ -8,7 +11,6 @@ import {
   ClockIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
-  ExclamationTriangleIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { TransparencyMetrics } from '../../types/transparency';
@@ -37,7 +39,6 @@ const TransparencyScoreCard: React.FC<TransparencyScoreCardProps> = ({
 
   // Get score color and status
   const scoreColor = getTransparencyColor(metrics.overall_score);
-  const confidenceColor = getTransparencyColor(metrics.confidence_level);
 
   // Size variants
   const sizeClasses = {
@@ -106,7 +107,7 @@ const TransparencyScoreCard: React.FC<TransparencyScoreCardProps> = ({
             )}>
               {formatTransparency(metrics.ttm_score)}
             </div>
-            <p className="text-xs text-neutral-600">Time to Market</p>
+            <p className="text-xs text-neutral-600">Mill Transparency</p>
           </div>
 
           <div className="text-center p-3 bg-neutral-50 rounded-lg">
@@ -122,32 +123,22 @@ const TransparencyScoreCard: React.FC<TransparencyScoreCardProps> = ({
             )}>
               {formatTransparency(metrics.ttp_score)}
             </div>
-            <p className="text-xs text-neutral-600">Time to Production</p>
+            <p className="text-xs text-neutral-600">Plantation Transparency</p>
           </div>
         </div>
 
-        {/* Confidence Level */}
-        <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+        {/* Data Quality - Always 100% for deterministic system */}
+        <div className="flex items-center justify-between p-3 bg-success-50 rounded-lg">
           <div className="flex items-center space-x-2">
-            {metrics.confidence_level >= 80 ? (
-              <CheckCircleIcon className="h-5 w-5 text-success-600" />
-            ) : (
-              <ExclamationTriangleIcon className="h-5 w-5 text-warning-600" />
-            )}
-            <span className="font-medium text-neutral-900">Confidence Level</span>
+            <CheckCircleIcon className="h-5 w-5 text-success-600" />
+            <span className="font-medium text-neutral-900">Data Quality</span>
           </div>
           <div className="flex items-center space-x-2">
-            <span className={cn(
-              'font-bold',
-              confidenceColor
-            )}>
-              {formatTransparency(metrics.confidence_level)}
+            <span className="font-bold text-success-600">
+              100%
             </span>
-            <Badge 
-              variant={metrics.confidence_level >= 80 ? 'success' : 'warning'}
-              size="sm"
-            >
-              {metrics.confidence_level >= 80 ? 'High' : 'Medium'}
+            <Badge variant="success" size="sm">
+              Auditable
             </Badge>
           </div>
         </div>

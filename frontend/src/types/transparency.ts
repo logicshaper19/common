@@ -1,16 +1,20 @@
 /**
  * Types and interfaces for transparency visualization dashboard
+ *
+ * SINGLE SOURCE OF TRUTH: All transparency metrics are calculated deterministically
+ * from explicit user-created links in the supply_chain_traceability materialized view.
+ * No algorithmic guessing, 100% auditable.
  */
 
-// Transparency metrics
+// Transparency metrics - deterministic calculation based on explicit user actions
 export interface TransparencyMetrics {
-  ttm_score: number; // Time to Market transparency score
-  ttp_score: number; // Time to Production transparency score
-  overall_score: number;
-  confidence_level: number;
-  traced_percentage: number;
-  untraced_percentage: number;
-  last_updated: string;
+  ttm_score: number; // Mill transparency percentage (0-1 scale for compatibility)
+  ttp_score: number; // Plantation transparency percentage (0-1 scale for compatibility)
+  overall_score: number; // Average transparency percentage (0-1 scale for compatibility)
+  confidence_level: number; // Always 1.0 (100%) - based on explicit user actions
+  traced_percentage: number; // Percentage of volume traced through explicit links
+  untraced_percentage: number; // Percentage of volume not yet traced
+  last_updated: string; // Timestamp of deterministic calculation
 }
 
 // Supply chain node for visualization
