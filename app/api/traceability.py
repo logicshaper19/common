@@ -11,7 +11,7 @@ from app.core.auth import get_current_user
 from app.models.user import User
 from app.services.traceability import TraceabilityCalculationService
 from app.services.purchase_order import PurchaseOrderService
-from app.services.transparency_engine import TransparencyCalculationEngine
+# REMOVED: TransparencyCalculationEngine import - complex engine removed
 from app.schemas.traceability import (
     TransparencyScoreRequest,
     TraceabilityMetricsResponse,
@@ -26,10 +26,7 @@ from app.schemas.traceability import (
     TransparencyImprovementResponse,
     TransparencyAuditRequest,
     TransparencyAuditResponse,
-    EnhancedTransparencyResult,
-    TransparencyCalculationRequest,
-    TransparencyImprovementSuggestion,
-    CircularReferenceAnalysis
+    # REMOVED: Complex engine schemas - not needed for simple calculations
 )
 from app.core.logging import get_logger
 
@@ -288,221 +285,16 @@ def get_transparency_analytics(
         )
 
 
-@router.post("/enhanced-transparency", response_model=EnhancedTransparencyResult)
-def calculate_enhanced_transparency(
-    request: TransparencyCalculationRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Calculate enhanced transparency scores using the advanced calculation engine.
-
-    This endpoint uses the enhanced transparency calculation engine that provides:
-    - Recursive graph traversal with cycle detection
-    - Degradation factor application for transformation steps
-    - Confidence level calculation based on data completeness
-    - Detailed path analysis and improvement suggestions
-    - Circular reference detection and handling
-
-    Returns comprehensive transparency analysis with detailed breakdown.
-    """
-    transparency_engine = TransparencyCalculationEngine(db)
-    po_service = PurchaseOrderService(db)
-
-    # Check access permissions
-    po = po_service.get_purchase_order_with_details(str(request.purchase_order_id))
-    if not po:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Purchase order not found"
-        )
-
-    if (current_user.company_id != po.buyer_company["id"] and
-        current_user.company_id != po.seller_company["id"]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only calculate transparency for your own purchase orders"
-        )
-
-    try:
-        # Calculate enhanced transparency scores
-        result = transparency_engine.calculate_transparency(
-            po_id=request.purchase_order_id,
-            force_recalculation=request.force_recalculation,
-            include_detailed_analysis=request.include_detailed_analysis
-        )
-
-        logger.info(
-            "Enhanced transparency calculation completed",
-            po_id=str(request.purchase_order_id),
-            ttm_score=result.ttm_score,
-            ttp_score=result.ttp_score,
-            confidence=result.confidence_level,
-            total_nodes=result.total_nodes,
-            cycles_detected=len(result.circular_references),
-            user_id=str(current_user.id)
-        )
-
-        return result
-
-    except Exception as e:
-        logger.error(
-            "Failed to calculate enhanced transparency scores",
-            po_id=str(request.purchase_order_id),
-            error=str(e),
-            user_id=str(current_user.id)
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to calculate enhanced transparency scores"
-        )
+# REMOVED: Enhanced transparency endpoint - complex engine removed
+# Use the primary transparency endpoint instead for simple, auditable calculations
 
 
-@router.get("/circular-references/{po_id}", response_model=CircularReferenceAnalysis)
-def analyze_circular_references(
-    po_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Analyze circular references in the supply chain graph.
-
-    Detects and analyzes circular references that may affect transparency calculations.
-    Provides suggestions for resolving data integrity issues.
-    """
-    transparency_engine = TransparencyCalculationEngine(db)
-    po_service = PurchaseOrderService(db)
-
-    # Check access permissions
-    po = po_service.get_purchase_order_with_details(str(po_id))
-    if not po:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Purchase order not found"
-        )
-
-    if (current_user.company_id != po.buyer_company["id"] and
-        current_user.company_id != po.seller_company["id"]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only analyze circular references for your own purchase orders"
-        )
-
-    try:
-        # Detect circular references
-        circular_refs = transparency_engine.detect_circular_references(po_id)
-
-        # Calculate impact on transparency
-        result = transparency_engine.calculate_transparency(po_id, include_detailed_analysis=False)
-        affected_score = 1.0 - result.ttm_score if circular_refs else 0.0
-
-        # Generate resolution suggestions
-        suggestions = []
-        if circular_refs:
-            suggestions.extend([
-                "Review input material linkages for logical inconsistencies",
-                "Verify purchase order dates to identify chronological issues",
-                "Check for duplicate or incorrectly linked purchase orders",
-                "Consider breaking cycles at the oldest purchase order in the chain"
-            ])
-
-        analysis = CircularReferenceAnalysis(
-            detected_cycles=[circular_refs] if circular_refs else [],
-            cycle_break_points=circular_refs[:1] if circular_refs else [],  # Suggest breaking at first detected
-            affected_transparency_score=affected_score,
-            resolution_suggestions=suggestions
-        )
-
-        logger.info(
-            "Circular reference analysis completed",
-            po_id=str(po_id),
-            cycles_detected=len(circular_refs),
-            affected_score=affected_score,
-            user_id=str(current_user.id)
-        )
-
-        return analysis
-
-    except Exception as e:
-        logger.error(
-            "Failed to analyze circular references",
-            po_id=str(po_id),
-            error=str(e),
-            user_id=str(current_user.id)
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to analyze circular references"
-        )
+# REMOVED: Circular references endpoint - complex engine removed
+# Simple transparency calculations don't need cycle detection
 
 
-@router.get("/improvement-suggestions/{po_id}")
-def get_transparency_improvement_suggestions(
-    po_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-) -> List[TransparencyImprovementSuggestion]:
-    """
-    Get transparency improvement suggestions for a purchase order.
-
-    Analyzes the current transparency state and provides actionable suggestions
-    for improving transparency scores and data quality.
-    """
-    transparency_engine = TransparencyCalculationEngine(db)
-    po_service = PurchaseOrderService(db)
-
-    # Check access permissions
-    po = po_service.get_purchase_order_with_details(str(po_id))
-    if not po:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Purchase order not found"
-        )
-
-    if (current_user.company_id != po.buyer_company["id"] and
-        current_user.company_id != po.seller_company["id"]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only get improvement suggestions for your own purchase orders"
-        )
-
-    try:
-        # Calculate transparency and get suggestions
-        result = transparency_engine.calculate_transparency(po_id, include_detailed_analysis=False)
-        suggestions = transparency_engine.get_transparency_improvement_suggestions(result)
-
-        # Convert to response format
-        response_suggestions = [
-            TransparencyImprovementSuggestion(
-                category=s["category"],
-                priority=s["priority"],
-                description=s["description"],
-                expected_impact=s["expected_impact"],
-                implementation_effort=s["implementation_effort"]
-            )
-            for s in suggestions
-        ]
-
-        logger.info(
-            "Transparency improvement suggestions generated",
-            po_id=str(po_id),
-            suggestions_count=len(suggestions),
-            user_id=str(current_user.id)
-        )
-
-        return response_suggestions
-
-    except Exception as e:
-        logger.error(
-            "Failed to generate improvement suggestions",
-            po_id=str(po_id),
-            error=str(e),
-            user_id=str(current_user.id)
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate improvement suggestions"
-        )
+# REMOVED: Improvement suggestions endpoint - complex engine removed
+# Simple transparency calculations don't need complex improvement suggestions
 
 
 def _get_transparency_grade(score: float) -> str:
