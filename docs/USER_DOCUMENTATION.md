@@ -152,15 +152,24 @@ Common is a supply chain transparency platform that replaces contradictory decla
 
 ### Transparency Metrics
 
-#### Transparency to Mill (TTM)
-- Measures visibility from finished product back to processing facilities
-- Calculated using weighted averages of input material transparency
-- Degradation factors applied for each transformation step
+#### Deterministic Transparency Approach
+Our platform uses a **deterministic transparency system** that provides clear, auditable visibility into your supply chain:
 
-#### Transparency to Plantation (TTP)
-- Measures visibility from finished product back to origin
-- Includes all transformation steps and origin data
-- 100% when complete origin data is available
+**Transparency to Mill**
+- **Simple Boolean Check**: Can we trace this purchase order back to a processing facility (mill)?
+- **Percentage Calculation**: (Number of POs traced to mills / Total POs) × 100
+- **Real-time Updates**: Automatically recalculated when new traceability links are added
+
+**Transparency to Plantation** 
+- **Simple Boolean Check**: Can we trace this purchase order back to the original plantation/farm?
+- **Percentage Calculation**: (Number of POs traced to plantations / Total POs) × 100
+- **Complete Traceability**: Shows the full journey from farm to finished product
+
+**Key Benefits of Deterministic Approach**
+- **100% Auditable**: Every calculation is based on explicit, user-created links
+- **No Black Box**: No complex algorithms or weighted scoring
+- **Fast Performance**: Sub-second responses using materialized database views
+- **Clear Results**: Simple percentages that everyone can understand
 
 ### Supply Chain Visualization
 - **Interactive Graphs**: Visual representation of supply chain connections
@@ -168,10 +177,11 @@ Common is a supply chain transparency platform that replaces contradictory decla
 - **Improvement Recommendations**: Actionable steps to increase transparency
 
 ### Transparency Dashboard
-- **Real-time Scores**: Live transparency calculations
-- **Trend Analysis**: Historical transparency performance
-- **Gap Identification**: Missing links and data requirements
-- **Improvement Tracking**: Progress on transparency initiatives
+- **Real-time Percentages**: Live transparency calculations based on actual traceability
+- **Gap Analysis**: Identification of purchase orders that cannot be traced to mills or plantations
+- **A-F Grading System**: Simple letter grades based on transparency percentages
+- **Improvement Tracking**: Progress on closing transparency gaps
+- **Audit Trail**: Complete history of all transparency calculations and changes
 
 ---
 
@@ -364,9 +374,11 @@ Common is a supply chain transparency platform that replaces contradictory decla
 
 **Transparency Score**: Percentage representing supply chain visibility and traceability
 
-**Transparency to Mill (TTM)**: Visibility from finished product back to processing facilities
+**Transparency to Mill**: Percentage of purchase orders that can be traced back to processing facilities (mills)
 
-**Transparency to Plantation (TTP)**: Visibility from finished product back to origin
+**Transparency to Plantation**: Percentage of purchase orders that can be traced back to original plantations/farms
+
+**Deterministic Transparency**: Transparency calculation method based on explicit, auditable links rather than complex scoring algorithms
 
 **Viral Onboarding**: Process where companies invite their suppliers, who then invite theirs
 

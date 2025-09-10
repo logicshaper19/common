@@ -20,7 +20,7 @@ from .domain.models import (
 )
 from .domain.enums import GraphTraversalMode, CycleHandlingStrategy
 from .graph import GraphTraversal, CycleDetector
-from .calculation import ScoreCalculator, ConfidenceCalculator, ScoreAggregator
+from .calculation import ConfidenceCalculator, ScoreAggregator
 
 logger = get_logger(__name__)
 
@@ -49,7 +49,7 @@ class TransparencyCalculationEngine:
             db, max_depth, traversal_mode, cycle_strategy
         )
         self.cycle_detector = CycleDetector()
-        self.score_calculator = ScoreCalculator()
+        # Note: ScoreCalculator removed - using deterministic transparency instead
         self.confidence_calculator = ConfidenceCalculator()
         self.score_aggregator = ScoreAggregator()
         
@@ -95,10 +95,11 @@ class TransparencyCalculationEngine:
                 return self._create_empty_result(po_id)
             
             # Step 2: Calculate scores for each node in each path
+            # Note: Score calculation removed - using deterministic transparency instead
             for path in paths:
                 for node in path.nodes:
-                    self.score_calculator.calculate_base_scores(node)
-                    self.score_calculator.apply_degradation_factor(node)
+                    # Skip complex scoring - using deterministic transparency
+                    pass
             
             # Step 3: Calculate confidence levels
             for path in paths:
