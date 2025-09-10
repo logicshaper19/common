@@ -40,9 +40,8 @@ class DataCompletenessLevel(str, Enum):
 
 class ScoreType(str, Enum):
     """Types of transparency scores."""
-    TTM = "ttm"               # Transparency to Market
-    TTP = "ttp"               # Transparency to Producer
-    COMBINED = "combined"      # Combined score
+    # Note: TTM/TTP scoring system removed - using deterministic transparency instead
+    DETERMINISTIC = "deterministic"  # Deterministic transparency based on explicit links
 
 
 class GraphTraversalMode(str, Enum):
