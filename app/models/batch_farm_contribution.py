@@ -5,10 +5,11 @@ This model tracks which farms contributed to each batch, enabling
 regulatory compliance for any company type (brands, traders, processors, etc.)
 """
 from sqlalchemy import Column, String, Numeric, ForeignKey, DateTime, Index, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
+from app.models.base import DynamicJSONType
 
 
 class BatchFarmContribution(Base):
@@ -29,7 +30,7 @@ class BatchFarmContribution(Base):
     contribution_percentage = Column(Numeric(5, 2))  # Percentage of total batch from this farm
     
     # Farm-specific compliance data
-    farm_data = Column(JSONB)  # Coordinates, certifications, farm details
+    farm_data = Column(DynamicJSONType)  # Coordinates, certifications, farm details
     compliance_status = Column(String(20), default='pending')  # 'pending', 'verified', 'failed'
     
     # Verification details

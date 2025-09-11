@@ -145,8 +145,18 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Get user from database
-        user = self.db.query(User).filter(User.id == user_id_str).first()
+        # Get user from database (convert string to UUID)
+        try:
+            from uuid import UUID
+            user_id = UUID(user_id_str)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        user = self.db.query(User).filter(User.id == user_id).first()
         if user is None:
             logger.warning("User not found for refresh token", user_id=user_id_str)
             raise HTTPException(

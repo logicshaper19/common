@@ -12,6 +12,10 @@ from .document import Document, ProxyRelationship, ProxyAction
 from .po_compliance_result import POComplianceResult
 from .brand import Brand
 from .gap_action import GapAction
+from .location import Location
+from .po_batch_linkage import POBatchLinkage
+from .po_fulfillment_allocation import POFulfillmentAllocation
+from .batch_farm_contribution import BatchFarmContribution
 
 __all__ = [
     "User",
@@ -31,4 +35,8 @@ __all__ = [
     "POComplianceResult",
     "Brand",
     "GapAction",
+    "Location",
+    "POBatchLinkage",
+    "POFulfillmentAllocation",
+    "BatchFarmContribution",
 ]
