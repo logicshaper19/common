@@ -31,11 +31,11 @@ class POChainingService:
         confirming_user_id: UUID
     ) -> Dict[str, Any]:
         """
-        Confirm a PO and automatically create child POs if needed
+        Confirm a PO and optionally create child POs based on fulfillment method
         
         Args:
             po_id: ID of the PO being confirmed
-            confirmation_data: Confirmation details
+            confirmation_data: Confirmation details including fulfillment_method
             confirming_user_id: ID of user confirming the PO
             
         Returns:
@@ -49,10 +49,35 @@ class POChainingService:
         # Confirm the PO
         confirmation_result = self._confirm_po(po, confirmation_data, confirming_user_id)
         
-        # Check if we need to create child POs
+        # Check fulfillment method
+        fulfillment_method = confirmation_data.get('fulfillment_method', 'create_child_pos')
         child_pos = []
-        if self._should_create_child_pos(po):
+        
+        if fulfillment_method == 'create_child_pos' and self._should_create_child_pos(po):
+            # Create child POs to suppliers
             child_pos = self._create_child_pos(po, confirming_user_id)
+        elif fulfillment_method == 'fulfill_from_stock':
+            # Fulfill from existing inventory - no child POs needed
+            child_pos = []
+            # Mark as fulfilled from stock
+            po.fulfillment_status = 'fulfilled'
+            po.fulfillment_percentage = 100
+            po.fulfillment_notes = "Fulfilled from existing stock"
+            self.db.commit()
+        elif fulfillment_method == 'partial_stock_partial_po':
+            # Partial fulfillment from stock + partial child POs
+            stock_quantity = confirmation_data.get('stock_quantity', 0)
+            po_quantity = confirmation_data.get('po_quantity', 0)
+            
+            if po_quantity > 0:
+                # Create child POs for the portion that needs to be purchased
+                child_pos = self._create_child_pos(po, confirming_user_id, po_quantity)
+            
+            # Update fulfillment status
+            po.fulfillment_status = 'partial'
+            po.fulfillment_percentage = int((stock_quantity / po.quantity) * 100)
+            po.fulfillment_notes = f"Partial fulfillment: {stock_quantity} from stock, {po_quantity} from new POs"
+            self.db.commit()
         
         # Update fulfillment status of parent PO
         if child_pos:
@@ -62,7 +87,8 @@ class POChainingService:
             "po_confirmed": confirmation_result,
             "child_pos_created": child_pos,
             "fulfillment_status": po.fulfillment_status,
-            "fulfillment_percentage": po.fulfillment_percentage
+            "fulfillment_percentage": po.fulfillment_percentage,
+            "fulfillment_method": fulfillment_method
         }
     
     def _confirm_po(
@@ -115,7 +141,7 @@ class POChainingService:
         # In a real system, you'd check actual supplier relationships
         return True
     
-    def _create_child_pos(self, parent_po: PurchaseOrder, confirming_user_id: UUID) -> List[Dict[str, Any]]:
+    def _create_child_pos(self, parent_po: PurchaseOrder, confirming_user_id: UUID, quantity: float = None) -> List[Dict[str, Any]]:
         """
         Create child POs for the confirming company's suppliers
         
@@ -135,7 +161,7 @@ class POChainingService:
         # Handle Trader fan-out: create multiple child POs
         if parent_po.seller_company.company_type == 'trader' and len(suppliers) > 1:
             # Split quantity among multiple suppliers
-            total_quantity = parent_po.confirmed_quantity or parent_po.quantity
+            total_quantity = quantity or (parent_po.confirmed_quantity or parent_po.quantity)
             quantity_per_supplier = total_quantity / len(suppliers)
             
             for i, supplier_company in enumerate(suppliers):
@@ -155,7 +181,7 @@ class POChainingService:
             supplier_company = suppliers[0]
             child_po_data = self._create_child_po_data(
                 parent_po, supplier_company, 
-                parent_po.confirmed_quantity or parent_po.quantity, 0
+                quantity or (parent_po.confirmed_quantity or parent_po.quantity), 0
             )
             child_po = self._create_child_po_from_data(child_po_data)
             child_pos.append({

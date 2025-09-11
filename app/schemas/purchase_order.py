@@ -388,11 +388,23 @@ class DiscrepancyDetail(BaseModel):
 
 
 class PurchaseOrderConfirmation(BaseModel):
-    """Schema for simple purchase order confirmation."""
+    """Schema for purchase order confirmation with flexible fulfillment options."""
     delivery_date: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=1000)
     confirmed_quantity: Optional[Decimal] = Field(None, gt=0, decimal_places=3)
     confirmed_unit: Optional[str] = Field(None, max_length=50)
+    confirmed_unit_price: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
+    delivery_location: Optional[str] = Field(None, max_length=200)
+    
+    # Fulfillment method options
+    fulfillment_method: Optional[str] = Field(
+        default='create_child_pos',
+        description="How to fulfill this PO: 'create_child_pos', 'fulfill_from_stock', 'partial_stock_partial_po'"
+    )
+    
+    # For partial fulfillment
+    stock_quantity: Optional[Decimal] = Field(None, ge=0, decimal_places=3, description="Quantity fulfilled from existing stock")
+    po_quantity: Optional[Decimal] = Field(None, ge=0, decimal_places=3, description="Quantity to be fulfilled via new POs")
 
 
 class BuyerApprovalRequest(BaseModel):
