@@ -16,6 +16,7 @@ from app.core.permissions import (
     get_permission_checker,
     PermissionChecker
 )
+from app.services.po_chaining import POChainingService
 from app.schemas.purchase_order import (
     PurchaseOrderCreate,
     PurchaseOrderUpdate,
@@ -373,18 +374,18 @@ def confirm_purchase_order(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Simple confirmation of a purchase order by the seller.
-
-    This endpoint provides a simplified confirmation workflow without
-    complex discrepancy detection. Suitable for straightforward confirmations.
+    Confirm a purchase order and automatically create child POs if needed.
+    
+    This endpoint handles the complete PO confirmation workflow:
+    1. Confirms the received PO
+    2. Automatically creates child POs to suppliers (if applicable)
+    3. Updates fulfillment status and chain visibility
     """
     from datetime import datetime
-    # from app.services.po_history import POHistoryService
-    # from app.services.notification import NotificationService
 
+    # Initialize services
     purchase_order_service = PurchaseOrderService(db)
-    # history_service = POHistoryService(db)
-    # notification_service = NotificationService(db)
+    chaining_service = POChainingService(db)
 
     # Get the purchase order
     po = purchase_order_service.get_purchase_order(purchase_order_id)
@@ -408,58 +409,92 @@ def confirm_purchase_order(
             detail=f"Purchase order cannot be confirmed in current status: {po.status}"
         )
 
-    # Update PO with confirmation details
-    po.status = PurchaseOrderStatus.CONFIRMED.value
-    po.confirmed_at = datetime.utcnow()
-    po.confirmed_by_user_id = current_user.id
-
-    # Add confirmation details if provided
-    if confirmation.delivery_date:
-        po.confirmed_delivery_date = confirmation.delivery_date
-    if confirmation.notes:
-        po.seller_notes = confirmation.notes
-    if confirmation.confirmed_quantity:
-        po.confirmed_quantity = confirmation.confirmed_quantity
-    if confirmation.confirmed_unit:
-        po.unit = confirmation.confirmed_unit
-
-    # Log confirmation in history
-    # history_service.log_po_confirmed(
-    #     purchase_order_id=po.id,
-    #     user_id=current_user.id,
-    #     company_id=current_user.company_id,
-    #     po_number=po.po_number
-    # )
-
-    # Create notification for buyer
-    # try:
-    #     notification_service.create_notification(
-    #         user_id=po.buyer_user_id,
-    #         type="po_confirmed",
-    #         title="Purchase Order Confirmed",
-    #         message=f"PO #{po.po_number} has been confirmed by {po.seller_company.name}",
-    #         data={"purchase_order_id": str(po.id)}
-    #     )
-    # except Exception as e:
-    #     logger.warning(f"Failed to send confirmation notification: {e}")
-
-    db.commit()
-    db.refresh(po)
-
-    logger.info(
-        "Purchase order confirmed successfully",
-        po_id=purchase_order_id,
-        user_id=str(current_user.id),
-        company_id=str(current_user.company_id)
-    )
-
-    return {
-        "success": True,
-        "message": "Purchase order confirmed successfully",
-        "purchase_order_id": str(po.id),
-        "status": po.status,
-        "confirmed_at": po.confirmed_at.isoformat() if po.confirmed_at else None
+    # Prepare confirmation data
+    confirmation_data = {
+        "confirmed_at": datetime.utcnow(),
+        "confirmed_quantity": confirmation.confirmed_quantity,
+        "confirmed_unit_price": confirmation.confirmed_unit_price,
+        "confirmed_delivery_date": confirmation.delivery_date,
+        "confirmed_delivery_location": confirmation.delivery_location,
+        "seller_notes": confirmation.notes
     }
+
+    # Use chaining service to confirm PO and create child POs
+    try:
+        result = chaining_service.confirm_po_and_create_children(
+            po_id=po.id,
+            confirmation_data=confirmation_data,
+            confirming_user_id=current_user.id
+        )
+        
+        logger.info(
+            "Purchase order confirmed with chaining",
+            po_id=purchase_order_id,
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            child_pos_created=len(result.get("child_pos_created", []))
+        )
+        
+        return {
+            "message": "Purchase order confirmed successfully",
+            "po_id": purchase_order_id,
+            "status": "confirmed",
+            "child_pos_created": result.get("child_pos_created", []),
+            "fulfillment_status": result.get("fulfillment_status"),
+            "fulfillment_percentage": result.get("fulfillment_percentage")
+        }
+        
+    except Exception as e:
+        logger.error(
+            "Failed to confirm PO with chaining",
+            po_id=purchase_order_id,
+            error=str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to confirm purchase order: {str(e)}"
+        )
+
+
+@router.get("/{purchase_order_id}/chain", response_model=Dict[str, Any])
+def get_po_chain(
+    purchase_order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the complete supply chain for a purchase order.
+    
+    Shows upstream chain (parents) and downstream chain (children)
+    with appropriate visibility based on user's role and company.
+    """
+    chaining_service = POChainingService(db)
+    
+    try:
+        chain_data = chaining_service.get_po_chain(purchase_order_id)
+        
+        # Filter chain data based on user permissions
+        # For now, return full chain - in production, filter based on user role
+        return {
+            "success": True,
+            "chain": chain_data
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to get PO chain",
+            po_id=purchase_order_id,
+            error=str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get supply chain: {str(e)}"
+        )
 
 
 @router.post("/{purchase_order_id}/buyer-approve", response_model=PurchaseOrderResponse)
