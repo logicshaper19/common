@@ -48,6 +48,7 @@ class PurchaseOrder(Base):
     is_chain_initiated = Column(Boolean, default=False)  # TRUE if this PO initiated a new chain
     fulfillment_status = Column(String(20), default='pending')  # 'pending', 'partial', 'fulfilled'
     fulfillment_percentage = Column(Integer, default=0)  # 0-100 percentage fulfilled
+    fulfillment_notes = Column(Text)  # Notes about how fulfillment was handled
 
     # Additional notes
     notes = Column(Text)
