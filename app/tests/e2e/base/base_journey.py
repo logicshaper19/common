@@ -6,9 +6,9 @@ from typing import Dict, Any, List
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from tests.e2e.helpers.auth_helper import AuthHelper
-from tests.e2e.helpers.api_client import APIClient
-from tests.e2e.base.test_data_factory import TestDataFactory
+from app.tests.e2e.helpers.auth_helper import AuthHelper
+from app.tests.e2e.helpers.api_client import APIClient
+from app.tests.e2e.base.test_data_factory import TestDataFactory
 
 
 class BaseJourney(ABC):

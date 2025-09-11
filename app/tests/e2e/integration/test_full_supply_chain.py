@@ -5,11 +5,11 @@ import pytest
 from datetime import datetime
 from typing import Dict, Any
 
-from tests.e2e.journeys.test_farmer_journey import FarmerJourney
-from tests.e2e.journeys.test_processor_journey import ProcessorJourney
-from tests.e2e.journeys.test_retailer_journey import RetailerJourney
-from tests.e2e.journeys.test_consumer_journey import ConsumerJourney
-from tests.e2e.helpers.assertions import E2EAssertions
+from app.tests.e2e.journeys.test_farmer_journey import FarmerJourney
+from app.tests.e2e.journeys.test_processor_journey import ProcessorJourney
+from app.tests.e2e.journeys.test_retailer_journey import RetailerJourney
+from app.tests.e2e.journeys.test_consumer_journey import ConsumerJourney
+from app.tests.e2e.helpers.assertions import E2EAssertions
 
 
 class FullSupplyChainTest:

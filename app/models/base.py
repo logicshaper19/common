@@ -1,25 +1,30 @@
 """
 Base model utilities for the Common supply chain platform.
 """
-from sqlalchemy import JSON
+import os
+from sqlalchemy import JSON, TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.sql import sqltypes
-
-from app.core.config import settings
 
 
-def get_json_type():
+class DynamicJSONType(TypeDecorator):
     """
-    Get appropriate JSON type based on database backend.
-    
-    Returns:
-        JSONB for PostgreSQL, JSON for SQLite and others
+    A JSON type that dynamically chooses between JSONB and JSON based on the database backend.
     """
-    if "postgresql" in settings.database_url:
-        return JSONB
-    else:
-        return JSON
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        """Choose the appropriate JSON type based on the dialect."""
+        # Check for testing environment first
+        if os.getenv("TESTING") == "true":
+            return dialect.type_descriptor(JSON())
+
+        # For PostgreSQL, use JSONB; for others, use JSON
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(JSONB())
+        else:
+            return dialect.type_descriptor(JSON())
 
 
 # Create a reusable JSON column type
-JSONType = get_json_type()
+JSONType = DynamicJSONType()

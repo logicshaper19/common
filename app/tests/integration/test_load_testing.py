@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.main import app
 from app.core.database import get_db
 from app.core.security import create_access_token
-from app.tests.factories import (
+from app.tests.fixtures.factories import (
     SupplyChainScenarioFactory,
     CompanyFactory,
     UserFactory,

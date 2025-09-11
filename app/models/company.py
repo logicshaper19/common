@@ -2,11 +2,12 @@
 Company model for the Common supply chain platform.
 """
 from sqlalchemy import Column, String, DateTime, func, Index, Integer, ForeignKey, Boolean
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
 
 from app.core.database import Base
+from app.models.base import JSONType
 
 
 class Company(Base):
@@ -53,7 +54,7 @@ class Company(Base):
     erp_sync_frequency = Column(String(20), default='real_time')  # 'real_time', 'hourly', 'daily'
     erp_last_sync_at = Column(DateTime(timezone=True))  # Last successful ERP sync
     erp_sync_enabled = Column(Boolean, default=False)  # Whether ERP sync is currently enabled
-    erp_configuration = Column(JSONB)  # Flexible ERP configuration storage
+    erp_configuration = Column(JSONType)  # Flexible ERP configuration storage
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

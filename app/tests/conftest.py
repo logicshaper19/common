@@ -5,7 +5,9 @@ import pytest
 import asyncio
 import os
 import tempfile
-from typing import Generator, Dict, Any
+import time
+from contextlib import contextmanager
+from typing import Generator, Dict, Any, Optional
 from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
@@ -17,7 +19,7 @@ from app.main import app
 from app.core.database import get_db, Base
 from app.core.config import settings
 from app.core.security import create_access_token
-from app.tests.factories import (
+from app.tests.fixtures.factories import (
     SupplyChainScenarioFactory,
     CompanyFactory,
     UserFactory,
@@ -27,7 +29,10 @@ from app.tests.factories import (
 
 
 # Test database configuration
-TEST_DATABASE_URL = "sqlite:///./test_comprehensive.db"
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL", 
+    f"sqlite:///{tempfile.mktemp(suffix='.db')}"
+)
 
 
 @pytest.fixture(scope="session")
@@ -57,12 +62,13 @@ def TestingSessionLocal(test_engine):
 
 @pytest.fixture
 def db_session(TestingSessionLocal):
-    """Create database session for testing."""
+    """Create database session for testing with transaction rollback."""
     session = TestingSessionLocal()
+    transaction = session.begin()
     try:
         yield session
     finally:
-        session.rollback()
+        transaction.rollback()
         session.close()
 
 
@@ -251,6 +257,41 @@ def originator_user_client(simple_scenario, auth_headers, client):
     return AuthenticatedClient(client, headers)
 
 
+@pytest.fixture(params=["brand", "processor", "originator"])
+def any_user_client(request, simple_scenario, auth_headers, client):
+    """Create client authenticated as any user type (parameterized)."""
+    company_type = request.param
+    company = next(c for c in simple_scenario.companies if c.company_type == company_type)
+    user = next(u for u in simple_scenario.users if u.company_id == company.id)
+    
+    headers = auth_headers(user.email)
+    
+    class AuthenticatedClient:
+        def __init__(self, client, headers, user, company):
+            self.client = client
+            self.headers = headers
+            self.user = user
+            self.company = company
+        
+        def get(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.get(url, **kwargs)
+        
+        def post(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.post(url, **kwargs)
+        
+        def put(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.put(url, **kwargs)
+        
+        def delete(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.delete(url, **kwargs)
+    
+    return AuthenticatedClient(client, headers, user, company)
+
+
 @pytest.fixture
 def mock_redis():
     """Mock Redis for testing."""
@@ -322,6 +363,18 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture
+async def async_db_session(TestingSessionLocal):
+    """Create async database session for testing."""
+    session = TestingSessionLocal()
+    transaction = session.begin()
+    try:
+        yield session
+    finally:
+        await transaction.rollback()
+        await session.close()
+
+
 # Test markers
 pytest.mark.unit = pytest.mark.unit
 pytest.mark.integration = pytest.mark.integration
@@ -360,6 +413,10 @@ def pytest_collection_modifyitems(config, items):
 class TestDataManager:
     """Utility class for managing test data."""
     
+    def __init__(self, db_session=None):
+        self.db_session = db_session
+        self.created_objects = []
+    
     @staticmethod
     def create_test_company(company_type: str = "brand"):
         """Create a test company."""
@@ -383,12 +440,49 @@ class TestDataManager:
             seller_company=seller_company,
             product=product
         )
+    
+    def create_and_track(self, obj_type: str, **kwargs):
+        """Create an object and track it for cleanup."""
+        if obj_type == "company":
+            obj = self.create_test_company(**kwargs)
+        elif obj_type == "user":
+            obj = self.create_test_user(**kwargs)
+        elif obj_type == "product":
+            obj = self.create_test_product(**kwargs)
+        elif obj_type == "po":
+            obj = self.create_test_po(**kwargs)
+        else:
+            raise ValueError(f"Unknown object type: {obj_type}")
+        
+        if self.db_session:
+            self.db_session.add(obj)
+            self.db_session.commit()
+        
+        self.created_objects.append(obj)
+        return obj
+    
+    def cleanup(self):
+        """Clean up all tracked objects."""
+        if self.db_session:
+            for obj in reversed(self.created_objects):
+                try:
+                    self.db_session.delete(obj)
+                except Exception:
+                    pass  # Object may already be deleted
+            self.db_session.commit()
+        self.created_objects.clear()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cleanup()
 
 
 @pytest.fixture
-def test_data_manager():
-    """Provide test data manager."""
-    return TestDataManager()
+def test_data_manager(db_session):
+    """Provide test data manager with database session."""
+    return TestDataManager(db_session)
 
 
 # Performance test utilities
@@ -411,6 +505,15 @@ class PerformanceAssertions:
         """Assert throughput meets minimum requests per second."""
         rps = request_count / duration if duration > 0 else 0
         assert rps >= min_rps, f"Throughput {rps} RPS below minimum {min_rps} RPS"
+    
+    @staticmethod
+    @contextmanager
+    def assert_max_duration(max_seconds: float):
+        """Context manager for timing assertions."""
+        start = time.time()
+        yield
+        duration = time.time() - start
+        assert duration <= max_seconds, f"Operation took {duration:.3f}s, exceeding limit of {max_seconds}s"
 
 
 @pytest.fixture
@@ -452,3 +555,151 @@ class ErrorTestUtils:
 def error_test_utils():
     """Provide error testing utilities."""
     return ErrorTestUtils()
+
+
+# API response assertion utilities
+class APIResponseAssertions:
+    """Utility class for common API response assertions."""
+    
+    @staticmethod
+    def assert_success_response(response, expected_status: int = 200):
+        """Assert successful API response."""
+        assert response.status_code == expected_status
+        assert response.headers.get("content-type", "").startswith("application/json")
+    
+    @staticmethod
+    def assert_paginated_response(response, expected_page_size: int = None):
+        """Assert paginated API response format."""
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+        assert "page" in data
+        assert "page_size" in data
+        
+        if expected_page_size:
+            assert len(data["items"]) <= expected_page_size
+    
+    @staticmethod
+    def assert_created_response(response, expected_fields: list = None):
+        """Assert resource creation response."""
+        assert response.status_code == 201
+        data = response.json()
+        assert "id" in data
+        
+        if expected_fields:
+            for field in expected_fields:
+                assert field in data
+    
+    @staticmethod
+    def assert_updated_response(response, expected_fields: list = None):
+        """Assert resource update response."""
+        assert response.status_code == 200
+        data = response.json()
+        
+        if expected_fields:
+            for field in expected_fields:
+                assert field in data
+    
+    @staticmethod
+    def assert_deleted_response(response):
+        """Assert resource deletion response."""
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data or "success" in data
+
+
+@pytest.fixture
+def api_assertions():
+    """Provide API response assertion utilities."""
+    return APIResponseAssertions()
+
+
+# Additional utility fixtures
+@pytest.fixture
+def deterministic_seed():
+    """Set deterministic seed for reproducible tests."""
+    import random
+    import numpy as np
+    
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    return seed
+
+
+@pytest.fixture
+def test_environment_vars():
+    """Set test environment variables."""
+    test_vars = {
+        "TESTING": "true",
+        "LOG_LEVEL": "WARNING",
+        "REDIS_URL": "redis://localhost:6379/15",  # Use test database
+    }
+    
+    original_vars = {}
+    for key, value in test_vars.items():
+        original_vars[key] = os.environ.get(key)
+        os.environ[key] = value
+    
+    yield test_vars
+    
+    # Restore original values
+    for key, original_value in original_vars.items():
+        if original_value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = original_value
+
+
+@pytest.fixture
+def mock_file_upload():
+    """Mock file upload for testing."""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(b"Mock PDF content")
+        tmp.flush()
+        
+        class MockFile:
+            def __init__(self, file_path):
+                self.file_path = file_path
+                self.filename = os.path.basename(file_path)
+                self.content_type = "application/pdf"
+            
+            def read(self):
+                with open(self.file_path, 'rb') as f:
+                    return f.read()
+        
+        yield MockFile(tmp.name)
+        
+        # Cleanup
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+
+@pytest.fixture
+def performance_monitor():
+    """Monitor performance metrics during tests."""
+    class PerformanceMonitor:
+        def __init__(self):
+            self.metrics = {}
+        
+        def start_timer(self, operation: str):
+            """Start timing an operation."""
+            self.metrics[operation] = {"start": time.time()}
+        
+        def end_timer(self, operation: str):
+            """End timing an operation."""
+            if operation in self.metrics:
+                self.metrics[operation]["duration"] = time.time() - self.metrics[operation]["start"]
+        
+        def get_duration(self, operation: str) -> float:
+            """Get duration of an operation."""
+            return self.metrics.get(operation, {}).get("duration", 0)
+        
+        def get_all_metrics(self) -> dict:
+            """Get all performance metrics."""
+            return self.metrics
+    
+    return PerformanceMonitor()
