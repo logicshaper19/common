@@ -63,6 +63,7 @@ class Batch(Base):
     
     # Relationships
     po_linkages = relationship("POBatchLinkage", back_populates="batch")
+    po_allocations = relationship("POFulfillmentAllocation", back_populates="source_batch")
     
     # Indexes for performance
     __table_args__ = (
