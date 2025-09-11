@@ -57,17 +57,31 @@ class POChainingService:
             # Create child POs to suppliers
             child_pos = self._create_child_pos(po, confirming_user_id)
         elif fulfillment_method == 'fulfill_from_stock':
-            # Fulfill from existing inventory - no child POs needed
+            # Fulfill from existing inventory - requires batch linking
             child_pos = []
+            
+            # Get stock batches to fulfill from
+            stock_batches = confirmation_data.get('stock_batches', [])
+            if not stock_batches:
+                raise ValueError("Stock fulfillment requires batch information for traceability")
+            
+            # Link PO to existing batches for traceability
+            self._link_po_to_stock_batches(po, stock_batches)
+            
             # Mark as fulfilled from stock
             po.fulfillment_status = 'fulfilled'
             po.fulfillment_percentage = 100
-            po.fulfillment_notes = "Fulfilled from existing stock"
+            po.fulfillment_notes = f"Fulfilled from existing stock: {len(stock_batches)} batches"
             self.db.commit()
         elif fulfillment_method == 'partial_stock_partial_po':
             # Partial fulfillment from stock + partial child POs
             stock_quantity = confirmation_data.get('stock_quantity', 0)
             po_quantity = confirmation_data.get('po_quantity', 0)
+            stock_batches = confirmation_data.get('stock_batches', [])
+            
+            # Link stock batches for traceability
+            if stock_batches:
+                self._link_po_to_stock_batches(po, stock_batches)
             
             if po_quantity > 0:
                 # Create child POs for the portion that needs to be purchased
@@ -76,7 +90,7 @@ class POChainingService:
             # Update fulfillment status
             po.fulfillment_status = 'partial'
             po.fulfillment_percentage = int((stock_quantity / po.quantity) * 100)
-            po.fulfillment_notes = f"Partial fulfillment: {stock_quantity} from stock, {po_quantity} from new POs"
+            po.fulfillment_notes = f"Partial fulfillment: {stock_quantity} from stock ({len(stock_batches)} batches), {po_quantity} from new POs"
             self.db.commit()
         
         # Update fulfillment status of parent PO
@@ -266,6 +280,61 @@ class POChainingService:
         # 4. Handle multiple suppliers for fan-out
         
         return potential_suppliers[0]
+    
+    def _link_po_to_stock_batches(self, po: PurchaseOrder, stock_batches: List[Dict[str, Any]]) -> None:
+        """
+        Link a PO to existing stock batches for traceability compliance
+        
+        Args:
+            po: The purchase order being fulfilled
+            stock_batches: List of batch information for stock fulfillment
+        """
+        from app.models.batch import Batch
+        from app.models.po_batch_linkage import POBatchLinkage
+        
+        total_quantity = 0
+        
+        for batch_info in stock_batches:
+            batch_id = batch_info.get('batch_id')
+            quantity_used = batch_info.get('quantity_used', 0)
+            allocation_reason = batch_info.get('allocation_reason', 'stock_fulfillment')
+            compliance_notes = batch_info.get('compliance_notes', '')
+            
+            if not batch_id or quantity_used <= 0:
+                continue
+                
+            # Get the batch
+            batch = self.db.query(Batch).filter(Batch.id == batch_id).first()
+            if not batch:
+                raise ValueError(f"Batch {batch_id} not found")
+            
+            # Verify the batch belongs to the confirming company
+            if batch.company_id != po.seller_company_id:
+                raise ValueError(f"Batch {batch_id} does not belong to company {po.seller_company_id}")
+            
+            # Verify batch has sufficient quantity available
+            # This would check against allocated quantities in a real system
+            if quantity_used > batch.quantity:
+                raise ValueError(f"Batch {batch.batch_id} has insufficient quantity. Available: {batch.quantity}, Requested: {quantity_used}")
+            
+            # Create PO-Batch linkage for traceability
+            linkage = POBatchLinkage(
+                purchase_order_id=po.id,
+                batch_id=batch.id,
+                quantity_allocated=quantity_used,
+                unit=po.unit,
+                allocation_reason=allocation_reason,
+                compliance_notes=compliance_notes
+            )
+            
+            self.db.add(linkage)
+            total_quantity += quantity_used
+        
+        # Verify total quantity matches PO quantity
+        if abs(total_quantity - po.quantity) > 0.001:  # Allow small floating point differences
+            raise ValueError(f"Total batch quantity ({total_quantity}) does not match PO quantity ({po.quantity})")
+        
+        self.db.commit()
     
     def _calculate_supply_chain_level(self, parent_po: PurchaseOrder, supplier_company: Company) -> int:
         """
