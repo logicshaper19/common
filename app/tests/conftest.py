@@ -707,3 +707,223 @@ def performance_monitor():
             return self.metrics
     
     return PerformanceMonitor()
+
+
+# ===== STANDARDIZED BUSINESS ENTITY FIXTURES =====
+# These fixtures provide consistent, reusable test data for all test files
+
+@pytest.fixture
+def test_company(db_session):
+    """Create a standardized test company."""
+    return CompanyFactory.create_company(
+        company_type="processor",
+        name="Test Company",
+        email="test-company@example.com"
+    )
+
+
+@pytest.fixture
+def test_buyer_company(db_session):
+    """Create a standardized buyer company."""
+    return CompanyFactory.create_company(
+        company_type="buyer",
+        name="Test Buyer Company",
+        email="buyer@example.com"
+    )
+
+
+@pytest.fixture
+def test_seller_company(db_session):
+    """Create a standardized seller company."""
+    return CompanyFactory.create_company(
+        company_type="seller",
+        name="Test Seller Company",
+        email="seller@example.com"
+    )
+
+
+@pytest.fixture
+def test_user(db_session, test_company):
+    """Create a standardized test user."""
+    user = UserFactory.create_user(
+        email="test-user@example.com",
+        role="buyer",
+        company_id=test_company.id
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def test_admin_user(db_session):
+    """Create a standardized admin user."""
+    user = UserFactory.create_user(
+        email="admin@example.com",
+        role="admin",
+        company_id=None
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def test_product(db_session):
+    """Create a standardized test product."""
+    product = ProductFactory.create_product(
+        common_product_id="TEST-001",
+        name="Test Product",
+        category="test_category"
+    )
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+    return product
+
+
+@pytest.fixture
+def test_purchase_order(db_session, test_buyer_company, test_seller_company, test_product):
+    """Create a standardized test purchase order."""
+    po = PurchaseOrderFactory.create_purchase_order(
+        buyer_company_id=test_buyer_company.id,
+        seller_company_id=test_seller_company.id,
+        product_id=test_product.id,
+        quantity=100.0,
+        unit_price=10.50
+    )
+    db_session.add(po)
+    db_session.commit()
+    db_session.refresh(po)
+    return po
+
+
+# ===== AUTHENTICATION HELPERS =====
+
+@pytest.fixture
+def authenticated_client(client, test_user, auth_headers):
+    """Create an authenticated client for the test user."""
+    headers = auth_headers(test_user.email)
+
+    class AuthenticatedTestClient:
+        def __init__(self, client, headers, user):
+            self.client = client
+            self.headers = headers
+            self.user = user
+
+        def get(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.get(url, **kwargs)
+
+        def post(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.post(url, **kwargs)
+
+        def put(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.put(url, **kwargs)
+
+        def delete(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.delete(url, **kwargs)
+
+    return AuthenticatedTestClient(client, headers, test_user)
+
+
+@pytest.fixture
+def admin_client(client, test_admin_user, auth_headers):
+    """Create an authenticated admin client."""
+    headers = auth_headers(test_admin_user.email)
+
+    class AuthenticatedTestClient:
+        def __init__(self, client, headers, user):
+            self.client = client
+            self.headers = headers
+            self.user = user
+
+        def get(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.get(url, **kwargs)
+
+        def post(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.post(url, **kwargs)
+
+        def put(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.put(url, **kwargs)
+
+        def delete(self, url, **kwargs):
+            kwargs.setdefault('headers', {}).update(self.headers)
+            return self.client.delete(url, **kwargs)
+
+    return AuthenticatedTestClient(client, headers, test_admin_user)
+
+
+# ===== BUSINESS LOGIC VALIDATION HELPERS =====
+
+@pytest.fixture
+def business_logic_validator():
+    """Provide business logic validation helpers."""
+    class BusinessLogicValidator:
+        @staticmethod
+        def validate_token_response(data: dict):
+            """Validate JWT token response structure and business rules."""
+            # Token structure validation
+            assert "access_token" in data
+            assert "refresh_token" in data
+            assert data["token_type"] == "bearer"
+
+            # Business Logic: Token expiration times should be reasonable
+            assert 900 <= data["access_expires_in"] <= 3600  # 15 min to 1 hour
+            assert 86400 <= data["refresh_expires_in"] <= 2592000  # 1 day to 30 days
+
+            # Business Logic: Tokens should be properly formatted JWTs
+            access_token = data["access_token"]
+            refresh_token = data["refresh_token"]
+            assert len(access_token.split('.')) == 3  # JWT has 3 parts
+            assert access_token != refresh_token  # Tokens should be different
+
+            return True
+
+        @staticmethod
+        def validate_user_permissions(user_data: dict, expected_role: str):
+            """Validate user permissions match expected role."""
+            assert user_data["role"] == expected_role
+
+            if expected_role == "admin":
+                # Admins should have elevated permissions
+                assert user_data.get("can_manage_users", False)
+                assert user_data.get("can_view_all_companies", False)
+            elif expected_role == "buyer":
+                # Buyers should have limited permissions
+                assert not user_data.get("can_manage_users", True)
+                assert not user_data.get("can_view_all_companies", True)
+
+            return True
+
+        @staticmethod
+        def validate_purchase_order_business_logic(po_data: dict):
+            """Validate purchase order business logic."""
+            # Required fields
+            assert "id" in po_data
+            assert "buyer_company_id" in po_data
+            assert "seller_company_id" in po_data
+            assert "product_id" in po_data
+            assert "quantity" in po_data
+            assert "unit_price" in po_data
+
+            # Business logic validation
+            assert po_data["quantity"] > 0  # Quantity must be positive
+            assert po_data["unit_price"] > 0  # Price must be positive
+            assert po_data["buyer_company_id"] != po_data["seller_company_id"]  # Different companies
+
+            # Calculate total value
+            total_value = po_data["quantity"] * po_data["unit_price"]
+            assert total_value > 0
+
+            return True
+
+    return BusinessLogicValidator()
