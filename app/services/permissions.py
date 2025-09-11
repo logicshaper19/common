@@ -78,15 +78,16 @@ class PermissionService:
     def can_user_create_po(self, user: User) -> bool:
         """
         Can the user create a purchase order?
-        - Supply chain managers at brands, processors, and traders can create POs
+        - Brands, Traders, and Processors issue POs DOWNSTREAM
+        - Originators are the source - they don't create POs, they only receive them
         """
         return (user.role == UserRole.SUPPLY_CHAIN_MANAGER and 
-                user.company.company_type in [CompanyType.BRAND, CompanyType.PROCESSOR, CompanyType.TRADER])
+                user.company.company_type in [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR])
     
     def can_user_confirm_po(self, user: User) -> bool:
         """
         Can the user confirm a purchase order?
-        - Production managers at processors and originators confirm POs
+        - Processors and Originators confirm POs received from UPSTREAM
         """
         return (user.role == UserRole.PRODUCTION_MANAGER and 
                 user.company.company_type in [CompanyType.PROCESSOR, CompanyType.ORIGINATOR])

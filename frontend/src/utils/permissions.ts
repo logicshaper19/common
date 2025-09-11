@@ -51,16 +51,19 @@ export const UserRole = {
 
 /**
  * Check if user can create purchase orders
+ * Brands, Traders, and Processors issue POs DOWNSTREAM
+ * Originators are the source - they don't create POs, they only receive them
  */
 export const canCreatePO = (user: User): boolean => {
   return (
     user.role === UserRole.SUPPLY_CHAIN_MANAGER &&
-    [CompanyType.BRAND, CompanyType.PROCESSOR, CompanyType.TRADER].includes(user.company.company_type)
+    [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR].includes(user.company.company_type)
   );
 };
 
 /**
  * Check if user can confirm purchase orders
+ * Processors and Originators confirm POs received from UPSTREAM
  */
 export const canConfirmPO = (user: User): boolean => {
   return (
