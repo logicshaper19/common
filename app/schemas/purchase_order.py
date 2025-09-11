@@ -405,6 +405,12 @@ class PurchaseOrderConfirmation(BaseModel):
     # For partial fulfillment
     stock_quantity: Optional[Decimal] = Field(None, ge=0, decimal_places=3, description="Quantity fulfilled from existing stock")
     po_quantity: Optional[Decimal] = Field(None, ge=0, decimal_places=3, description="Quantity to be fulfilled via new POs")
+    
+    # For stock fulfillment - required for traceability compliance
+    stock_batches: Optional[List[Dict[str, Any]]] = Field(
+        None, 
+        description="List of existing batches used for fulfillment. Required when fulfillment_method is 'fulfill_from_stock' or 'partial_stock_partial_po'"
+    )
 
 
 class BuyerApprovalRequest(BaseModel):

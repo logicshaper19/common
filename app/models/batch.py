@@ -61,6 +61,9 @@ class Batch(Base):
     # Additional metadata
     batch_metadata = Column(JSONType)  # Additional batch-specific metadata
     
+    # Relationships
+    po_linkages = relationship("POBatchLinkage", back_populates="batch")
+    
     # Indexes for performance
     __table_args__ = (
         Index('idx_batch_company_id', 'company_id'),

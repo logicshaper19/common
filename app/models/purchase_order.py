@@ -110,6 +110,9 @@ class PurchaseOrder(Base):
     
     # Commercial Chaining Relationships
     parent_po = relationship("PurchaseOrder", remote_side=[id], foreign_keys=[parent_po_id], backref="child_pos")
+    
+    # Stock Fulfillment Relationships
+    batch_linkages = relationship("POBatchLinkage", back_populates="purchase_order")
 
     # Performance indexes for frequently queried fields and transparency calculations
     __table_args__ = (
