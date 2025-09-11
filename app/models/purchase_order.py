@@ -41,6 +41,13 @@ class PurchaseOrder(Base):
     # Traceability
     input_materials = Column(JSONType)  # [{"source_po_id": "PO-123", "quantity_used": 60.0, "percentage_contribution": 45.5}]
     origin_data = Column(JSONType)  # {"coordinates": {"lat": 1.23, "lng": 103.45}, "certifications": ["RSPO", "NDPE"]}
+    
+    # Commercial Chaining (NEW)
+    parent_po_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=True)  # Links to parent PO
+    supply_chain_level = Column(Integer, default=1)  # 1=Brand, 2=Trader, 3=Processor, 4=Originator
+    is_chain_initiated = Column(Boolean, default=False)  # TRUE if this PO initiated a new chain
+    fulfillment_status = Column(String(20), default='pending')  # 'pending', 'partial', 'fulfilled'
+    fulfillment_percentage = Column(Integer, default=0)  # 0-100 percentage fulfilled
 
     # Additional notes
     notes = Column(Text)
@@ -99,6 +106,9 @@ class PurchaseOrder(Base):
     product = relationship("Product")
     amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
     # confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])  # TODO: Add when column exists
+    
+    # Commercial Chaining Relationships
+    parent_po = relationship("PurchaseOrder", remote_side=[id], foreign_keys=[parent_po_id], backref="child_pos")
 
     # Performance indexes for frequently queried fields and transparency calculations
     __table_args__ = (
@@ -122,6 +132,12 @@ class PurchaseOrder(Base):
         # Indexes for transparency graph traversal
         Index('idx_po_input_materials', 'input_materials'),  # For JSON queries
         Index('idx_po_origin_data', 'origin_data'),  # For JSON queries
+        
+        # Indexes for commercial chaining
+        Index('idx_po_parent_po_id', 'parent_po_id'),
+        Index('idx_po_supply_chain_level', 'supply_chain_level'),
+        Index('idx_po_chain_initiated', 'is_chain_initiated'),
+        Index('idx_po_fulfillment_status', 'fulfillment_status'),
     )
 
     # Relationships
