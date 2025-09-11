@@ -5,11 +5,12 @@ This model supports farm-level structure for ANY company type,
 enabling brands, traders, processors, cooperatives, mills, and originators
 to track individual farms/plantations for regulatory compliance.
 """
-from sqlalchemy import Column, String, Boolean, Numeric, Integer, ForeignKey, DateTime, Index
-from sqlalchemy.dialects.postgresql import UUID, JSONB, GEOGRAPHY
+from sqlalchemy import Column, String, Boolean, Numeric, Integer, ForeignKey, DateTime, Index, Date, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
+from app.models.base import DynamicJSONType
 
 
 class Location(Base):
@@ -37,12 +38,12 @@ class Location(Base):
     is_farm_location = Column(Boolean, default=False)
     farm_type = Column(String(50))  # 'palm_plantation', 'leather_farm', 'silk_farm', 'coffee_farm', etc.
     farm_size_hectares = Column(Numeric(10, 3))
-    farm_polygon = Column(GEOGRAPHY(POLYGON))  # Farm boundaries for large farms
+    farm_polygon = Column(String)  # Farm boundaries for large farms (simplified for now)
     established_year = Column(Integer)
     registration_number = Column(String(100))
     specialization = Column(String(100))  # 'calf_leather', 'mulberry_silk', 'arabica_coffee', etc.
     farm_owner_name = Column(String(200))  # For smallholders
-    farm_contact_info = Column(JSONB)  # Phone, email, address details
+    farm_contact_info = Column(DynamicJSONType)  # Phone, email, address details
     
     # Geographic coordinates (required for farms)
     latitude = Column(Numeric(10, 8))
@@ -51,25 +52,25 @@ class Location(Base):
     elevation_meters = Column(Numeric(8, 2))  # Elevation above sea level
     
     # Compliance and certification data
-    certifications = Column(JSONB)  # RSPO, Organic, Fair Trade, etc.
-    compliance_data = Column(JSONB)  # EUDR, US regulatory compliance data
+    certifications = Column(DynamicJSONType)  # RSPO, Organic, Fair Trade, etc.
+    compliance_data = Column(DynamicJSONType)  # EUDR, US regulatory compliance data
     
     # EUDR Compliance Fields (CRITICAL)
     deforestation_cutoff_date = Column(Date, default='2020-12-31')  # EUDR cutoff date
-    land_use_change_history = Column(JSONB)  # Historical land use changes
-    legal_land_tenure_docs = Column(JSONB)  # Legal documentation for land ownership
-    due_diligence_statement = Column(JSONB)  # EUDR due diligence statement
-    risk_assessment_data = Column(JSONB)  # Deforestation and other risk assessments
+    land_use_change_history = Column(DynamicJSONType)  # Historical land use changes
+    legal_land_tenure_docs = Column(DynamicJSONType)  # Legal documentation for land ownership
+    due_diligence_statement = Column(DynamicJSONType)  # EUDR due diligence statement
+    risk_assessment_data = Column(DynamicJSONType)  # Deforestation and other risk assessments
     compliance_verification_date = Column(DateTime(timezone=True))
     compliance_verified_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     compliance_status = Column(String(20), default='pending')  # 'pending', 'verified', 'failed', 'exempt'
     exemption_reason = Column(Text)  # Reason for compliance exemption
     
     # US Regulatory Compliance Fields
-    uflpa_compliance_data = Column(JSONB)  # UFLPA forced labor risk assessment
-    cbp_documentation = Column(JSONB)  # Customs and Border Protection docs
-    supply_chain_mapping = Column(JSONB)  # Detailed supply chain mapping
-    us_risk_assessment = Column(JSONB)  # US-specific risk assessments
+    uflpa_compliance_data = Column(DynamicJSONType)  # UFLPA forced labor risk assessment
+    cbp_documentation = Column(DynamicJSONType)  # Customs and Border Protection docs
+    supply_chain_mapping = Column(DynamicJSONType)  # Detailed supply chain mapping
+    us_risk_assessment = Column(DynamicJSONType)  # US-specific risk assessments
     
     # Compliance Audit Trail
     last_compliance_check = Column(DateTime(timezone=True))
@@ -90,7 +91,7 @@ class Location(Base):
     company = relationship("Company", foreign_keys=[company_id], back_populates="locations")
     parent_company = relationship("Company", foreign_keys=[parent_company_id])
     batch_contributions = relationship("BatchFarmContribution", back_populates="location")
-    created_by_user = relationship("User")
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
     
     # Indexes for performance
     __table_args__ = (

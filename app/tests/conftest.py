@@ -68,7 +68,11 @@ def db_session(TestingSessionLocal):
     try:
         yield session
     finally:
-        transaction.rollback()
+        try:
+            if transaction.is_active:
+                transaction.rollback()
+        except Exception:
+            pass  # Transaction might already be closed
         session.close()
 
 
