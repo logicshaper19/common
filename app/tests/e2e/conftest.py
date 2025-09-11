@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.main import app
 from app.core.database import get_db
-from tests.e2e.base.test_data_factory import TestDataFactory
-from tests.e2e.helpers.auth_helper import AuthHelper
+from app.tests.e2e.base.test_data_factory import TestDataFactory
+from app.tests.e2e.helpers.auth_helper import AuthHelper
 
 
 @pytest.fixture

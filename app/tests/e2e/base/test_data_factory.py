@@ -9,7 +9,7 @@ from app.models.company import Company
 from app.models.user import User
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
-from tests.e2e.base.personas import PersonaDefinition
+from app.tests.e2e.base.personas import PersonaDefinition
 
 
 class TestDataFactory:

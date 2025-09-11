@@ -11,9 +11,10 @@ from datetime import datetime, timezone, timedelta
 from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 from sqlalchemy import Column, String, DateTime, Text, Integer, Boolean, func
-from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 
 from app.core.database import Base
+from app.models.base import JSONType
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -32,7 +33,7 @@ class ERPSyncQueueItem(Base):
     company_id = Column(PGUUID(as_uuid=True), nullable=False)
     po_id = Column(PGUUID(as_uuid=True), nullable=False)
     event_type = Column(String(50), nullable=False, default='amendment_approved')
-    payload = Column(JSONB, nullable=False)
+    payload = Column(JSONType, nullable=False)
     status = Column(String(20), nullable=False, default='pending')  # 'pending', 'processing', 'completed', 'failed'
     priority = Column(Integer, nullable=False, default=5)  # 1 = highest, 10 = lowest
     max_retries = Column(Integer, nullable=False, default=3)

@@ -5,9 +5,9 @@ import pytest
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 
-from tests.e2e.base.base_journey import BaseJourney
-from tests.e2e.base.personas import PersonaRegistry
-from tests.e2e.helpers.assertions import E2EAssertions
+from app.tests.e2e.base.base_journey import BaseJourney
+from app.tests.e2e.base.personas import PersonaRegistry
+from app.tests.e2e.helpers.assertions import E2EAssertions
 
 
 class ConsumerJourney(BaseJourney):
