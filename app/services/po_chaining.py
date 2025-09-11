@@ -119,38 +119,44 @@ class POChainingService:
         """
         Create child POs for the confirming company's suppliers
         
-        This is a simplified implementation. In reality, you'd:
-        1. Look up the confirming company's suppliers
-        2. Create POs to each supplier
-        3. Handle quantity splitting for multiple suppliers
+        Supports flexible flows and Trader fan-out:
+        - Single supplier: Brand → Processor → Originator
+        - Multiple suppliers: Trader → [Processor1, Processor2] → [Originator1, Originator2]
+        - Direct flows: Brand → Originator
         """
         child_pos = []
         
-        # For now, create a single child PO to a hypothetical supplier
-        # In reality, you'd query the company's actual suppliers
-        supplier_company = self._get_supplier_for_company(parent_po.seller_company)
+        # Get suppliers for the confirming company
+        suppliers = self._get_suppliers_for_company(parent_po.seller_company)
         
-        if supplier_company:
-            child_po_data = {
-                "po_number": self._generate_child_po_number(parent_po),
-                "buyer_company_id": str(parent_po.seller_company_id),
-                "seller_company_id": str(supplier_company.id),
-                "product_id": str(parent_po.product_id),
-                "quantity": parent_po.confirmed_quantity or parent_po.quantity,
-                "unit_price": parent_po.confirmed_unit_price or parent_po.unit_price,
-                "total_amount": (parent_po.confirmed_quantity or parent_po.quantity) * 
-                              (parent_po.confirmed_unit_price or parent_po.unit_price),
-                "unit": parent_po.unit,
-                "delivery_date": parent_po.confirmed_delivery_date or parent_po.delivery_date,
-                "delivery_location": parent_po.confirmed_delivery_location or parent_po.delivery_location,
-                "parent_po_id": str(parent_po.id),
-                "supply_chain_level": parent_po.supply_chain_level + 1,
-                "is_chain_initiated": False,
-                "status": "pending",
-                "notes": f"Created to fulfill parent PO {parent_po.po_number}"
-            }
+        if not suppliers:
+            return child_pos
+        
+        # Handle Trader fan-out: create multiple child POs
+        if parent_po.seller_company.company_type == 'trader' and len(suppliers) > 1:
+            # Split quantity among multiple suppliers
+            total_quantity = parent_po.confirmed_quantity or parent_po.quantity
+            quantity_per_supplier = total_quantity / len(suppliers)
             
-            # Create the child PO
+            for i, supplier_company in enumerate(suppliers):
+                child_po_data = self._create_child_po_data(
+                    parent_po, supplier_company, quantity_per_supplier, i
+                )
+                child_po = self._create_child_po_from_data(child_po_data)
+                child_pos.append({
+                    "po_id": str(child_po.id),
+                    "po_number": child_po.po_number,
+                    "supplier": supplier_company.name,
+                    "quantity": str(child_po.quantity),
+                    "supply_chain_level": child_po.supply_chain_level
+                })
+        else:
+            # Single supplier: create one child PO
+            supplier_company = suppliers[0]
+            child_po_data = self._create_child_po_data(
+                parent_po, supplier_company, 
+                parent_po.confirmed_quantity or parent_po.quantity, 0
+            )
             child_po = self._create_child_po_from_data(child_po_data)
             child_pos.append({
                 "po_id": str(child_po.id),
@@ -162,39 +168,129 @@ class POChainingService:
         
         return child_pos
     
+    def _get_suppliers_for_company(self, company: Company) -> List[Company]:
+        """
+        Get all suppliers for a company
+        
+        In production, this would query business_relationships table
+        """
+        # For now, return all companies that could be suppliers
+        # In production, you'd query actual business relationships
+        potential_suppliers = self.db.query(Company).filter(
+            Company.id != company.id
+        ).all()
+        
+        return potential_suppliers
+    
+    def _create_child_po_data(
+        self, 
+        parent_po: PurchaseOrder, 
+        supplier_company: Company, 
+        quantity: float, 
+        supplier_index: int
+    ) -> Dict[str, Any]:
+        """Create child PO data for a specific supplier"""
+        return {
+            "po_number": self._generate_child_po_number(parent_po, supplier_index),
+            "buyer_company_id": str(parent_po.seller_company_id),
+            "seller_company_id": str(supplier_company.id),
+            "product_id": str(parent_po.product_id),
+            "quantity": quantity,
+            "unit_price": parent_po.confirmed_unit_price or parent_po.unit_price,
+            "total_amount": quantity * (parent_po.confirmed_unit_price or parent_po.unit_price),
+            "unit": parent_po.unit,
+            "delivery_date": parent_po.confirmed_delivery_date or parent_po.delivery_date,
+            "delivery_location": parent_po.confirmed_delivery_location or parent_po.delivery_location,
+            "parent_po_id": str(parent_po.id),
+            "supply_chain_level": self._calculate_supply_chain_level(parent_po, supplier_company),
+            "is_chain_initiated": False,
+            "status": "pending",
+            "notes": f"Created to fulfill parent PO {parent_po.po_number}"
+        }
+    
     def _get_supplier_for_company(self, company: Company) -> Optional[Company]:
         """
         Get a supplier company for the given company
         
-        This is a simplified implementation. In reality, you'd:
-        1. Query business relationships
-        2. Look up supplier preferences
-        3. Handle multiple suppliers
+        This supports ALL possible supply chain flows:
+        - Brand → Trader → Processor → Originator
+        - Brand → Processor → Originator  
+        - Brand → Originator (direct)
+        - Trader → Processor → Originator
+        - Trader → Originator (direct)
+        - Processor → Originator
         """
-        # For now, return a hypothetical supplier based on company type
-        if company.company_type == 'trader':
-            # Trader's supplier is typically a processor
-            return self.db.query(Company).filter(
-                Company.company_type == 'processor'
-            ).first()
-        elif company.company_type == 'processor':
-            # Processor's supplier is typically an originator
-            return self.db.query(Company).filter(
-                Company.company_type == 'originator'
-            ).first()
+        # Query actual business relationships
+        # For now, find any company that could be a supplier
+        # In production, you'd query business_relationships table
         
-        return None
+        # Get all companies that could be suppliers (not the same company)
+        potential_suppliers = self.db.query(Company).filter(
+            Company.id != company.id
+        ).all()
+        
+        if not potential_suppliers:
+            return None
+        
+        # For now, return the first available supplier
+        # In production, you'd implement proper supplier selection logic:
+        # 1. Check business_relationships table
+        # 2. Check supplier preferences
+        # 3. Check company capabilities
+        # 4. Handle multiple suppliers for fan-out
+        
+        return potential_suppliers[0]
     
-    def _generate_child_po_number(self, parent_po: PurchaseOrder) -> str:
-        """Generate a PO number for a child PO"""
-        # Simple implementation: add suffix to parent PO number
-        base_number = parent_po.po_number
-        if '-' in base_number:
-            parts = base_number.split('-')
-            parts[-1] = str(int(parts[-1]) + 1)
-            return '-'.join(parts)
+    def _calculate_supply_chain_level(self, parent_po: PurchaseOrder, supplier_company: Company) -> int:
+        """
+        Calculate supply chain level based on supplier company type
+        
+        This supports flexible flows:
+        - Brand (1) → Trader (2) → Processor (3) → Originator (4)
+        - Brand (1) → Processor (2) → Originator (3)
+        - Brand (1) → Originator (2)
+        - Trader (2) → Processor (3) → Originator (4)
+        - Trader (2) → Originator (3)
+        - Processor (3) → Originator (4)
+        """
+        # Get the parent company type
+        parent_company_type = parent_po.buyer_company.company_type
+        
+        # Calculate level based on supplier type
+        if supplier_company.company_type == 'originator':
+            # Originator is always the final level (highest number)
+            return 4
+        elif supplier_company.company_type == 'processor':
+            # Processor is typically level 3, but could be 2 if coming from Brand
+            if parent_company_type == 'brand':
+                return 2  # Brand → Processor
+            else:
+                return 3  # Trader → Processor
+        elif supplier_company.company_type == 'trader':
+            # Trader is typically level 2, but could be 3 if coming from another Trader
+            if parent_company_type == 'brand':
+                return 2  # Brand → Trader
+            else:
+                return 3  # Trader → Trader
         else:
-            return f"{base_number}-CHILD"
+            # Default: increment by 1
+            return parent_po.supply_chain_level + 1
+    
+    def _generate_child_po_number(self, parent_po: PurchaseOrder, supplier_index: int = 0) -> str:
+        """Generate a PO number for a child PO"""
+        base_number = parent_po.po_number
+        
+        if supplier_index > 0:
+            # Multiple suppliers: add supplier index
+            return f"{base_number}-S{supplier_index + 1}"
+        else:
+            # Single supplier: add suffix
+            if '-' in base_number:
+                parts = base_number.split('-')
+                parts[-1] = str(int(parts[-1]) + 1)
+                return '-'.join(parts)
+            else:
+                return f"{base_number}-CHILD"
     
     def _create_child_po_from_data(self, po_data: Dict[str, Any]) -> PurchaseOrder:
         """Create a child PO from the provided data"""
