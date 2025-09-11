@@ -49,6 +49,11 @@ class PurchaseOrder(Base):
     fulfillment_status = Column(String(20), default='pending')  # 'pending', 'partial', 'fulfilled'
     fulfillment_percentage = Column(Integer, default=0)  # 0-100 percentage fulfilled
     fulfillment_notes = Column(Text)  # Notes about how fulfillment was handled
+    
+    # PO State Management (NEW)
+    po_state = Column(String(20), default='OPEN')  # 'OPEN', 'PARTIALLY_FULFILLED', 'FULFILLED', 'CLOSED'
+    fulfilled_quantity = Column(Numeric(12, 3), default=0)  # Quantity fulfilled from this PO
+    linked_po_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=True)  # For commitment inventory linking
 
     # Additional notes
     notes = Column(Text)
@@ -113,6 +118,10 @@ class PurchaseOrder(Base):
     
     # Stock Fulfillment Relationships
     batch_linkages = relationship("POBatchLinkage", back_populates="purchase_order")
+    
+    # Network/DAG Fulfillment Relationships
+    fulfillment_allocations = relationship("POFulfillmentAllocation", foreign_keys="POFulfillmentAllocation.po_id", back_populates="po")
+    source_allocations = relationship("POFulfillmentAllocation", foreign_keys="POFulfillmentAllocation.source_po_id", back_populates="source_po")
 
     # Performance indexes for frequently queried fields and transparency calculations
     __table_args__ = (
