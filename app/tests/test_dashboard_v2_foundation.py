@@ -24,7 +24,28 @@ from app.models.company import Company
 
 class TestFeatureFlags:
     """Test feature flag system for dashboard v2"""
-    
+
+    def setup_method(self):
+        """Setup for each test method - store original feature flag state"""
+        self.original_flags = {}
+        for flag in [
+            FeatureFlag.V2_DASHBOARD_BRAND,
+            FeatureFlag.V2_DASHBOARD_PROCESSOR,
+            FeatureFlag.V2_DASHBOARD_ORIGINATOR,
+            FeatureFlag.V2_DASHBOARD_TRADER,
+            FeatureFlag.V2_DASHBOARD_PLATFORM_ADMIN,
+            FeatureFlag.V2_NOTIFICATION_CENTER
+        ]:
+            self.original_flags[flag] = feature_flags.is_enabled(flag)
+
+    def teardown_method(self):
+        """Cleanup after each test method - restore original feature flag state"""
+        for flag, original_state in self.original_flags.items():
+            if original_state:
+                feature_flags.enable(flag)
+            else:
+                feature_flags.disable(flag)
+
     def test_dashboard_v2_flags_exist(self):
         """Test that all dashboard v2 feature flags are defined"""
         assert hasattr(FeatureFlag, 'V2_DASHBOARD_BRAND')
@@ -101,17 +122,17 @@ class TestDashboardV2API:
 
     def test_feature_flags_endpoint_requires_auth(self, client):
         """Test that feature flags endpoint requires authentication"""
-        response = client.get("/api/dashboard-v2/feature-flags")
+        response = client.get("/api/v2/dashboard/feature-flags")
         assert response.status_code == 403  # FastAPI HTTPBearer returns 403, not 401
 
     def test_dashboard_config_endpoint_requires_auth(self, client):
         """Test that dashboard config endpoint requires authentication"""
-        response = client.get("/api/dashboard-v2/config")
+        response = client.get("/api/v2/dashboard/config")
         assert response.status_code == 403  # FastAPI HTTPBearer returns 403, not 401
 
     def test_feature_flags_endpoint_with_auth(self, brand_user_client):
         """Test feature flags endpoint with authentication"""
-        response = brand_user_client.get("/api/dashboard-v2/feature-flags")
+        response = brand_user_client.get("/api/v2/dashboard/feature-flags")
         assert response.status_code == 200
 
         data = response.json()
@@ -125,7 +146,7 @@ class TestDashboardV2API:
 
     def test_dashboard_config_endpoint_with_auth(self, brand_user_client):
         """Test dashboard config endpoint with authentication"""
-        response = brand_user_client.get("/api/dashboard-v2/config")
+        response = brand_user_client.get("/api/v2/dashboard/config")
         assert response.status_code == 200
 
         data = response.json()
@@ -278,22 +299,81 @@ class TestDashboardV2EndToEnd:
         assert processor_responses["originator"].status_code == 403
 
 
+class TestDashboardV2ErrorHandling:
+    """Test Dashboard V2 error scenarios and edge cases"""
+
+    def test_invalid_dashboard_type(self, brand_user_client):
+        """Test handling of invalid dashboard type"""
+        response = brand_user_client.get("/api/v2/dashboard/metrics/invalid-type")
+        assert response.status_code == 404
+
+        error_data = response.json()
+        assert "detail" in error_data
+
+    def test_malformed_requests(self, brand_user_client):
+        """Test handling of malformed requests"""
+        # Test with invalid HTTP methods
+        response = brand_user_client.post("/api/v2/dashboard/config")
+        assert response.status_code == 405  # Method not allowed
+
+        response = brand_user_client.put("/api/v2/dashboard/feature-flags")
+        assert response.status_code == 405  # Method not allowed
+
+    def test_permission_boundaries(self, brand_user_client, processor_user_client):
+        """Test strict permission boundaries between user types"""
+        # Brand user trying to access all other dashboard types
+        forbidden_endpoints = [
+            "/api/v2/dashboard/metrics/processor",
+            "/api/v2/dashboard/metrics/originator",
+            "/api/v2/dashboard/metrics/trader",
+            "/api/v2/dashboard/metrics/platform-admin"
+        ]
+
+        for endpoint in forbidden_endpoints:
+            response = brand_user_client.get(endpoint)
+            assert response.status_code == 403, f"Brand user should not access {endpoint}"
+
+        # Processor user trying to access other dashboard types
+        processor_forbidden = [
+            "/api/v2/dashboard/metrics/brand",
+            "/api/v2/dashboard/metrics/originator",
+            "/api/v2/dashboard/metrics/trader",
+            "/api/v2/dashboard/metrics/platform-admin"
+        ]
+
+        for endpoint in processor_forbidden:
+            response = processor_user_client.get(endpoint)
+            assert response.status_code == 403, f"Processor user should not access {endpoint}"
+
+    def test_invalid_authentication_tokens(self, client):
+        """Test handling of invalid authentication tokens"""
+        # Test with malformed Bearer token
+        headers = {"Authorization": "Bearer invalid-token"}
+        response = client.get("/api/v2/dashboard/config", headers=headers)
+        assert response.status_code in [401, 403]  # Should reject invalid token
+
+        # Test with wrong token format
+        headers = {"Authorization": "Basic invalid-format"}
+        response = client.get("/api/v2/dashboard/config", headers=headers)
+        assert response.status_code in [401, 403]  # Should reject wrong format
+
+
 class TestDashboardMetricsAPI:
     """Test Dashboard Metrics API endpoints"""
 
     def test_brand_metrics_requires_brand_company(self, processor_user_client):
         """Test that brand metrics endpoint requires brand company"""
-        response = processor_user_client.get("/api/dashboard-v2/metrics/brand")
+        response = processor_user_client.get("/api/v2/dashboard/metrics/brand")
         assert response.status_code == 403
 
     def test_processor_metrics_requires_processor_company(self, brand_user_client):
         """Test that processor metrics endpoint requires processor company"""
-        response = brand_user_client.get("/api/dashboard-v2/metrics/processor")
+        response = brand_user_client.get("/api/v2/dashboard/metrics/processor")
         assert response.status_code == 403
 
     def test_brand_metrics_with_brand_user(self, brand_user_client):
         """Test brand metrics endpoint with brand user"""
-        response = brand_user_client.get("/api/dashboard-v2/metrics/brand")
+        response = brand_user_client.get("/api/v2/dashboard/metrics/brand")
         assert response.status_code == 200
 
         data = response.json()
@@ -303,7 +383,7 @@ class TestDashboardMetricsAPI:
 
     def test_processor_metrics_with_processor_user(self, processor_user_client):
         """Test processor metrics endpoint with processor user"""
-        response = processor_user_client.get("/api/dashboard-v2/metrics/processor")
+        response = processor_user_client.get("/api/v2/dashboard/metrics/processor")
         assert response.status_code == 200
 
         data = response.json()
