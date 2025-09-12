@@ -62,6 +62,39 @@ class TestPermissionService:
         permission_service = PermissionService(None)
         assert permission_service is not None
 
+    def test_get_dashboard_type_brand(self, simple_scenario):
+        """Test dashboard type detection for brand users"""
+        permission_service = PermissionService(None)
+        brand_company = next(c for c in simple_scenario.companies if c.company_type == "brand")
+        brand_user = next(u for u in simple_scenario.users if u.company_id == brand_company.id)
+        dashboard_type = permission_service.get_dashboard_type(brand_user)
+        assert dashboard_type == "brand"
+
+    def test_get_dashboard_type_processor(self, simple_scenario):
+        """Test dashboard type detection for processor users"""
+        permission_service = PermissionService(None)
+        processor_company = next(c for c in simple_scenario.companies if c.company_type == "processor")
+        processor_user = next(u for u in simple_scenario.users if u.company_id == processor_company.id)
+        dashboard_type = permission_service.get_dashboard_type(processor_user)
+        assert dashboard_type == "processor"
+
+    def test_get_dashboard_type_originator(self, simple_scenario):
+        """Test dashboard type detection for originator users"""
+        permission_service = PermissionService(None)
+        originator_company = next(c for c in simple_scenario.companies if c.company_type == "originator")
+        originator_user = next(u for u in simple_scenario.users if u.company_id == originator_company.id)
+        dashboard_type = permission_service.get_dashboard_type(originator_user)
+        assert dashboard_type == "originator"
+
+    def test_dashboard_config_includes_dashboard_type(self, simple_scenario):
+        """Test that dashboard config includes dashboard type"""
+        permission_service = PermissionService(None)
+        brand_company = next(c for c in simple_scenario.companies if c.company_type == "brand")
+        brand_user = next(u for u in simple_scenario.users if u.company_id == brand_company.id)
+        config = permission_service.get_user_dashboard_config(brand_user)
+        assert "dashboard_type" in config
+        assert config["dashboard_type"] == "brand"
+
 
 class TestDashboardV2API:
     """Test Dashboard V2 API endpoints"""
@@ -69,12 +102,12 @@ class TestDashboardV2API:
     def test_feature_flags_endpoint_requires_auth(self, client):
         """Test that feature flags endpoint requires authentication"""
         response = client.get("/api/dashboard-v2/feature-flags")
-        assert response.status_code == 401
+        assert response.status_code == 403  # FastAPI HTTPBearer returns 403, not 401
 
     def test_dashboard_config_endpoint_requires_auth(self, client):
         """Test that dashboard config endpoint requires authentication"""
         response = client.get("/api/dashboard-v2/config")
-        assert response.status_code == 401
+        assert response.status_code == 403  # FastAPI HTTPBearer returns 403, not 401
 
     def test_feature_flags_endpoint_with_auth(self, brand_user_client):
         """Test feature flags endpoint with authentication"""
@@ -154,6 +187,95 @@ class TestDashboardV2Integration:
         # Brand user should NOT access processor metrics
         response = brand_user_client.get("/api/v2/dashboard/metrics/processor")
         assert response.status_code == 403
+
+
+class TestDashboardV2EndToEnd:
+    """End-to-end tests for complete Dashboard V2 workflows"""
+
+    def test_complete_brand_user_workflow(self, brand_user_client):
+        """Test complete workflow for brand user from login to dashboard usage"""
+
+        # Step 1: Get feature flags
+        flags_response = brand_user_client.get("/api/v2/dashboard/feature-flags")
+        assert flags_response.status_code == 200
+        flags = flags_response.json()
+
+        # Step 2: Get dashboard configuration
+        config_response = brand_user_client.get("/api/v2/dashboard/config")
+        assert config_response.status_code == 200
+        config = config_response.json()
+        assert config["dashboard_type"] == "brand"
+
+        # Step 3: Get dashboard metrics
+        metrics_response = brand_user_client.get("/api/v2/dashboard/metrics/brand")
+        assert metrics_response.status_code == 200
+        metrics = metrics_response.json()
+
+        # Verify complete dashboard data structure
+        assert "supply_chain_overview" in metrics
+        assert "supplier_portfolio" in metrics
+        assert "recent_activity" in metrics
+
+        # Verify metrics have expected structure
+        overview = metrics["supply_chain_overview"]
+        assert "total_pos" in overview
+        assert "traced_to_mill" in overview
+        assert "traced_to_farm" in overview
+        assert "transparency_percentage" in overview
+
+    def test_complete_processor_user_workflow(self, processor_user_client):
+        """Test complete workflow for processor user"""
+
+        # Step 1: Get dashboard configuration
+        config_response = processor_user_client.get("/api/v2/dashboard/config")
+        assert config_response.status_code == 200
+        config = config_response.json()
+        assert config["dashboard_type"] == "processor"
+
+        # Step 2: Get processor-specific metrics
+        metrics_response = processor_user_client.get("/api/v2/dashboard/metrics/processor")
+        assert metrics_response.status_code == 200
+        metrics = metrics_response.json()
+
+        # Verify processor dashboard structure
+        assert "incoming_pos" in metrics
+        assert "production_overview" in metrics
+        assert "recent_activity" in metrics
+
+        # Verify processor can't access brand metrics
+        brand_metrics_response = processor_user_client.get("/api/v2/dashboard/metrics/brand")
+        assert brand_metrics_response.status_code == 403
+
+    def test_dashboard_permission_enforcement_comprehensive(self, brand_user_client, processor_user_client):
+        """Test comprehensive permission enforcement across all dashboard types"""
+
+        # Test brand user permissions
+        brand_responses = {
+            "brand": brand_user_client.get("/api/v2/dashboard/metrics/brand"),
+            "processor": brand_user_client.get("/api/v2/dashboard/metrics/processor"),
+            "originator": brand_user_client.get("/api/v2/dashboard/metrics/originator"),
+            "trader": brand_user_client.get("/api/v2/dashboard/metrics/trader"),
+            "platform-admin": brand_user_client.get("/api/v2/dashboard/metrics/platform-admin")
+        }
+
+        # Brand user should only access brand metrics
+        assert brand_responses["brand"].status_code == 200
+        assert brand_responses["processor"].status_code == 403
+        assert brand_responses["originator"].status_code == 403
+        assert brand_responses["trader"].status_code == 403
+        assert brand_responses["platform-admin"].status_code == 403
+
+        # Test processor user permissions
+        processor_responses = {
+            "brand": processor_user_client.get("/api/v2/dashboard/metrics/brand"),
+            "processor": processor_user_client.get("/api/v2/dashboard/metrics/processor"),
+            "originator": processor_user_client.get("/api/v2/dashboard/metrics/originator"),
+        }
+
+        # Processor user should only access processor metrics
+        assert processor_responses["brand"].status_code == 403
+        assert processor_responses["processor"].status_code == 200
+        assert processor_responses["originator"].status_code == 403
 
 
 class TestDashboardMetricsAPI:

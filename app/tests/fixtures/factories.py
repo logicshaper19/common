@@ -82,8 +82,9 @@ class CompanyFactory:
             company_type=company_type,
             email=f"contact@{name.lower().replace(' ', '').replace(',', '').replace('.', '')}.com",
             phone=f"+{random.randint(1, 999)}-{random.randint(100, 999)}-{random.randint(1000, 9999)}",
-            address=f"{random.randint(1, 999)} Business St, {country}",
-            country=country,
+            address_street=f"{random.randint(1, 999)} Business St",
+            address_city=country,  # Using country as city for simplicity
+            address_country=country,
             website=f"https://www.{name.lower().replace(' ', '').replace(',', '').replace('.', '')}.com",
             description=f"Leading {company_type} company specializing in sustainable supply chain operations."
         )
