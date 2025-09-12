@@ -62,6 +62,7 @@ from app.api.deterministic_transparency import router as deterministic_transpare
 from app.api.admin_migration import router as admin_migration_router
 from app.api.debug_transparency import router as debug_transparency_router
 from app.api.companies import router as companies_router
+from app.api.dashboard_v2 import router as dashboard_v2_router
 from app.services.seed_data import SeedDataService
 from app.core.service_container import get_container
 from app.services.event_handlers import initialize_event_handlers
@@ -308,6 +309,7 @@ app.include_router(tier_requirements_router, tags=["Tier Requirements"])
 app.include_router(deterministic_transparency_router, prefix="/api/v1", tags=["Deterministic Transparency"])
 app.include_router(admin_migration_router, prefix="/api/v1", tags=["Admin Migration"])
 app.include_router(debug_transparency_router, prefix="/api/v1", tags=["Debug Transparency"])
+app.include_router(dashboard_v2_router, tags=["Dashboard V2"])
 
 
 @app.get("/")

@@ -8,10 +8,19 @@ export enum FeatureFlag {
   ENABLE_TIER_PERMISSIONS = 'ENABLE_TIER_PERMISSIONS',
   ENABLE_SECTOR_MIGRATION = 'ENABLE_SECTOR_MIGRATION',
   ENABLE_SECTOR_PRODUCTS = 'ENABLE_SECTOR_PRODUCTS',
+
+  // Dashboard V2 feature flags
+  V2_DASHBOARD_BRAND = 'v2_dashboard_brand',
+  V2_DASHBOARD_PROCESSOR = 'v2_dashboard_processor',
+  V2_DASHBOARD_ORIGINATOR = 'v2_dashboard_originator',
+  V2_DASHBOARD_TRADER = 'v2_dashboard_trader',
+  V2_DASHBOARD_PLATFORM_ADMIN = 'v2_dashboard_platform_admin',
+  V2_NOTIFICATION_CENTER = 'v2_notification_center',
 }
 
 class FeatureFlagManager {
   private flags: Record<string, boolean> = {};
+  private apiFlags: Record<string, boolean> = {};
 
   constructor() {
     this.loadFlags();
@@ -25,6 +34,14 @@ class FeatureFlagManager {
       [FeatureFlag.ENABLE_TIER_PERMISSIONS]: false,
       [FeatureFlag.ENABLE_SECTOR_MIGRATION]: true,
       [FeatureFlag.ENABLE_SECTOR_PRODUCTS]: false,
+
+      // Dashboard V2 defaults (will be loaded from API)
+      [FeatureFlag.V2_DASHBOARD_BRAND]: false,
+      [FeatureFlag.V2_DASHBOARD_PROCESSOR]: false,
+      [FeatureFlag.V2_DASHBOARD_ORIGINATOR]: false,
+      [FeatureFlag.V2_DASHBOARD_TRADER]: false,
+      [FeatureFlag.V2_DASHBOARD_PLATFORM_ADMIN]: false,
+      [FeatureFlag.V2_NOTIFICATION_CENTER]: false,
     };
 
     // Load from environment variables (if available)
@@ -36,6 +53,28 @@ class FeatureFlagManager {
         this.flags[flag] = defaultValue;
       }
     });
+  }
+
+  async loadFromAPI() {
+    try {
+      const response = await fetch('/api/dashboard-v2/feature-flags', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (response.ok) {
+        const apiFlags = await response.json();
+        this.apiFlags = apiFlags;
+
+        // Update local flags with API values for dashboard v2 flags
+        Object.keys(apiFlags).forEach(flag => {
+          this.flags[flag] = apiFlags[flag];
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to load feature flags from API:', error);
+    }
   }
 
   isEnabled(flag: FeatureFlag): boolean {
@@ -71,8 +110,27 @@ export const isTierPermissionsEnabled = (): boolean =>
 export const isSectorMigrationEnabled = (): boolean => 
   featureFlags.isEnabled(FeatureFlag.ENABLE_SECTOR_MIGRATION);
 
-export const isSectorProductsEnabled = (): boolean => 
+export const isSectorProductsEnabled = (): boolean =>
   featureFlags.isEnabled(FeatureFlag.ENABLE_SECTOR_PRODUCTS);
+
+// Dashboard V2 convenience functions
+export const isV2DashboardBrandEnabled = (): boolean =>
+  featureFlags.isEnabled(FeatureFlag.V2_DASHBOARD_BRAND);
+
+export const isV2DashboardProcessorEnabled = (): boolean =>
+  featureFlags.isEnabled(FeatureFlag.V2_DASHBOARD_PROCESSOR);
+
+export const isV2DashboardOriginatorEnabled = (): boolean =>
+  featureFlags.isEnabled(FeatureFlag.V2_DASHBOARD_ORIGINATOR);
+
+export const isV2DashboardTraderEnabled = (): boolean =>
+  featureFlags.isEnabled(FeatureFlag.V2_DASHBOARD_TRADER);
+
+export const isV2DashboardPlatformAdminEnabled = (): boolean =>
+  featureFlags.isEnabled(FeatureFlag.V2_DASHBOARD_PLATFORM_ADMIN);
+
+export const isV2NotificationCenterEnabled = (): boolean =>
+  featureFlags.isEnabled(FeatureFlag.V2_NOTIFICATION_CENTER);
 
 // Rollout configuration
 export const ROLLOUT_CONFIG = {

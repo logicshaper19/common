@@ -162,18 +162,41 @@ class PermissionService:
             "can_manage_settings": user.role == UserRole.ADMIN,
             "can_audit_companies": user.role == UserRole.AUDITOR,
             "can_regulate_platform": user.role == UserRole.REGULATOR,
+            "dashboard_type": self.get_dashboard_type(user),
         }
-        
+
         # Company-type specific features
         if user.company.company_type == CompanyType.TRADER:
             config["can_manage_trader_chain"] = True
             config["can_view_margin_analysis"] = True
-        
+
         if user.company.company_type == CompanyType.ORIGINATOR:
             config["can_report_farm_data"] = True
             config["can_manage_certifications"] = True
-        
+
         return config
+
+    def get_dashboard_type(self, user: User) -> str:
+        """
+        Determine which dashboard type to show based on user's company type
+        Returns dashboard type string for routing decisions
+        """
+        # Map company types to dashboard types
+        company_type_mapping = {
+            CompanyType.BRAND: "brand",
+            CompanyType.PROCESSOR: "processor",
+            CompanyType.ORIGINATOR: "originator",
+            CompanyType.TRADER: "trader",
+            CompanyType.AUDITOR: "auditor",
+            CompanyType.REGULATOR: "regulator"
+        }
+
+        # Special handling for platform admin roles
+        if user.role in ["super_admin", "support"]:
+            return "platform_admin"
+
+        # Return dashboard type based on company type
+        return company_type_mapping.get(user.company.company_type, "default")
     
     # ============================================================================
     # PRIVATE HELPER METHODS

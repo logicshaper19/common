@@ -20,6 +20,14 @@ class FeatureFlag(Enum):
     ENABLE_AMENDMENT_NOTIFICATIONS = "ENABLE_AMENDMENT_NOTIFICATIONS"
     ENABLE_AMENDMENT_AUDIT = "ENABLE_AMENDMENT_AUDIT"
 
+    # Dashboard V2 feature flags
+    V2_DASHBOARD_BRAND = "V2_DASHBOARD_BRAND"
+    V2_DASHBOARD_PROCESSOR = "V2_DASHBOARD_PROCESSOR"
+    V2_DASHBOARD_ORIGINATOR = "V2_DASHBOARD_ORIGINATOR"
+    V2_DASHBOARD_TRADER = "V2_DASHBOARD_TRADER"
+    V2_DASHBOARD_PLATFORM_ADMIN = "V2_DASHBOARD_PLATFORM_ADMIN"
+    V2_NOTIFICATION_CENTER = "V2_NOTIFICATION_CENTER"
+
 
 class FeatureFlagManager:
     """Manages feature flags for the application"""
@@ -43,6 +51,14 @@ class FeatureFlagManager:
             FeatureFlag.ENABLE_PHASE_2_ERP_AMENDMENTS.value: False,  # Phase 2 disabled by default
             FeatureFlag.ENABLE_AMENDMENT_NOTIFICATIONS.value: True,
             FeatureFlag.ENABLE_AMENDMENT_AUDIT.value: True,
+
+            # Dashboard V2 defaults (disabled by default for gradual rollout)
+            FeatureFlag.V2_DASHBOARD_BRAND.value: False,
+            FeatureFlag.V2_DASHBOARD_PROCESSOR.value: False,
+            FeatureFlag.V2_DASHBOARD_ORIGINATOR.value: False,
+            FeatureFlag.V2_DASHBOARD_TRADER.value: False,
+            FeatureFlag.V2_DASHBOARD_PLATFORM_ADMIN.value: False,
+            FeatureFlag.V2_NOTIFICATION_CENTER.value: False,
         }
         
         # Load from environment with defaults
@@ -115,6 +131,37 @@ def is_amendment_notifications_enabled() -> bool:
 def is_amendment_audit_enabled() -> bool:
     """Check if amendment audit logging is enabled"""
     return feature_flags.is_enabled(FeatureFlag.ENABLE_AMENDMENT_AUDIT)
+
+
+# Dashboard V2 feature flag functions
+def is_v2_dashboard_brand_enabled() -> bool:
+    """Check if Brand Dashboard V2 is enabled"""
+    return feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_BRAND)
+
+
+def is_v2_dashboard_processor_enabled() -> bool:
+    """Check if Processor Dashboard V2 is enabled"""
+    return feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_PROCESSOR)
+
+
+def is_v2_dashboard_originator_enabled() -> bool:
+    """Check if Originator Dashboard V2 is enabled"""
+    return feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_ORIGINATOR)
+
+
+def is_v2_dashboard_trader_enabled() -> bool:
+    """Check if Trader Dashboard V2 is enabled"""
+    return feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_TRADER)
+
+
+def is_v2_dashboard_platform_admin_enabled() -> bool:
+    """Check if Platform Admin Dashboard V2 is enabled"""
+    return feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_PLATFORM_ADMIN)
+
+
+def is_v2_notification_center_enabled() -> bool:
+    """Check if Notification Center V2 is enabled"""
+    return feature_flags.is_enabled(FeatureFlag.V2_NOTIFICATION_CENTER)
 
 
 # Utility functions for backward compatibility
