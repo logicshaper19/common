@@ -10,6 +10,7 @@ import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
+import DashboardRouter from './components/dashboard/DashboardRouter';
 
 import TransparencyDashboard from './pages/TransparencyDashboard';
 import SupplierOnboardingDashboard from './pages/SupplierOnboardingDashboard';
@@ -40,7 +41,7 @@ function App() {
             {/* Dashboard - default route when authenticated */}
             <Route path="dashboard" element={
               <ProtectedRoute>
-                <Dashboard />
+                <DashboardRouter />
               </ProtectedRoute>
             } />
 
