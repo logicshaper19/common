@@ -59,15 +59,27 @@ class Company(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    # Relationships will be added as we create other models
-    # users = relationship("User", back_populates="company")
-    # purchase_orders_as_buyer = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.buyer_company_id")
-    # purchase_orders_as_seller = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.seller_company_id")
+    # Relationships
+    users = relationship("User", back_populates="company")
+    purchase_orders_as_buyer = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.buyer_company_id", back_populates="buyer_company")
+    purchase_orders_as_seller = relationship("PurchaseOrder", foreign_keys="PurchaseOrder.seller_company_id", back_populates="seller_company")
     sector = relationship("Sector", back_populates="companies")
     team_invitations = relationship("TeamInvitation", back_populates="company")
     brands = relationship("Brand", back_populates="company", cascade="all, delete-orphan")
     gap_actions = relationship("GapAction", foreign_keys="GapAction.company_id", back_populates="company")
     locations = relationship("Location", foreign_keys="Location.company_id", back_populates="company")
+    
+    # Amendment relationships
+    proposed_amendments = relationship(
+        "Amendment",
+        foreign_keys="Amendment.proposed_by_company_id",
+        back_populates="proposed_by_company"
+    )
+    amendments_requiring_approval = relationship(
+        "Amendment", 
+        foreign_keys="Amendment.requires_approval_from_company_id",
+        back_populates="requires_approval_from_company"
+    )
 
     # Performance indexes for frequently queried fields
     __table_args__ = (

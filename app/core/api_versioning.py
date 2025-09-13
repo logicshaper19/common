@@ -328,7 +328,7 @@ class VersionCompatibilityManager:
 # Default version configuration
 DEFAULT_VERSION_CONFIG = VersionConfig(
     default_version="v1",
-    supported_versions=["v1"],
+    supported_versions=["v1", "v2"],
     deprecated_versions=[],
     sunset_versions=[],
     version_info={
@@ -342,6 +342,19 @@ DEFAULT_VERSION_CONFIG = VersionConfig(
                 "Transparency calculations",
                 "User authentication",
                 "Company management"
+            ]
+        ),
+        "v2": VersionInfo(
+            version="v2",
+            status=VersionStatus.ACTIVE,
+            release_date=datetime(2024, 9, 12),
+            description="Dashboard V2 with role-specific dashboards and enhanced features",
+            new_features=[
+                "Role-specific dashboards",
+                "Feature flag system",
+                "Enhanced dashboard configuration",
+                "Super admin role support",
+                "Dashboard V2 API endpoints"
             ]
         )
     }

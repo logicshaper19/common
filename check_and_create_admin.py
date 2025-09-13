@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 
 # Database path
-DB_PATH = "../common.db"
+DB_PATH = "common.db"
 
 def hash_password(password: str) -> str:
     """Hash password using the same method as the app."""

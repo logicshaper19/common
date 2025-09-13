@@ -17,7 +17,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def test_admin_password():
     """Test admin password verification."""
     
-    DB_PATH = "../common.db"
+    DB_PATH = "common.db"
     
     if not os.path.exists(DB_PATH):
         print(f"❌ Database not found at {DB_PATH}")

@@ -107,8 +107,8 @@ class PurchaseOrder(Base):
     # confirmed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))  # TODO: Add this column to database
 
     # Relationships
-    buyer_company = relationship("Company", foreign_keys=[buyer_company_id])
-    seller_company = relationship("Company", foreign_keys=[seller_company_id])
+    buyer_company = relationship("Company", foreign_keys=[buyer_company_id], back_populates="purchase_orders_as_buyer")
+    seller_company = relationship("Company", foreign_keys=[seller_company_id], back_populates="purchase_orders_as_seller")
     product = relationship("Product")
     amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
     # confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])  # TODO: Add when column exists

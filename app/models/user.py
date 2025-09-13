@@ -5,8 +5,12 @@ from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, func, Inde
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
+from typing import TYPE_CHECKING
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.team_invitation import TeamInvitation
 
 
 class User(Base):
@@ -29,14 +33,14 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    # company = relationship("Company", back_populates="users")
+    company = relationship("Company", back_populates="users")
     sector = relationship("Sector", back_populates="users")
     sent_invitations = relationship("TeamInvitation", 
-                                  foreign_keys="TeamInvitation.invited_by_user_id", 
+                                  foreign_keys="[TeamInvitation.invited_by_user_id]", 
                                   back_populates="invited_by",
                                   lazy="select")
     accepted_invitations = relationship("TeamInvitation", 
-                                      foreign_keys="TeamInvitation.accepted_by_user_id", 
+                                      foreign_keys="[TeamInvitation.accepted_by_user_id]", 
                                       back_populates="accepted_by",
                                       lazy="select")
 

@@ -367,136 +367,206 @@ export function SystemMonitoring({ className = '' }: SystemMonitoringProps) {
             </div>
           ) : systemHealth ? (
             <>
-              {/* Overall Status */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">System Overview</h3>
-                  {getHealthStatusBadge(systemHealth.status)}
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{systemHealth.uptime}%</div>
-                    <div className="text-sm text-gray-500">Uptime</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{systemHealth.version}</div>
-                    <div className="text-sm text-gray-500">Version</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{systemHealth.services.length}</div>
-                    <div className="text-sm text-gray-500">Services</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{systemHealth.alerts.length}</div>
-                    <div className="text-sm text-gray-500">Active Alerts</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* System Metrics */}
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Performance Metrics</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">CPU Usage</span>
-                      <span className="text-sm text-gray-900">{systemHealth.metrics.cpu_usage}%</span>
+              {/* Key Metrics Cards - Keep these as cards for visual emphasis */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="text-2xl font-bold text-gray-900">{systemHealth.uptime}%</div>
+                      <div className="text-sm text-gray-500">Uptime</div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          systemHealth.metrics.cpu_usage > 80 ? 'bg-red-600' :
-                          systemHealth.metrics.cpu_usage > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                        }`}
-                        style={{ width: `${systemHealth.metrics.cpu_usage}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Memory Usage</span>
-                      <span className="text-sm text-gray-900">{systemHealth.metrics.memory_usage}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          systemHealth.metrics.memory_usage > 80 ? 'bg-red-600' :
-                          systemHealth.metrics.memory_usage > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                        }`}
-                        style={{ width: `${systemHealth.metrics.memory_usage}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Disk Usage</span>
-                      <span className="text-sm text-gray-900">{systemHealth.metrics.disk_usage}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          systemHealth.metrics.disk_usage > 80 ? 'bg-red-600' :
-                          systemHealth.metrics.disk_usage > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                        }`}
-                        style={{ width: `${systemHealth.metrics.disk_usage}%` }}
-                      ></div>
+                    <div className="ml-4">
+                      {getHealthStatusBadge(systemHealth.status)}
                     </div>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-gray-900">{systemHealth.metrics.active_connections}</div>
-                    <div className="text-sm text-gray-500">Active Connections</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-gray-900">{systemHealth.metrics.requests_per_minute}</div>
-                    <div className="text-sm text-gray-500">Requests/min</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-gray-900">{systemHealth.metrics.error_rate}%</div>
-                    <div className="text-sm text-gray-500">Error Rate</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-gray-900">{systemHealth.metrics.average_response_time}ms</div>
-                    <div className="text-sm text-gray-500">Avg Response</div>
-                  </div>
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="text-2xl font-bold text-gray-900">{systemHealth.version}</div>
+                  <div className="text-sm text-gray-500">Version</div>
+                </div>
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="text-2xl font-bold text-gray-900">{systemHealth.services.length}</div>
+                  <div className="text-sm text-gray-500">Services</div>
+                </div>
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="text-2xl font-bold text-gray-900">{systemHealth.alerts.length}</div>
+                  <div className="text-sm text-gray-500">Active Alerts</div>
                 </div>
               </div>
 
-              {/* Services Status */}
+              {/* System Health Table */}
               <div className="bg-white shadow rounded-lg overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Services Status</h3>
+                  <h3 className="text-lg font-medium text-gray-900">System Health Overview</h3>
                 </div>
-                <div className="divide-y divide-gray-200">
-                  {systemHealth.services.map((service) => (
-                    <div key={service.name} className="px-6 py-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          {getServiceStatusIcon(service.status)}
-                          <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">{service.name}</div>
-                            <div className="text-sm text-gray-500">
-                              Response time: {service.response_time_ms}ms
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Component</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uptime</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Check</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {systemHealth.services.map((service) => (
+                        <tr key={service.name} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {getServiceStatusIcon(service.status)}
+                              <div className="ml-3">
+                                <div className="text-sm font-medium text-gray-900">{service.name}</div>
+                                {service.error_message && (
+                                  <div className="text-sm text-red-600">{service.error_message}</div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm text-gray-900">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              service.status === 'healthy' ? 'bg-green-100 text-green-800' :
+                              service.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                              service.status === 'critical' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {service.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            N/A
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {service.response_time_ms}ms
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatTimeAgo(service.last_check)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button className="text-primary-600 hover:text-primary-900 mr-3">Monitor</button>
+                            {service.status !== 'healthy' && (
+                              <button className="text-red-600 hover:text-red-900">Investigate</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Performance Metrics Table */}
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-900">Performance Metrics</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Value</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visual</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">CPU Usage</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{systemHealth.metrics.cpu_usage}%</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            systemHealth.metrics.cpu_usage > 80 ? 'bg-red-100 text-red-800' :
+                            systemHealth.metrics.cpu_usage > 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {systemHealth.metrics.cpu_usage > 80 ? 'Critical' :
+                             systemHealth.metrics.cpu_usage > 60 ? 'Warning' : 'Normal'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                systemHealth.metrics.cpu_usage > 80 ? 'bg-red-600' :
+                                systemHealth.metrics.cpu_usage > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                              }`}
+                              style={{ width: `${systemHealth.metrics.cpu_usage}%` }}
+                            ></div>
                           </div>
-                          {service.error_message && (
-                            <div className="text-sm text-red-600">{service.error_message}</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Memory Usage</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{systemHealth.metrics.memory_usage}%</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            systemHealth.metrics.memory_usage > 80 ? 'bg-red-100 text-red-800' :
+                            systemHealth.metrics.memory_usage > 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {systemHealth.metrics.memory_usage > 80 ? 'Critical' :
+                             systemHealth.metrics.memory_usage > 60 ? 'Warning' : 'Normal'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                systemHealth.metrics.memory_usage > 80 ? 'bg-red-600' :
+                                systemHealth.metrics.memory_usage > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                              }`}
+                              style={{ width: `${systemHealth.metrics.memory_usage}%` }}
+                            ></div>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Disk Usage</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{systemHealth.metrics.disk_usage}%</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            systemHealth.metrics.disk_usage > 80 ? 'bg-red-100 text-red-800' :
+                            systemHealth.metrics.disk_usage > 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {systemHealth.metrics.disk_usage > 80 ? 'Critical' :
+                             systemHealth.metrics.disk_usage > 60 ? 'Warning' : 'Normal'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                systemHealth.metrics.disk_usage > 80 ? 'bg-red-600' :
+                                systemHealth.metrics.disk_usage > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                              }`}
+                              style={{ width: `${systemHealth.metrics.disk_usage}%` }}
+                            ></div>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Additional Metrics Cards - Keep these as cards for quick reference */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="text-lg font-semibold text-gray-900">{systemHealth.metrics.active_connections}</div>
+                  <div className="text-sm text-gray-500">Active Connections</div>
+                </div>
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="text-lg font-semibold text-gray-900">{systemHealth.metrics.requests_per_minute}</div>
+                  <div className="text-sm text-gray-500">Requests/min</div>
+                </div>
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="text-lg font-semibold text-gray-900">{systemHealth.metrics.error_rate}%</div>
+                  <div className="text-sm text-gray-500">Error Rate</div>
+                </div>
+                <div className="bg-white shadow rounded-lg p-6">
+                  <div className="text-lg font-semibold text-gray-900">{systemHealth.metrics.average_response_time}ms</div>
+                  <div className="text-sm text-gray-500">Avg Response</div>
                 </div>
               </div>
             </>
@@ -583,7 +653,27 @@ export function SystemMonitoring({ className = '' }: SystemMonitoringProps) {
           ) : (
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">System Alerts</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-gray-900">System Alerts</h3>
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm text-gray-500">
+                      {systemAlerts.filter(a => !a.acknowledged_at).length} active alerts
+                    </span>
+                    <button
+                      onClick={() => {
+                        // Bulk acknowledge all alerts
+                        systemAlerts.forEach(alert => {
+                          if (!alert.acknowledged_at) {
+                            handleAcknowledgeAlert(alert.id);
+                          }
+                        });
+                      }}
+                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                    >
+                      Acknowledge All
+                    </button>
+                  </div>
+                </div>
               </div>
               {systemAlerts.length === 0 ? (
                 <div className="p-8 text-center">
@@ -592,39 +682,71 @@ export function SystemMonitoring({ className = '' }: SystemMonitoringProps) {
                   <p className="mt-1 text-sm text-gray-500">All systems are operating normally.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
-                  {systemAlerts.map((alert) => (
-                    <div key={alert.id} className={`px-6 py-4 ${alert.acknowledged_at ? 'bg-gray-50' : ''}`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {systemAlerts.map((alert) => (
+                        <tr key={alert.id} className={`hover:bg-gray-50 ${alert.acknowledged_at ? 'bg-gray-50' : ''}`}>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             {getAlertSeverityBadge(alert.severity)}
-                            <span className="ml-2 text-sm font-medium text-gray-900">{alert.title}</span>
-                          </div>
-                          <div className="mt-1 text-sm text-gray-700">{alert.description}</div>
-                          <div className="mt-2 flex items-center text-xs text-gray-500">
-                            <ClockIcon className="h-4 w-4 mr-1" />
-                            Created {formatTimeAgo(alert.created_at)}
-                            {alert.acknowledged_at && (
-                              <>
-                                <span className="mx-2">•</span>
-                                <CheckCircleIcon className="h-4 w-4 mr-1" />
-                                Acknowledged by {alert.acknowledged_by} {formatTimeAgo(alert.acknowledged_at)}
-                              </>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {alert.title}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 max-w-xs truncate" title={alert.description}>
+                              {alert.description}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center">
+                              <ClockIcon className="h-4 w-4 mr-1" />
+                              {formatTimeAgo(alert.created_at)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {alert.acknowledged_at ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircleIcon className="h-3 w-3 mr-1" />
+                                Acknowledged
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Active
+                              </span>
                             )}
-                          </div>
-                        </div>
-                        {!alert.acknowledged_at && (
-                          <button
-                            onClick={() => handleAcknowledgeAlert(alert.id)}
-                            className="ml-4 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                          >
-                            Acknowledge
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {!alert.acknowledged_at ? (
+                              <button
+                                onClick={() => handleAcknowledgeAlert(alert.id)}
+                                className="text-primary-600 hover:text-primary-900 mr-3"
+                              >
+                                Acknowledge
+                              </button>
+                            ) : (
+                              <span className="text-gray-400">
+                                Acknowledged by {alert.acknowledged_by}
+                              </span>
+                            )}
+                            <button className="text-gray-600 hover:text-gray-900">
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -635,21 +757,25 @@ export function SystemMonitoring({ className = '' }: SystemMonitoringProps) {
       {/* Backups Tab */}
       {activeTab === 'backups' && (
         <div className="space-y-6">
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={() => handleCreateBackup('incremental')}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <PlayIcon className="h-4 w-4 mr-2" />
-              Incremental Backup
-            </button>
-            <button
-              onClick={() => handleCreateBackup('full')}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <PlayIcon className="h-4 w-4 mr-2" />
-              Full Backup
-            </button>
+          {/* Quick Actions - Keep as cards for easy access */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Backup Actions</h3>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => handleCreateBackup('incremental')}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                <PlayIcon className="h-4 w-4 mr-2" />
+                Incremental Backup
+              </button>
+              <button
+                onClick={() => handleCreateBackup('full')}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                <PlayIcon className="h-4 w-4 mr-2" />
+                Full Backup
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -669,52 +795,75 @@ export function SystemMonitoring({ className = '' }: SystemMonitoringProps) {
                   <p className="mt-1 text-sm text-gray-500">Create your first backup to get started.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
-                  {backupStatus.map((backup) => (
-                    <div key={backup.id} className="px-6 py-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {backupStatus.map((backup) => (
+                        <tr key={backup.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">
+                            {backup.type} Backup
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             {getBackupStatusBadge(backup.status)}
-                            <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
-                              {backup.type} Backup
-                            </span>
-                          </div>
-                          <div className="mt-1 text-sm text-gray-500">
-                            Started: {new Date(backup.started_at).toLocaleString()}
-                            {backup.completed_at && (
-                              <span className="ml-4">
-                                Completed: {new Date(backup.completed_at).toLocaleString()}
-                              </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(backup.started_at).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {backup.completed_at ? new Date(backup.completed_at).toLocaleString() : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {backup.size_bytes ? formatBytes(backup.size_bytes) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {backup.file_count ? backup.file_count.toLocaleString() : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="max-w-xs truncate" title={backup.location}>
+                              {backup.location}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              Retention: {backup.retention_days} days
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {backup.status === 'running' && (
+                              <div className="flex items-center text-blue-600">
+                                <ArrowPathIcon className="h-4 w-4 animate-spin mr-1" />
+                                <span className="text-sm">In Progress</span>
+                              </div>
                             )}
-                          </div>
-                          {backup.size_bytes && (
-                            <div className="mt-1 text-sm text-gray-500">
-                              Size: {formatBytes(backup.size_bytes)}
-                              {backup.file_count && (
-                                <span className="ml-4">Files: {backup.file_count.toLocaleString()}</span>
-                              )}
-                            </div>
-                          )}
-                          <div className="mt-1 text-xs text-gray-400">
-                            Location: {backup.location}
-                            <span className="ml-4">Retention: {backup.retention_days} days</span>
-                          </div>
-                          {backup.error_message && (
-                            <div className="mt-1 text-sm text-red-600">{backup.error_message}</div>
-                          )}
-                        </div>
-                        <div className="ml-4 flex items-center space-x-2">
-                          {backup.status === 'running' && (
-                            <div className="flex items-center text-blue-600">
-                              <ArrowPathIcon className="h-4 w-4 animate-spin mr-1" />
-                              <span className="text-sm">In Progress</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                            {backup.status === 'completed' && (
+                              <div className="flex space-x-2">
+                                <button className="text-primary-600 hover:text-primary-900">Download</button>
+                                <button className="text-gray-600 hover:text-gray-900">Restore</button>
+                              </div>
+                            )}
+                            {backup.status === 'failed' && (
+                              <button className="text-red-600 hover:text-red-900">Retry</button>
+                            )}
+                            {backup.error_message && (
+                              <div className="text-xs text-red-600 max-w-xs truncate" title={backup.error_message}>
+                                {backup.error_message}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

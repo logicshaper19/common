@@ -55,7 +55,7 @@ export interface User {
 export interface Company {
   id: string;
   name: string;
-  company_type: 'brand' | 'processor' | 'originator' | 'plantation';
+  company_type: 'brand' | 'processor' | 'originator' | 'plantation' | 'plantation_grower' | 'smallholder_cooperative' | 'mill_processor' | 'refinery_crusher' | 'trader_aggregator' | 'oleochemical_producer' | 'manufacturer';
   email: string;
   phone?: string;
   address?: string;

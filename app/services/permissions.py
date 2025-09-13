@@ -31,6 +31,7 @@ class UserRole(str, Enum):
     PRODUCTION_MANAGER = "production_manager"      # Confirm POs, manage production
     VIEWER = "viewer"                         # Read-only access
     AUDITOR = "auditor"                       # Cross-company read access
+    REGULATOR = "regulator"                   # Platform regulation
 
 
 class PermissionService:
@@ -181,18 +182,25 @@ class PermissionService:
         Determine which dashboard type to show based on user's company type
         Returns dashboard type string for routing decisions
         """
-        # Map company types to dashboard types
+        # Map company types to dashboard types (including database values)
         company_type_mapping = {
             CompanyType.BRAND: "brand",
             CompanyType.PROCESSOR: "processor",
             CompanyType.ORIGINATOR: "originator",
             CompanyType.TRADER: "trader",
             CompanyType.AUDITOR: "auditor",
-            CompanyType.REGULATOR: "regulator"
+            CompanyType.REGULATOR: "regulator",
+            # Database company type mappings
+            "brand": "brand",
+            "mill_processor": "processor", 
+            "plantation_grower": "originator",
+            "trader_aggregator": "trader",
+            "auditor": "auditor",
+            "regulator": "regulator"
         }
 
         # Special handling for platform admin roles
-        if user.role in ["super_admin", "support"]:
+        if user.role in ["super_admin", "support", "admin"]:
             return "platform_admin"
 
         # Return dashboard type based on company type

@@ -170,7 +170,7 @@ export interface Company {
   address_country?: string;
 }
 
-export type CompanyType = 'plantation_grower' | 'smallholder_cooperative' | 'mill_processor' | 'refinery_crusher' | 'trader_aggregator' | 'oleochemical_producer' | 'manufacturer';
+export type CompanyType = 'brand' | 'processor' | 'originator' | 'plantation' | 'plantation_grower' | 'smallholder_cooperative' | 'mill_processor' | 'refinery_crusher' | 'trader_aggregator' | 'oleochemical_producer' | 'manufacturer';
 export type SubscriptionTier = 'free' | 'basic' | 'premium' | 'enterprise';
 export type ComplianceStatus = 'compliant' | 'warning' | 'non_compliant' | 'pending_review';
 

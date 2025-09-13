@@ -57,9 +57,17 @@ class FeatureFlagManager {
 
   async loadFromAPI() {
     try {
-      const response = await fetch('/api/dashboard-v2/feature-flags', {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.warn('No authentication token found, skipping feature flags API call');
+        return;
+      }
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v2/dashboard/feature-flags`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
@@ -71,6 +79,10 @@ class FeatureFlagManager {
         Object.keys(apiFlags).forEach(flag => {
           this.flags[flag] = apiFlags[flag];
         });
+      } else if (response.status === 401 || response.status === 403) {
+        console.warn('Authentication failed for feature flags API');
+      } else {
+        console.warn(`Feature flags API returned ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       console.warn('Failed to load feature flags from API:', error);

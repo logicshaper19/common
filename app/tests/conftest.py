@@ -94,10 +94,16 @@ def client(db_session):
 
 
 @pytest.fixture
-def auth_headers():
+def auth_headers(db_session):
     """Create authentication headers factory."""
     def _create_headers(user_email: str) -> Dict[str, str]:
-        token = create_access_token(data={"sub": user_email})
+        # Get user from test database session
+        from app.models.user import User
+        user = db_session.query(User).filter(User.email == user_email).first()
+        if not user:
+            raise ValueError(f"User with email {user_email} not found")
+        
+        token = create_access_token(data={"sub": str(user.id)})
         return {"Authorization": f"Bearer {token}"}
     
     return _create_headers
@@ -624,11 +630,18 @@ def api_assertions():
 def deterministic_seed():
     """Set deterministic seed for reproducible tests."""
     import random
-    import numpy as np
     
     seed = 42
     random.seed(seed)
-    np.random.seed(seed)
+    
+    # Try to set numpy seed if available, otherwise skip
+    try:
+        import numpy as np
+        np.random.seed(seed)
+    except ImportError:
+        # numpy not available, using only Python's random
+        pass
+    
     return seed
 
 
@@ -715,40 +728,48 @@ def performance_monitor():
 @pytest.fixture
 def test_company(db_session):
     """Create a standardized test company."""
-    return CompanyFactory.create_company(
+    company = CompanyFactory.create_company(
         company_type="processor",
-        name="Test Company",
-        email="test-company@example.com"
+        name="Test Company"
     )
+    db_session.add(company)
+    db_session.commit()
+    db_session.refresh(company)
+    return company
 
 
 @pytest.fixture
 def test_buyer_company(db_session):
     """Create a standardized buyer company."""
-    return CompanyFactory.create_company(
-        company_type="buyer",
-        name="Test Buyer Company",
-        email="buyer@example.com"
+    company = CompanyFactory.create_company(
+        company_type="brand",
+        name="Test Buyer Company"
     )
+    db_session.add(company)
+    db_session.commit()
+    db_session.refresh(company)
+    return company
 
 
 @pytest.fixture
 def test_seller_company(db_session):
     """Create a standardized seller company."""
-    return CompanyFactory.create_company(
-        company_type="seller",
-        name="Test Seller Company",
-        email="seller@example.com"
+    company = CompanyFactory.create_company(
+        company_type="processor",
+        name="Test Seller Company"
     )
+    db_session.add(company)
+    db_session.commit()
+    db_session.refresh(company)
+    return company
 
 
 @pytest.fixture
 def test_user(db_session, test_company):
     """Create a standardized test user."""
     user = UserFactory.create_user(
-        email="test-user@example.com",
-        role="buyer",
-        company_id=test_company.id
+        company=test_company,
+        role="buyer"
     )
     db_session.add(user)
     db_session.commit()
@@ -759,10 +780,38 @@ def test_user(db_session, test_company):
 @pytest.fixture
 def test_admin_user(db_session):
     """Create a standardized admin user."""
+    # Create a temporary company for the admin user
+    admin_company = CompanyFactory.create_company(
+        company_type="brand",
+        name="Admin Company"
+    )
+    db_session.add(admin_company)
+    db_session.commit()
+    
     user = UserFactory.create_user(
-        email="admin@example.com",
-        role="admin",
-        company_id=None
+        company=admin_company,
+        role="admin"
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def test_super_admin_user(db_session):
+    """Create a standardized super admin user."""
+    # Create a temporary company for the super admin user
+    super_admin_company = CompanyFactory.create_company(
+        company_type="brand",
+        name="Super Admin Company"
+    )
+    db_session.add(super_admin_company)
+    db_session.commit()
+    
+    user = UserFactory.create_user(
+        company=super_admin_company,
+        role="super_admin"
     )
     db_session.add(user)
     db_session.commit()
@@ -774,9 +823,8 @@ def test_admin_user(db_session):
 def test_product(db_session):
     """Create a standardized test product."""
     product = ProductFactory.create_product(
-        common_product_id="TEST-001",
-        name="Test Product",
-        category="test_category"
+        category="processed",
+        name="Test Product"
     )
     db_session.add(product)
     db_session.commit()
@@ -788,9 +836,9 @@ def test_product(db_session):
 def test_purchase_order(db_session, test_buyer_company, test_seller_company, test_product):
     """Create a standardized test purchase order."""
     po = PurchaseOrderFactory.create_purchase_order(
-        buyer_company_id=test_buyer_company.id,
-        seller_company_id=test_seller_company.id,
-        product_id=test_product.id,
+        buyer_company=test_buyer_company,
+        seller_company=test_seller_company,
+        product=test_product,
         quantity=100.0,
         unit_price=10.50
     )

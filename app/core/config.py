@@ -19,6 +19,7 @@ from app.core.environment_config import (
     Environment as EnvEnum,
     EnvironmentConfig
 )
+from database_config import get_current_database_url, get_database_info
 
 
 class Settings(BaseSettings):
@@ -34,7 +35,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # Database
-    database_url: str = Field(..., alias="DATABASE_URL")
+    database_url: str = Field(default_factory=get_current_database_url, alias="DATABASE_URL")
     database_pool_size: int = Field(default=10, alias="DATABASE_POOL_SIZE")
     database_max_overflow: int = Field(default=20, alias="DATABASE_MAX_OVERFLOW")
     database_pool_timeout: int = Field(default=30, alias="DATABASE_POOL_TIMEOUT")
@@ -98,6 +99,14 @@ class Settings(BaseSettings):
     enable_sector_system: bool = Field(default=False, alias="ENABLE_SECTOR_SYSTEM")
     enable_erp_integration: bool = Field(default=False, alias="ENABLE_ERP_INTEGRATION")
     enable_compliance_checks: bool = Field(default=True, alias="ENABLE_COMPLIANCE_CHECKS")
+    
+    # Dashboard V2 Feature Flags
+    v2_dashboard_brand: bool = Field(default=False, alias="V2_DASHBOARD_BRAND")
+    v2_dashboard_processor: bool = Field(default=False, alias="V2_DASHBOARD_PROCESSOR")
+    v2_dashboard_originator: bool = Field(default=False, alias="V2_DASHBOARD_ORIGINATOR")
+    v2_dashboard_trader: bool = Field(default=False, alias="V2_DASHBOARD_TRADER")
+    v2_dashboard_platform_admin: bool = Field(default=False, alias="V2_DASHBOARD_PLATFORM_ADMIN")
+    v2_notification_center: bool = Field(default=False, alias="V2_NOTIFICATION_CENTER")
 
     # Validators
     @validator('environment')
