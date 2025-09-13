@@ -214,10 +214,10 @@ class SeedDataService:
         from app.core.security import hash_password
         import os
         
-        # Check if any admin user exists
-        existing_admin = self.db.query(User).filter(User.role == "admin").first()
-        if existing_admin:
-            logger.info("Admin user already exists, skipping creation")
+        # Check if any super admin user exists
+        existing_super_admin = self.db.query(User).filter(User.role == "super_admin").first()
+        if existing_super_admin:
+            logger.info("Super admin user already exists, skipping creation")
             return
         
         # Get admin configuration from settings
@@ -246,7 +246,7 @@ class SeedDataService:
                 email=admin_email,
                 hashed_password=hashed_password,
                 full_name=admin_name,
-                role="admin",
+                role="super_admin",
                 is_active=True,
                 company_id=company.id
             )
@@ -255,7 +255,7 @@ class SeedDataService:
             self.db.commit()
             
             logger.info(
-                "Default admin user created successfully",
+                "Default super admin user created successfully",
                 email=admin_email,
                 company=company_name
             )

@@ -1,14 +1,20 @@
 """
 Amendment database model for purchase order amendments.
 """
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, Index, func
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, Index, func, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from app.core.database import Base
 from app.models.base import JSONType
+from app.models.enums import AmendmentType, AmendmentStatus, AmendmentPriority, AmendmentReason
+
+if TYPE_CHECKING:
+    from .purchase_order import PurchaseOrder
+    from .company import Company
 
 
 class Amendment(Base):
@@ -22,10 +28,10 @@ class Amendment(Base):
     amendment_number = Column(String(50), unique=True, nullable=False)  # 'AMD-PO-202409-0001-001'
     
     # Amendment details
-    amendment_type = Column(String(50), nullable=False)  # From AmendmentType enum
-    status = Column(String(30), nullable=False, default='pending')  # From AmendmentStatus enum
-    reason = Column(String(50), nullable=False)  # From AmendmentReason enum
-    priority = Column(String(20), nullable=False, default='medium')  # From AmendmentPriority enum
+    amendment_type = Column(Enum(AmendmentType), nullable=False)
+    status = Column(Enum(AmendmentStatus), nullable=False, default=AmendmentStatus.PENDING)
+    reason = Column(Enum(AmendmentReason), nullable=False)
+    priority = Column(Enum(AmendmentPriority), nullable=False, default=AmendmentPriority.MEDIUM)
     
     # Changes (stored as JSON)
     changes = Column(JSONType, nullable=False)  # List of AmendmentChange objects
@@ -62,8 +68,16 @@ class Amendment(Base):
     
     # Relationships
     purchase_order = relationship("PurchaseOrder", back_populates="amendments")
-    proposed_by_company = relationship("Company", foreign_keys=[proposed_by_company_id])
-    requires_approval_from_company = relationship("Company", foreign_keys=[requires_approval_from_company_id])
+    proposed_by_company = relationship(
+        "Company", 
+        foreign_keys=[proposed_by_company_id],
+        back_populates="proposed_amendments"
+    )
+    requires_approval_from_company = relationship(
+        "Company", 
+        foreign_keys=[requires_approval_from_company_id],
+        back_populates="amendments_requiring_approval"
+    )
     
     # Database constraints and indexes
     __table_args__ = (
@@ -94,20 +108,20 @@ class Amendment(Base):
     def can_be_approved(self) -> bool:
         """Check if the amendment can be approved."""
         return (
-            self.status == 'pending' and 
+            self.status == AmendmentStatus.PENDING and 
             not self.is_expired()
         )
     
     def can_be_applied(self) -> bool:
         """Check if the amendment can be applied."""
         return (
-            self.status == 'approved' and
+            self.status == AmendmentStatus.APPROVED and
             not self.is_expired()
         )
     
     def requires_erp_integration(self) -> bool:
         """Check if this amendment requires ERP integration."""
-        return self.requires_erp_sync and self.status == 'approved'
+        return self.requires_erp_sync and self.status == AmendmentStatus.APPROVED
     
     def get_primary_change_description(self) -> str:
         """Get a description of the primary change."""
@@ -132,3 +146,52 @@ class Amendment(Base):
             return float(self.impact_assessment.get('financial_impact', 0.0))
         
         return 0.0
+    
+    def validate_changes(self) -> bool:
+        """Validate the changes structure."""
+        if not self.changes:
+            return False
+        
+        if isinstance(self.changes, list):
+            return all(
+                isinstance(change, dict) and 
+                'field_name' in change and
+                'old_value' in change and 
+                'new_value' in change
+                for change in self.changes
+            )
+        return False
+    
+    def get_status_display(self) -> str:
+        """Get a human-readable status display."""
+        status_map = {
+            AmendmentStatus.PENDING: "Pending Review",
+            AmendmentStatus.APPROVED: "Approved",
+            AmendmentStatus.REJECTED: "Rejected",
+            AmendmentStatus.APPLIED: "Applied",
+            AmendmentStatus.EXPIRED: "Expired",
+            AmendmentStatus.CANCELLED: "Cancelled"
+        }
+        return status_map.get(self.status, str(self.status))
+    
+    def get_priority_display(self) -> str:
+        """Get a human-readable priority display."""
+        priority_map = {
+            AmendmentPriority.LOW: "Low",
+            AmendmentPriority.MEDIUM: "Medium", 
+            AmendmentPriority.HIGH: "High",
+            AmendmentPriority.URGENT: "Urgent"
+        }
+        return priority_map.get(self.priority, str(self.priority))
+    
+    def is_high_priority(self) -> bool:
+        """Check if this is a high or urgent priority amendment."""
+        return self.priority in [AmendmentPriority.HIGH, AmendmentPriority.URGENT]
+    
+    def get_days_until_expiry(self) -> int:
+        """Get number of days until expiry (negative if expired)."""
+        if not self.expires_at:
+            return float('inf')
+        
+        delta = self.expires_at - datetime.now(timezone.utc)
+        return delta.days

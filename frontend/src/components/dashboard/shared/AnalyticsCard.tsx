@@ -5,7 +5,7 @@
 import React from 'react';
 import { Card, CardHeader, CardBody } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { Badge } from '../../ui/Badge';
+
 import { 
   ArrowUpIcon, 
   ArrowDownIcon, 
@@ -44,7 +44,7 @@ export const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
   className = ''
 }) => {
   const getColorClasses = (color: string) => {
-    const colorMap = {
+    const colorMap: Record<string, { bg: string; text: string; icon: string }> = {
       blue: {
         bg: 'bg-blue-50',
         text: 'text-blue-600',

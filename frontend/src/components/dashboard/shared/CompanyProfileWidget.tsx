@@ -61,7 +61,7 @@ export const CompanyProfileWidget: React.FC<CompanyProfileWidgetProps> = ({
 
       const response = await fetch(`/api/v1/companies/${companyId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
 

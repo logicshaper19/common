@@ -34,6 +34,12 @@ export function getRoleBadge(role: UserRole) {
 
 export function getCompanyTypeBadge(type: CompanyType) {
   const styles = {
+    // Legacy company types
+    brand: 'bg-purple-100 text-purple-800',
+    processor: 'bg-blue-100 text-blue-800',
+    originator: 'bg-green-100 text-green-800',
+    plantation: 'bg-green-100 text-green-800',
+    // New sector-specific company types
     plantation_grower: 'bg-green-100 text-green-800',
     smallholder_cooperative: 'bg-emerald-100 text-emerald-800',
     mill_processor: 'bg-blue-100 text-blue-800',
@@ -44,6 +50,12 @@ export function getCompanyTypeBadge(type: CompanyType) {
   };
 
   const labels = {
+    // Legacy company types
+    brand: 'Brand',
+    processor: 'Processor',
+    originator: 'Originator',
+    plantation: 'Plantation',
+    // New sector-specific company types
     plantation_grower: 'Plantation / Grower',
     smallholder_cooperative: 'Smallholder / Cooperative',
     mill_processor: 'Mill / Processor',

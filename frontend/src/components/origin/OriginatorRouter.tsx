@@ -41,8 +41,10 @@ const OriginatorRouter: React.FC<OriginatorRouterProps> = ({ view = 'dashboard' 
     const sectorId = user?.sector_id;
     const tierLevel = user?.tier_level;
     
-    // Check if company type indicates originator
-    const isOriginatorType = companyType === 'originator' || companyType === 'plantation';
+    // Check if company type indicates originator (legacy and new types)
+    const isOriginatorType = companyType === 'originator' || 
+                            companyType === 'plantation_grower' || 
+                            companyType === 'smallholder_cooperative';
     
     // Check if sector/tier indicates originator (T6/T7 in palm oil)
     const isOriginatorTier = (sectorId === 'palm_oil' && (tierLevel === 6 || tierLevel === 7)) ||

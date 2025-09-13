@@ -178,6 +178,7 @@ def require_roles(required_roles: list[str]):
 
 # Common role dependencies
 require_admin = require_role("admin")
+require_super_admin = require_role("super_admin")
 require_buyer = require_role("buyer")
 require_seller = require_role("seller")
 require_buyer_or_seller = require_roles(["buyer", "seller"])

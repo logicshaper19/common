@@ -39,10 +39,10 @@ class AuthAttemptResult(str, Enum):
 class AuthRateLimitConfig:
     """Configuration for authentication rate limiting."""
     
-    # Base rate limits
-    MAX_ATTEMPTS_PER_MINUTE = 5
-    MAX_ATTEMPTS_PER_HOUR = 20
-    MAX_ATTEMPTS_PER_DAY = 100
+    # Base rate limits (increased for development)
+    MAX_ATTEMPTS_PER_MINUTE = 50
+    MAX_ATTEMPTS_PER_HOUR = 200
+    MAX_ATTEMPTS_PER_DAY = 1000
     
     # Progressive penalty thresholds
     PENALTY_THRESHOLDS = {

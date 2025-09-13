@@ -13,12 +13,12 @@ import { ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outl
 // Lazy load dashboard components for better performance
 const LegacyDashboard = React.lazy(() => import('../../pages/Dashboard'));
 
-// V2 Dashboard components with error boundaries
-const BrandDashboardV2 = React.lazy(() => import('./brand/BrandDashboardV2'));
-const ProcessorDashboardV2 = React.lazy(() => import('./processor/ProcessorDashboardV2'));
-const OriginatorDashboardV2 = React.lazy(() => import('./originator/OriginatorDashboardV2'));
-const TraderDashboardV2 = React.lazy(() => import('./trader/TraderDashboardV2'));
-const PlatformAdminDashboardV2 = React.lazy(() => import('./admin/PlatformAdminDashboardV2'));
+// V2 Dashboard Content Components (work with main layout)
+const OriginatorLayout = React.lazy(() => import('./v2/OriginatorLayout'));
+const BrandLayout = React.lazy(() => import('./v2/BrandLayout'));
+const ProcessorLayout = React.lazy(() => import('./v2/ProcessorLayout'));
+const TraderLayout = React.lazy(() => import('./v2/TraderLayout'));
+const PlatformAdminLayout = React.lazy(() => import('./v2/PlatformAdminLayout'));
 
 interface DashboardRouterProps {
   className?: string;
@@ -66,14 +66,14 @@ export const DashboardRouter: React.FC<DashboardRouterProps> = ({ className = ''
   const dashboardType = config.dashboard_type;
   const shouldUseV2 = config.should_use_v2;
 
-  // If V2 is enabled for this dashboard type, show V2 dashboard with real-time updates
+  // If V2 is enabled for this dashboard type, render V2 content directly
   if (shouldUseV2) {
     return (
       <RealTimeProvider>
         <DashboardErrorBoundary>
           <Suspense fallback={<DashboardLoadingFallback />}>
-            <div className={`dashboard-v2 ${className}`}>
-              {getDashboardV2Component(dashboardType)}
+            <div className={`dashboard-v2-content ${className}`}>
+              {getDashboardV2Layout(dashboardType)}
             </div>
           </Suspense>
         </DashboardErrorBoundary>
@@ -83,34 +83,36 @@ export const DashboardRouter: React.FC<DashboardRouterProps> = ({ className = ''
 
   // Otherwise, show legacy dashboard
   return (
-    <DashboardErrorBoundary>
-      <Suspense fallback={<DashboardLoadingFallback />}>
-        <div className={`dashboard-v1 ${className}`}>
-          <LegacyDashboard />
-        </div>
-      </Suspense>
-    </DashboardErrorBoundary>
+    <RealTimeProvider>
+      <DashboardErrorBoundary>
+        <Suspense fallback={<DashboardLoadingFallback />}>
+          <div className={`dashboard-v1 ${className}`}>
+            <LegacyDashboard />
+          </div>
+        </Suspense>
+      </DashboardErrorBoundary>
+    </RealTimeProvider>
   );
 };
 
 /**
- * Get the appropriate V2 dashboard component based on dashboard type
+ * Get the appropriate V2 dashboard content based on dashboard type
  */
-const getDashboardV2Component = (dashboardType: string): React.ReactElement => {
+const getDashboardV2Layout = (dashboardType: string): React.ReactElement => {
   switch (dashboardType) {
     case 'brand':
-      return <BrandDashboardV2 />;
+      return <BrandLayout />;
     case 'processor':
-      return <ProcessorDashboardV2 />;
+      return <ProcessorLayout />;
     case 'originator':
-      return <OriginatorDashboardV2 />;
+      return <OriginatorLayout />;
     case 'trader':
-      return <TraderDashboardV2 />;
+      return <TraderLayout />;
     case 'platform_admin':
-      return <PlatformAdminDashboardV2 />;
+      return <PlatformAdminLayout />;
     default:
-      // Fallback to legacy dashboard for unknown types
-      return <LegacyDashboard />;
+      // Fallback to brand for unknown types
+      return <BrandLayout />;
   }
 };
 

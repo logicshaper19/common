@@ -67,7 +67,7 @@ const TierRequirementsPanel: React.FC<TierRequirementsPanelProps> = ({
         `/api/v1/tier-requirements/profile/${companyType}/${sectorId}`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
             'Content-Type': 'application/json'
           }
         }

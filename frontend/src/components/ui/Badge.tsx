@@ -6,16 +6,17 @@ import React, { HTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
 // Badge variants
-export type BadgeVariant = 
-  | 'primary' 
-  | 'secondary' 
-  | 'success' 
-  | 'warning' 
-  | 'error' 
-  | 'neutral';
+export type BadgeVariant =
+  | 'primary'
+  | 'secondary'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'neutral'
+  | 'outline';
 
 // Badge sizes
-export type BadgeSize = 'sm' | 'md' | 'lg';
+export type BadgeSize = 'xs' | 'sm' | 'md' | 'lg';
 
 // Badge props interface
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
@@ -83,10 +84,16 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
         'text-neutral-800',
         'border-neutral-200',
       ],
+      outline: [
+        'bg-transparent',
+        'text-neutral-700',
+        'border-neutral-300',
+      ],
     };
 
     // Size classes
     const sizeClasses: Record<BadgeSize, string[]> = {
+      xs: ['px-1.5', 'py-0.5', 'text-xs'],
       sm: ['px-2', 'py-0.5', 'text-xs'],
       md: ['px-2.5', 'py-0.5', 'text-xs'],
       lg: ['px-3', 'py-1', 'text-sm'],
@@ -162,3 +169,4 @@ const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
 Badge.displayName = 'Badge';
 
 export default Badge;
+export { Badge };

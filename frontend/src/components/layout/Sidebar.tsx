@@ -59,38 +59,41 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       icon: DocumentTextIcon,
       badge: '12', // This would come from API
     }] : []),
-    {
+    // Products - only for brands and processors (not originators)
+    ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
       name: 'Products',
       href: '/products',
       icon: CubeIcon,
-    },
-    {
+    }] : []),
+    // Inventory - only for processors and brands (not originators)
+    ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
       name: 'Inventory',
       href: '/inventory',
       icon: ArchiveBoxIcon,
-    },
-    {
+    }] : []),
+    // Batches - only for processors (not originators)
+    ...(user.company?.company_type === 'processor' ? [{
       name: 'Batches',
       href: '/inventory/batches',
       icon: QueueListIcon,
-    },
-    // Originator features - only for originator companies
-    ...(dashboardConfig.can_report_farm_data ? [{
-      name: 'Originator',
-      href: '/originator',
-      icon: MapIcon,
     }] : []),
+    // Originator features - only for originator companies
     ...(dashboardConfig.can_report_farm_data ? [{
       name: 'Farm Management',
       href: '/originator/farms',
       icon: BuildingOfficeIcon,
+    }] : []),
+    ...(dashboardConfig.can_report_farm_data ? [{
+      name: 'Origin Data',
+      href: '/originator/origin-data',
+      icon: MapIcon,
     }] : []),
     ...(dashboardConfig.can_manage_certifications ? [{
       name: 'Certifications',
       href: '/originator/certifications',
       icon: ShieldCheckIcon,
     }] : []),
-    // Team management - only for admins
+    // Team management - only for admins and farm managers
     ...(dashboardConfig.can_manage_team ? [{
       name: 'Team',
       href: '/team',
@@ -102,11 +105,38 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       href: '/transparency',
       icon: ChartBarIcon,
     }] : []),
-    {
+    // Supplier Onboarding - only for brands and processors (not originators)
+    ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
       name: 'Supplier Onboarding',
       href: '/onboarding',
       icon: UserPlusIcon,
-    },
+    }] : []),
+    // Admin-specific navigation items
+    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
+      name: 'Companies',
+      href: '/companies',
+      icon: BuildingOfficeIcon,
+    }] : []),
+    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
+      name: 'Users',
+      href: '/users',
+      icon: UsersIcon,
+    }] : []),
+    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
+      name: 'System Monitor',
+      href: '/admin/system',
+      icon: ChartBarIcon,
+    }] : []),
+    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
+      name: 'Audit Logs',
+      href: '/admin/audit',
+      icon: DocumentTextIcon,
+    }] : []),
+    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
+      name: 'Support Tickets',
+      href: '/admin/support',
+      icon: UserGroupIcon,
+    }] : []),
     // Settings - only for admins
     ...(dashboardConfig.can_manage_settings ? [{
       name: 'Settings',
@@ -124,13 +154,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       href: '/margin-analysis',
       icon: ChartBarIcon,
     }] : []),
-    // Demo features - only for development
-    {
-      name: 'Confirmation Demo',
-      href: '/confirmation-demo',
-      icon: BeakerIcon,
-      badge: 'New',
-    },
+    // Demo features - only for development (commented out for production)
+    // {
+    //   name: 'Confirmation Demo',
+    //   href: '/confirmation-demo',
+    //   icon: BeakerIcon,
+    //   badge: 'New',
+    // },
   ];
 
   // Navigation items are already filtered by permissions in the array definition

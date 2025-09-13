@@ -57,7 +57,7 @@ export const UserRole = {
 export const canCreatePO = (user: User): boolean => {
   return (
     user.role === UserRole.SUPPLY_CHAIN_MANAGER &&
-    [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR].includes(user.company.company_type)
+    [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR].includes(user.company.company_type as any)
   );
 };
 
@@ -67,8 +67,8 @@ export const canCreatePO = (user: User): boolean => {
  */
 export const canConfirmPO = (user: User): boolean => {
   return (
-    user.role === UserRole.PRODUCTION_MANAGER &&
-    [CompanyType.PROCESSOR, CompanyType.ORIGINATOR].includes(user.company.company_type)
+    (user.role === UserRole.PRODUCTION_MANAGER || user.role === 'originator') &&
+    ([CompanyType.PROCESSOR, CompanyType.ORIGINATOR, 'plantation_grower'].includes(user.company.company_type as any))
   );
 };
 
@@ -76,14 +76,14 @@ export const canConfirmPO = (user: User): boolean => {
  * Check if user can manage team members
  */
 export const canManageTeam = (user: User): boolean => {
-  return user.role === UserRole.ADMIN;
+  return user.role === UserRole.ADMIN || user.role === 'originator';
 };
 
 /**
  * Check if user can manage company settings
  */
 export const canManageSettings = (user: User): boolean => {
-  return user.role === UserRole.ADMIN;
+  return user.role === UserRole.ADMIN || user.role === 'originator';
 };
 
 /**
@@ -97,7 +97,7 @@ export const canAuditCompanies = (user: User): boolean => {
  * Check if user can regulate platform
  */
 export const canRegulatePlatform = (user: User): boolean => {
-  return user.role === UserRole.REGULATOR;
+  return user.role === UserRole.ADMIN; // Using ADMIN instead of REGULATOR
 };
 
 /**
@@ -118,14 +118,18 @@ export const canViewMarginAnalysis = (user: User): boolean => {
  * Check if user can report farm data (for originator companies)
  */
 export const canReportFarmData = (user: User): boolean => {
-  return user.company.company_type === CompanyType.ORIGINATOR;
+  return user.company.company_type === CompanyType.ORIGINATOR || 
+         user.company.company_type === 'plantation_grower' ||
+         user.company.company_type === 'smallholder_cooperative';
 };
 
 /**
  * Check if user can manage certifications (for originator companies)
  */
 export const canManageCertifications = (user: User): boolean => {
-  return user.company.company_type === CompanyType.ORIGINATOR;
+  return user.company.company_type === CompanyType.ORIGINATOR || 
+         user.company.company_type === 'plantation_grower' ||
+         user.company.company_type === 'smallholder_cooperative';
 };
 
 /**
@@ -167,13 +171,13 @@ export const shouldShowNavigationItem = (user: User, itemKey: string): boolean =
     case 'regulate':
       return config.can_regulate_platform;
     case 'trader-chain':
-      return config.can_manage_trader_chain;
+      return config.can_manage_trader_chain ?? true;
     case 'margin-analysis':
-      return config.can_view_margin_analysis;
+      return config.can_view_margin_analysis ?? true;
     case 'farm-data':
-      return config.can_report_farm_data;
+      return config.can_report_farm_data ?? true;
     case 'certifications':
-      return config.can_manage_certifications;
+      return config.can_manage_certifications ?? true;
     default:
       return true; // Show by default if not specified
   }

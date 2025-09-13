@@ -9,13 +9,15 @@ import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
-import Dashboard from './pages/Dashboard';
 import DashboardRouter from './components/dashboard/DashboardRouter';
 
 import TransparencyDashboard from './pages/TransparencyDashboard';
 import SupplierOnboardingDashboard from './pages/SupplierOnboardingDashboard';
 import UserManagementDashboard from './components/user/UserManagementDashboard';
 import { UserCompanyManagement } from './components/admin/user-company-management';
+import { SystemMonitoring } from './components/admin/SystemMonitoring';
+import { AuditLogViewer } from './components/admin/AuditLogViewer';
+import { SupportTicketSystem } from './components/admin/SupportTicketSystem';
 import TeamManagement from './pages/TeamManagement';
 import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
 import PurchaseOrderDetailPage from './pages/PurchaseOrderDetailPage';
@@ -35,6 +37,8 @@ function App() {
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+
+          {/* V2 Dashboard routes - removed, now handled within main layout */}
 
           {/* Protected routes with Layout */}
           <Route path="/" element={<Layout />}>
@@ -148,7 +152,24 @@ function App() {
               </ProtectedRoute>
             } />
 
+            {/* Admin-specific routes */}
+            <Route path="admin/system" element={
+              <ProtectedRoute requiredRole="admin">
+                <SystemMonitoring />
+              </ProtectedRoute>
+            } />
 
+            <Route path="admin/audit" element={
+              <ProtectedRoute requiredRole="admin">
+                <AuditLogViewer />
+              </ProtectedRoute>
+            } />
+
+            <Route path="admin/support" element={
+              <ProtectedRoute requiredRole="admin">
+                <SupportTicketSystem />
+              </ProtectedRoute>
+            } />
 
             {/* Redirect root to dashboard when authenticated */}
             <Route index element={

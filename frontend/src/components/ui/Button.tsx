@@ -6,18 +6,19 @@ import React, { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
 // Button variants
-export type ButtonVariant = 
-  | 'primary' 
-  | 'secondary' 
-  | 'success' 
-  | 'warning' 
-  | 'error' 
-  | 'ghost' 
+export type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'ghost'
   | 'outline'
-  | 'link';
+  | 'link'
+  | 'default';
 
 // Button sizes
-export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 // Button props interface
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -141,10 +142,20 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         'p-0',
         'h-auto',
       ],
+      default: [
+        'bg-neutral-600',
+        'text-white',
+        'border-neutral-600',
+        'hover:bg-neutral-700',
+        'hover:border-neutral-700',
+        'focus:ring-neutral-500',
+        'active:bg-neutral-800',
+      ],
     };
 
     // Size classes
     const sizeClasses: Record<ButtonSize, string[]> = {
+      xs: ['px-2', 'py-1', 'text-xs', 'h-6'],
       sm: ['px-3', 'py-1.5', 'text-sm', 'h-8'],
       md: ['px-4', 'py-2', 'text-sm', 'h-10'],
       lg: ['px-6', 'py-3', 'text-base', 'h-12'],
@@ -209,3 +220,4 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = 'Button';
 
 export default Button;
+export { Button };

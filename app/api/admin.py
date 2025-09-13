@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.core.auth import require_admin, CurrentUser
+from app.core.auth import require_super_admin, CurrentUser
 from app.schemas.auth import CompanyCreate, CompanyResponse
 from app.schemas.admin import (
     AdminUserResponse,
@@ -43,7 +43,7 @@ router = APIRouter()
 async def create_company(
     company_data: AdminCompanyCreate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Create a new company (super admin only).
@@ -82,7 +82,7 @@ async def get_companies(
     is_verified: bool = None,
     country: str = None,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Get paginated list of companies with filtering (super admin only).
@@ -108,7 +108,7 @@ async def get_companies(
 async def get_company(
     company_id: str,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Get company by ID (super admin only).
@@ -130,7 +130,7 @@ async def update_company(
     company_id: str,
     company_data: AdminCompanyUpdate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Update company (super admin only).
@@ -158,7 +158,7 @@ async def update_company(
 async def create_user(
     user_data: AdminUserCreate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Create a new user (super admin only).
@@ -186,7 +186,7 @@ async def get_users(
     company_id: str = None,
     is_active: bool = None,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Get paginated list of users with filtering (super admin only).
@@ -209,7 +209,7 @@ async def get_users(
 async def get_user(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Get user by ID (super admin only).
@@ -231,7 +231,7 @@ async def update_user(
     user_id: str,
     user_data: AdminUserUpdate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Update user (super admin only).
@@ -258,7 +258,7 @@ async def update_user(
 async def delete_user(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Delete user (super admin only).
@@ -290,7 +290,7 @@ async def get_products(
     category: str = None,
     can_have_composition: bool = None,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Get paginated list of products with filtering (admin only).
@@ -321,7 +321,7 @@ async def get_products(
 async def get_product(
     product_id: str,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Get product by ID (admin only).
@@ -342,7 +342,7 @@ async def get_product(
 async def create_product(
     product_data: ProductCreate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Create a new product (admin only).
@@ -366,7 +366,7 @@ async def update_product(
     product_id: str,
     product_data: ProductUpdate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Update a product (admin only).
@@ -393,7 +393,7 @@ async def update_product(
 async def delete_product(
     product_id: str,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Delete a product (admin only).
@@ -427,7 +427,7 @@ async def get_purchase_orders(
     seller_company_id: str = None,
     product_id: str = None,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Get paginated list of all purchase orders (admin only).
@@ -469,7 +469,7 @@ async def get_purchase_orders(
 async def get_purchase_order(
     purchase_order_id: str,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Get purchase order by ID (admin only).
@@ -497,7 +497,7 @@ async def get_purchase_order(
 async def delete_purchase_order(
     purchase_order_id: str,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin)
+    current_user: CurrentUser = Depends(require_super_admin)
 ):
     """
     Delete a purchase order (admin only).

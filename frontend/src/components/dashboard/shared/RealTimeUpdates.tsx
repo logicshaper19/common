@@ -57,7 +57,7 @@ export const RealTimeUpdates: React.FC<RealTimeUpdatesProps> = ({
         onConnectionChange?.(true);
         
         // Send authentication if needed
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('auth_token');
         if (token) {
           ws.send(JSON.stringify({
             type: 'auth',

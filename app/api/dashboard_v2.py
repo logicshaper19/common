@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, CurrentUser
 from app.core.feature_flags import (
     feature_flags,
     is_v2_dashboard_brand_enabled,
@@ -30,12 +30,12 @@ from app.models.purchase_order import PurchaseOrder
 from app.schemas.purchase_order import PurchaseOrderStatus
 from app.models.batch import Batch
 
-router = APIRouter(prefix="/api/dashboard-v2", tags=["dashboard-v2"])
+router = APIRouter(tags=["dashboard-v2"])
 
 
 @router.get("/feature-flags")
 async def get_feature_flags(
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user)
 ) -> Dict[str, bool]:
     """
     Get feature flags relevant to dashboard v2
@@ -47,13 +47,13 @@ async def get_feature_flags(
         "v2_dashboard_originator": is_v2_dashboard_originator_enabled(),
         "v2_dashboard_trader": is_v2_dashboard_trader_enabled(),
         "v2_dashboard_platform_admin": is_v2_dashboard_platform_admin_enabled(),
-        "v2_notification_center": is_v2_notification_center_enabled(),
+        "v2_notification_center": is_v2_notification_center_enabled()
     }
 
 
 @router.get("/config")
 async def get_dashboard_config(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
@@ -61,12 +61,12 @@ async def get_dashboard_config(
     Includes permissions, dashboard type, and feature flags
     """
     permission_service = PermissionService(db)
-    dashboard_config = permission_service.get_user_dashboard_config(current_user)
-    
+    dashboard_config = permission_service.get_user_dashboard_config(current_user.user)
+
     # Add feature flag information
     dashboard_type = dashboard_config.get("dashboard_type", "default")
     feature_flag_key = f"v2_dashboard_{dashboard_type}"
-    
+
     dashboard_config.update({
         "feature_flags": await get_feature_flags(current_user),
         "should_use_v2": _should_use_v2_dashboard(dashboard_type),
@@ -102,7 +102,7 @@ def _should_use_v2_dashboard(dashboard_type: str) -> bool:
 
 @router.get("/metrics/brand")
 async def get_brand_dashboard_metrics(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
@@ -215,7 +215,7 @@ async def get_brand_dashboard_metrics(
 
 @router.get("/metrics/processor")
 async def get_processor_dashboard_metrics(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
@@ -310,7 +310,7 @@ async def get_processor_dashboard_metrics(
 
 @router.get("/metrics/originator")
 async def get_originator_dashboard_metrics(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
@@ -344,7 +344,7 @@ async def get_originator_dashboard_metrics(
 
 @router.get("/metrics/trader")
 async def get_trader_dashboard_metrics(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
@@ -379,7 +379,7 @@ async def get_trader_dashboard_metrics(
 
 @router.get("/metrics/platform-admin")
 async def get_platform_admin_dashboard_metrics(
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """

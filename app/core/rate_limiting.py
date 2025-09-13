@@ -79,7 +79,7 @@ class RateLimiter:
         """Get default rate limits for different endpoints."""
         return {
             "default": RateLimit(requests=100, window=60),  # 100 requests per minute
-            "auth": RateLimit(requests=10, window=60),  # 10 auth requests per minute
+            "auth": RateLimit(requests=100, window=60),  # 100 auth requests per minute (increased for development)
             "api": RateLimit(requests=1000, window=3600),  # 1000 API requests per hour
             "upload": RateLimit(requests=10, window=60),  # 10 uploads per minute
             "admin": RateLimit(requests=500, window=60),  # 500 admin requests per minute

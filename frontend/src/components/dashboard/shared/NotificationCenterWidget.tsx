@@ -55,7 +55,7 @@ export const NotificationCenterWidget: React.FC<NotificationCenterWidgetProps> =
       try {
         const response = await fetch('/api/v1/notifications', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
           },
         });
 
@@ -127,7 +127,7 @@ export const NotificationCenterWidget: React.FC<NotificationCenterWidgetProps> =
       const response = await fetch(`/api/v1/notifications/${notificationId}/read`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
 

@@ -145,9 +145,7 @@ class UserFactory:
             full_name=f"{first_name} {last_name}",
             role=role,
             is_active=True,
-            company_id=company.id,
-            phone=f"+{random.randint(1, 999)}-{random.randint(100, 999)}-{random.randint(1000, 9999)}",
-            department=role.replace("_", " ").title()
+            company_id=company.id
         )
     
     @classmethod
@@ -219,7 +217,6 @@ class ProductFactory:
             hs_code=hs_code,
             default_unit="KGM" if category == "raw_material" else "PCS",
             can_have_composition=can_have_composition,
-            sustainability_certifications=cls._generate_certifications(category),
             origin_data_requirements=cls._generate_origin_requirements(category)
         )
     

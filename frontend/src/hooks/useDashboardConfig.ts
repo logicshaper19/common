@@ -49,19 +49,30 @@ export const useDashboardConfig = () => {
       setLoading(true);
       setError(null);
 
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.warn('No authentication token found, falling back to V1 dashboard');
+        throw new Error('No authentication token found');
+      }
+
       // Load feature flags from API first
       await featureFlags.loadFromAPI();
 
       // Get dashboard configuration
-      const response = await fetch('/api/dashboard-v2/config', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v2/dashboard/config`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load dashboard config: ${response.statusText}`);
+        if (response.status === 401 || response.status === 403) {
+          console.warn('Authentication failed for Dashboard V2, falling back to V1');
+          throw new Error('Authentication failed - please log in again');
+        }
+        throw new Error(`Failed to load dashboard config: ${response.status} ${response.statusText}`);
       }
 
       const dashboardConfig = await response.json();
@@ -155,9 +166,9 @@ export const useDashboardMetrics = (dashboardType?: string) => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/dashboard-v2/metrics/${type}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v2/dashboard/metrics/${type}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
           'Content-Type': 'application/json',
         },
       });

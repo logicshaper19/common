@@ -254,7 +254,8 @@ async def startup_event():
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
     """Custom Swagger UI with enhanced styling."""
-    return get_custom_swagger_ui_html(
+    from fastapi.openapi.docs import get_swagger_ui_html
+    return get_swagger_ui_html(
         openapi_url="/openapi.json",
         title="Common API Documentation"
     )
@@ -263,7 +264,8 @@ async def custom_swagger_ui_html():
 @app.get("/redoc", include_in_schema=False)
 async def custom_redoc_html():
     """Custom ReDoc with enhanced styling."""
-    return get_custom_redoc_html(
+    from fastapi.openapi.docs import get_redoc_html
+    return get_redoc_html(
         openapi_url="/openapi.json",
         title="Common API Documentation"
     )
