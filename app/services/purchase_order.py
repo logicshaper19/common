@@ -21,7 +21,6 @@ from app.services.product import ProductService
 from app.core.logging import get_logger
 
 # Import new modular architecture
-from app.services.purchase_order import create_purchase_order_service
 from app.services.purchase_order.exceptions import (
     PurchaseOrderError,
     PurchaseOrderValidationError,
@@ -44,7 +43,32 @@ class PurchaseOrderService:
     def __init__(self, db: Session):
         self.db = db  # Keep for legacy code that accesses db directly
         self.product_service = ProductService(db)  # Legacy compatibility
-        self._orchestrator = create_purchase_order_service(db)
+        
+        # Create orchestrator directly to avoid circular import
+        from app.services.purchase_order.service import PurchaseOrderOrchestrator
+        from app.services.purchase_order.repository import PurchaseOrderRepository
+        from app.services.purchase_order.validators import PurchaseOrderValidator
+        from app.services.purchase_order.audit_manager import PurchaseOrderAuditManager
+        from app.services.purchase_order.notification_manager import NotificationManager
+        from app.services.purchase_order.po_number_generator import PONumberGenerator
+        from app.services.purchase_order.traceability_service import TraceabilityService
+        
+        repository = PurchaseOrderRepository(db)
+        validator = PurchaseOrderValidator(db)
+        audit_manager = PurchaseOrderAuditManager(db)
+        notification_manager = NotificationManager(db)
+        po_generator = PONumberGenerator(db)
+        traceability_service = TraceabilityService(db)
+        
+        self._orchestrator = PurchaseOrderOrchestrator(
+            db=db,
+            repository=repository,
+            validator=validator,
+            audit_manager=audit_manager,
+            notification_manager=notification_manager,
+            po_generator=po_generator,
+            traceability_service=traceability_service
+        )
 
     def generate_po_number(self) -> str:
         """Delegate to new orchestrator."""

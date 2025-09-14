@@ -79,7 +79,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     """
     status: ResponseStatus = Field(ResponseStatus.SUCCESS, description="Response status")
     message: Optional[str] = Field(None, description="Human-readable message")
-    data: List[T] = Field(..., description="List of items")
+    data: List[T] = Field(default_factory=list, description="List of items")
     errors: Optional[List[str]] = Field(None, description="List of error messages")
     warnings: Optional[List[str]] = Field(None, description="List of warning messages")
     meta: ResponseMeta = Field(..., description="Response metadata including pagination")
@@ -170,6 +170,15 @@ def paginated_response(
     api_version: str = "v1"
 ) -> PaginatedResponse:
     """Create a paginated response."""
+    # Debug logging
+    print(f"DEBUG: paginated_response called with data={data}, type={type(data)}")
+    
+    # Ensure data is always a list
+    if data is None:
+        data = []
+    elif not isinstance(data, list):
+        data = list(data) if data else []
+    
     total_pages = (total + per_page - 1) // per_page if total > 0 else 0
 
     pagination = PaginationMeta(
@@ -184,7 +193,7 @@ def paginated_response(
     meta = ResponseMeta(api_version=api_version, pagination=pagination)
 
     return PaginatedResponse(
-        data=data,
+        data=data or [],
         message=message,
         warnings=warnings,
         meta=meta

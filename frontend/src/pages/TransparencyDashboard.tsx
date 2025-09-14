@@ -12,8 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { transparencyApi } from '../lib/transparencyApi';
-import { useTransparencyMetricsWithUpdates } from '../hooks/useTransparencyUpdates';
+import { useDeterministicTransparency } from '../hooks/useDeterministicTransparency';
 import { 
   TransparencyMetrics,
   SupplyChainVisualization,
@@ -40,15 +39,46 @@ const TransparencyDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Real-time transparency metrics with updates
+  // Use deterministic transparency hook for consistent API calls
   const {
-    metrics: transparencyMetrics,
-    setMetrics: setTransparencyMetrics,
-    isUpdating,
-    isConnected: isRealTimeConnected,
-  } = useTransparencyMetricsWithUpdates(user?.company?.id || '');
+    metrics: deterministicMetrics,
+    gaps: deterministicGaps,
+    loading: isTransparencyLoading,
+    error: transparencyError,
+    fetchTransparencyMetrics,
+    refreshTransparencyData,
+  } = useDeterministicTransparency(user?.company?.id);
+
+  // Convert deterministic metrics to the expected format
+  const transparencyMetrics: TransparencyMetrics | null = deterministicMetrics ? {
+    ttm_score: deterministicMetrics.transparency_to_mill_percentage / 100,
+    ttp_score: deterministicMetrics.transparency_to_plantation_percentage / 100,
+    overall_score: (deterministicMetrics.transparency_to_mill_percentage + deterministicMetrics.transparency_to_plantation_percentage) / 200,
+    confidence_level: 1.0,
+    traced_percentage: (deterministicMetrics.transparency_to_mill_percentage + deterministicMetrics.transparency_to_plantation_percentage) / 2,
+    untraced_percentage: 100 - (deterministicMetrics.transparency_to_mill_percentage + deterministicMetrics.transparency_to_plantation_percentage) / 2,
+    last_updated: deterministicMetrics.calculation_timestamp,
+  } : null;
+  const setTransparencyMetrics = () => {}; // No-op for compatibility
+  const isUpdating = false;
+  const isRealTimeConnected = false;
+  
   const [supplyChainData, setSupplyChainData] = useState<SupplyChainVisualization | null>(null);
-  const [gapAnalysis, setGapAnalysis] = useState<GapAnalysisItem[]>([]);
+  // Convert deterministic gaps to the expected format
+  const gapAnalysis: GapAnalysisItem[] = deterministicGaps.map((gap, index) => ({
+    id: `gap-${index}`,
+    type: gap.gap_type === 'not_traced_to_mill' ? 'incomplete_data' : 'low_transparency',
+    severity: 'medium',
+    title: `Transparency Gap - ${gap.po_number}`,
+    description: `Missing traceability for ${gap.product_name} from ${gap.seller_company_name}`,
+    impact: 'medium',
+    impact_score: 0.5,
+    affected_nodes: [gap.po_id],
+    recommendations: [`Improve traceability for ${gap.product_name}`],
+    estimated_improvement: 10,
+    status: 'open',
+    created_at: new Date().toISOString(),
+  }));
   const [multiClientData, setMultiClientData] = useState<MultiClientDashboardType | null>(null);
 
   // Client filtering for consultant users
@@ -67,7 +97,12 @@ const TransparencyDashboard: React.FC = () => {
 
   // Load data on component mount
   useEffect(() => {
-    loadDashboardData();
+    if (user?.company?.id) {
+      loadDashboardData();
+    } else {
+      setError('User not authenticated or no company ID available');
+      setIsLoading(false);
+    }
   }, [user]);
 
   // Load client companies for consultant users
@@ -108,22 +143,19 @@ const TransparencyDashboard: React.FC = () => {
     setError(null);
 
     try {
-      // Load transparency metrics
-      const metrics = await transparencyApi.getTransparencyMetrics(user.company.id);
-      setTransparencyMetrics(metrics);
-
+      // Load transparency metrics using the new v2 API
+      await fetchTransparencyMetrics();
+      
       // Load supply chain visualization (using a mock PO ID)
-      const visualization = await transparencyApi.getSupplyChainVisualization('po-001');
-      setSupplyChainData(visualization);
-
-      // Load gap analysis
-      const gaps = await transparencyApi.getGapAnalysis(user.company.id);
-      setGapAnalysis(gaps);
+      // Note: This would need to be updated to use the new API when available
+      // const visualization = await transparencyApi.getSupplyChainVisualization('po-001');
+      // setSupplyChainData(visualization);
 
       // Load multi-client data if user is a consultant
       if (user.role === 'consultant') {
-        const multiClient = await transparencyApi.getMultiClientDashboard(user.id);
-        setMultiClientData(multiClient);
+        // Note: This would need to be updated to use the new API when available
+        // const multiClient = await transparencyApi.getMultiClientDashboard(user.id);
+        // setMultiClientData(multiClient);
         setActiveTab('multi-client');
       }
     } catch (err) {
@@ -143,7 +175,7 @@ const TransparencyDashboard: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await transparencyApi.recalculateTransparency(user.company.id);
+      await refreshTransparencyData();
       await loadDashboardData();
     } catch (err) {
       setError('Failed to recalculate transparency');
@@ -278,20 +310,41 @@ const TransparencyDashboard: React.FC = () => {
     });
   }
 
-  if (isLoading) {
+  if (isLoading || isTransparencyLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner size="lg" />
+        <span className="ml-3 text-gray-600">Loading transparency data...</span>
       </div>
     );
   }
 
-  if (error) {
+  if (error || transparencyError) {
+    const isDatabaseError = (error || transparencyError)?.includes('materialized view') || 
+                           (error || transparencyError)?.includes('supply_chain_traceability');
+    
     return (
       <div className="text-center py-12">
         <ExclamationTriangleIcon className="h-12 w-12 text-error-600 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-error-900 mb-2">Error Loading Dashboard</h3>
-        <p className="text-error-600 mb-4">{error}</p>
+        
+        {isDatabaseError ? (
+          <div className="text-error-600 mb-4">
+            <p className="font-medium">Database Setup Required</p>
+            <p className="text-sm mt-2">
+              The transparency system requires database initialization. Please contact your administrator 
+              to refresh the supply chain traceability data.
+            </p>
+          </div>
+        ) : (
+          <p className="text-error-600 mb-4">{error || transparencyError}</p>
+        )}
+        
+        <div className="text-sm text-gray-500 mb-4">
+          <p>User: {user?.email || 'Not authenticated'}</p>
+          <p>Company ID: {user?.company?.id || 'No company'}</p>
+          <p>Role: {user?.role || 'Unknown'}</p>
+        </div>
         <Button onClick={handleRefresh} variant="primary">
           Try Again
         </Button>

@@ -10,7 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const OriginatorDashboard = lazy(() => import('../../pages/OriginatorDashboard'));
 const FarmInformationManager = lazy(() => import('./FarmInformationManager'));
 const CertificationManager = lazy(() => import('./CertificationManager'));
-const OriginDataCapture = lazy(() => import('./OriginatorConfirmationForm'));
+const OriginDataManager = lazy(() => import('./OriginDataManager'));
 
 // Optimized loading fallback component
 const OriginatorLoadingFallback: React.FC = () => (
@@ -88,28 +88,7 @@ const OriginatorRouter: React.FC<OriginatorRouterProps> = ({ view = 'dashboard' 
       case 'certifications':
         return <CertificationManager companyId={user?.company?.id} />;
       case 'origin-data':
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Origin Data Capture</h2>
-              <p className="text-gray-600">
-                Capture detailed origin information for your products and harvests.
-              </p>
-            </div>
-            <OriginDataCapture
-              purchaseOrderId="DEMO-PO-001"
-              productType="Fresh Fruit Bunches"
-              onSubmit={(data) => {
-                console.log('Origin data submitted:', data);
-                // Handle submission
-              }}
-              onCancel={() => {
-                console.log('Origin data capture cancelled');
-                // Handle cancellation
-              }}
-            />
-          </div>
-        );
+        return <OriginDataManager companyId={user?.company?.id} />;
       case 'dashboard':
       default:
         return <OriginatorDashboard />;

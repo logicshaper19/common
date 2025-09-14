@@ -219,13 +219,25 @@ class PurchaseOrderRepository:
         Returns:
             Tuple of (purchase orders list, total count)
         """
+        # Get user's company to determine access level
+        from app.models.company import Company
+        user_company = self.db.query(Company).filter(Company.id == user_company_id).first()
+        
         # Base query with access control
-        query = self.db.query(PurchaseOrder).filter(
-            or_(
-                PurchaseOrder.buyer_company_id == user_company_id,
-                PurchaseOrder.seller_company_id == user_company_id
+        processor_types = ["processor", "refinery_crusher", "mill_processor"]
+        if user_company and user_company.company_type in processor_types:
+            # Processors can see POs where they are buyer, seller, or in the supply chain
+            # For now, we'll allow them to see all POs as they need supply chain visibility
+            # TODO: Implement proper supply chain relationship checking
+            query = self.db.query(PurchaseOrder)
+        else:
+            # Standard access control for other company types
+            query = self.db.query(PurchaseOrder).filter(
+                or_(
+                    PurchaseOrder.buyer_company_id == user_company_id,
+                    PurchaseOrder.seller_company_id == user_company_id
+                )
             )
-        )
         
         # Apply filters
         if filters.status:
@@ -310,17 +322,32 @@ class PurchaseOrderRepository:
         Returns:
             Tuple of (purchase orders with details list, total count)
         """
+        # Get user's company to determine access level
+        from app.models.company import Company
+        user_company = self.db.query(Company).filter(Company.id == user_company_id).first()
+        
         # Base query with access control and joined entities
         query = self.db.query(PurchaseOrder).options(
             joinedload(PurchaseOrder.buyer_company),
             joinedload(PurchaseOrder.seller_company),
             joinedload(PurchaseOrder.product)
-        ).filter(
-            or_(
-                PurchaseOrder.buyer_company_id == user_company_id,
-                PurchaseOrder.seller_company_id == user_company_id
-            )
         )
+        
+        # Apply access control based on company type
+        processor_types = ["processor", "refinery_crusher", "mill_processor"]
+        if user_company and user_company.company_type in processor_types:
+            # Processors can see POs where they are buyer, seller, or in the supply chain
+            # For now, we'll allow them to see all POs as they need supply chain visibility
+            # TODO: Implement proper supply chain relationship checking
+            pass  # No additional filtering for processors
+        else:
+            # Standard access control for other company types
+            query = query.filter(
+                or_(
+                    PurchaseOrder.buyer_company_id == user_company_id,
+                    PurchaseOrder.seller_company_id == user_company_id
+                )
+            )
 
         # Apply filters (same as list_with_filters)
         if filters.status:

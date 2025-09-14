@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
@@ -25,6 +26,11 @@ from app.schemas.origin_data import (
     HarvestDateValidationResult,
     RegionalComplianceResult,
     ComplianceStatus
+)
+from app.schemas.origin_data import (
+    OriginDataRecord,
+    OriginDataListResponse,
+    OriginDataFilters
 )
 from app.core.logging import get_logger
 
@@ -342,4 +348,202 @@ def validate_coordinates_only(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to validate coordinates"
+        )
+
+
+@router.get("/records", response_model=OriginDataListResponse)
+def get_origin_data_records(
+    page: int = 1,
+    per_page: int = 50,
+    purchase_order_id: Optional[UUID] = None,
+    status: Optional[str] = None,
+    region: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get paginated list of origin data records for the current user's company.
+    """
+    try:
+        # For now, return empty results since we don't have origin data records yet
+        # This is a placeholder implementation
+        response = OriginDataListResponse(
+            records=[],
+            total=0,
+            page=page,
+            per_page=per_page,
+            total_pages=0
+        )
+        
+        logger.info(
+            "Origin data records retrieved",
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            page=page,
+            per_page=per_page
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(
+            "Failed to retrieve origin data records",
+            error=str(e),
+            user_id=str(current_user.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve origin data records"
+        )
+
+
+@router.get("/records/{record_id}", response_model=OriginDataRecord)
+def get_origin_data_record(
+    record_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a specific origin data record by ID.
+    """
+    try:
+        # For now, return 404 since we don't have origin data records yet
+        # This is a placeholder implementation
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Origin data record not found"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to retrieve origin data record",
+            record_id=str(record_id),
+            error=str(e),
+            user_id=str(current_user.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve origin data record"
+        )
+
+
+@router.post("/records", response_model=OriginDataRecord)
+def create_origin_data_record(
+    record_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a new origin data record.
+    """
+    try:
+        # For now, return a placeholder response since we don't have origin data records yet
+        # This is a placeholder implementation
+        record = OriginDataRecord(
+            id=UUID("00000000-0000-0000-0000-000000000000"),
+            purchase_order_id=record_data.get("purchase_order_id"),
+            company_id=current_user.company_id,
+            geographic_coordinates={
+                "latitude": record_data.get("latitude", 0.0),
+                "longitude": record_data.get("longitude", 0.0)
+            },
+            harvest_date=record_data.get("harvest_date"),
+            farm_information=record_data.get("farm_information", {}),
+            certifications=record_data.get("certifications", []),
+            quality_parameters=record_data.get("quality_parameters", {}),
+            batch_number=record_data.get("batch_number"),
+            processing_notes=record_data.get("processing_notes"),
+            transportation_method=record_data.get("transportation_method"),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            status="pending",
+            validation_status="pending",
+            compliance_score=0.0
+        )
+        
+        logger.info(
+            "Origin data record created",
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            record_id=str(record.id)
+        )
+        
+        return record
+        
+    except Exception as e:
+        logger.error(
+            "Failed to create origin data record",
+            error=str(e),
+            user_id=str(current_user.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create origin data record"
+        )
+
+
+@router.put("/records/{record_id}", response_model=OriginDataRecord)
+def update_origin_data_record(
+    record_id: UUID,
+    record_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update an existing origin data record.
+    """
+    try:
+        # For now, return 404 since we don't have origin data records yet
+        # This is a placeholder implementation
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Origin data record not found"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to update origin data record",
+            record_id=str(record_id),
+            error=str(e),
+            user_id=str(current_user.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update origin data record"
+        )
+
+
+@router.delete("/records/{record_id}")
+def delete_origin_data_record(
+    record_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete an origin data record.
+    """
+    try:
+        # For now, return 404 since we don't have origin data records yet
+        # This is a placeholder implementation
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Origin data record not found"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to delete origin data record",
+            record_id=str(record_id),
+            error=str(e),
+            user_id=str(current_user.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete origin data record"
         )

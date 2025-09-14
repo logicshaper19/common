@@ -5,7 +5,7 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import TextArea from '../ui/Textarea';
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { PurchaseOrderCreate } from '../../services/purchaseOrderApi';
+import { PurchaseOrderCreate, PurchaseOrderWithRelations, purchaseOrderApi } from '../../services/purchaseOrderApi';
 import { productsApi, Product } from '../../services/productsApi';
 import { companiesApi, Company } from '../../services/companiesApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -38,12 +38,15 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
     unit: 'KGM',
     delivery_date: '',
     delivery_location: '',
-    notes: ''
+    notes: '',
+    parent_po_id: '',
+    is_drop_shipment: false
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [companies, setCompanies] = useState<Company[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [incomingPOs, setIncomingPOs] = useState<PurchaseOrderWithRelations[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   // Load companies and products when modal opens
@@ -56,17 +59,48 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
   const loadData = async () => {
     setLoadingData(true);
     try {
-      // Load companies and products in parallel
-      const [companiesResponse, productsResponse] = await Promise.all([
+      console.log('🔄 Loading data for CreatePurchaseOrderModal...');
+      console.log('👤 Current user:', user);
+      console.log('🏢 User company:', user?.company);
+      console.log('🔑 Auth token:', localStorage.getItem('auth_token'));
+      
+      // Check if user is authenticated
+      if (!user) {
+        console.error('❌ User not authenticated');
+        showToast({ type: 'error', title: 'Please log in to create purchase orders' });
+        setLoadingData(false);
+        return;
+      }
+      
+      // Load companies, products, and incoming POs in parallel
+      console.log('🚀 Making API calls...');
+      const [companiesResponse, productsResponse, incomingPOsResponse] = await Promise.all([
         companiesApi.getBusinessPartners(),
-        productsApi.getProducts({ per_page: 100 }) // Get first 100 products
+        productsApi.getProducts({ per_page: 100 }), // Get first 100 products
+        purchaseOrderApi.getIncomingPurchaseOrders()
       ]);
+
+      console.log('📊 Companies response:', companiesResponse);
+      console.log('📦 Products response:', productsResponse);
+      console.log('📥 Incoming POs response:', incomingPOsResponse);
 
       setCompanies(companiesResponse);
       setProducts(productsResponse.products);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      showToast({ type: 'error', title: 'Failed to load companies and products' });
+      setIncomingPOs(incomingPOsResponse);
+      
+      console.log('✅ Data loaded successfully');
+      console.log('📊 Companies set:', companiesResponse.length);
+      console.log('📦 Products set:', productsResponse.products?.length || 0);
+    } catch (error: any) {
+      console.error('❌ Error loading data:', error);
+      console.error('❌ Error details:', error.response?.data || error.message);
+      
+      // Check if it's an authentication error
+      if (error.response?.status === 401) {
+        showToast({ type: 'error', title: 'Please log in to access this feature' });
+      } else {
+        showToast({ type: 'error', title: 'Failed to load companies and products' });
+      }
 
       // Fallback to mock data
       setCompanies([
@@ -102,7 +136,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
     }
   };
 
-  const handleInputChange = (field: keyof PurchaseOrderCreate, value: string | number) => {
+  const handleInputChange = (field: keyof PurchaseOrderCreate, value: string | number | boolean) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -118,7 +152,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
 
     // Auto-set unit when product is selected
     if (field === 'product_id') {
-      const selectedProduct = products.find(p => p.id === value);
+      const selectedProduct = (products || []).find(p => p.id === value);
       if (selectedProduct) {
         setFormData(prev => ({
           ...prev,
@@ -167,6 +201,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
     }
 
     try {
+      console.log('🚀 Submitting purchase order data:', formData);
       await onCreate(formData);
       handleClose();
       showToast({ type: 'success', title: 'Purchase order created successfully' });
@@ -186,7 +221,9 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
       unit: 'KGM',
       delivery_date: '',
       delivery_location: '',
-      notes: ''
+      notes: '',
+      parent_po_id: '',
+      is_drop_shipment: false
     });
     setErrors({});
     onClose();
@@ -244,7 +281,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
                         onChange={(e) => handleInputChange('seller_company_id', e.target.value)}
                         options={[
                           { label: 'Select a seller...', value: '' },
-                          ...companies
+                          ...(companies || [])
                             .filter(c => c.id !== user?.company?.id)
                             .map(company => ({
                               label: `${company.name} (${company.email})`,
@@ -269,7 +306,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
                     onChange={(e) => handleInputChange('product_id', e.target.value)}
                     options={[
                       { label: 'Select a product...', value: '' },
-                      ...products.map(product => ({
+                      ...(products || []).map(product => ({
                         label: `${product.name} (${product.common_product_id})`,
                         value: product.id
                       }))
@@ -345,6 +382,49 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
                       required
                       disabled={isLoading}
                     />
+                  </div>
+                </div>
+
+                {/* Commercial Chain Linking */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900">Commercial Chain Linking</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="is_drop_shipment"
+                        checked={formData.is_drop_shipment}
+                        onChange={(e) => handleInputChange('is_drop_shipment', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        disabled={isLoading}
+                      />
+                      <label htmlFor="is_drop_shipment" className="ml-2 block text-sm text-gray-700">
+                        This is a drop-shipment fulfillment
+                      </label>
+                    </div>
+                    
+                    {formData.is_drop_shipment && (
+                      <div>
+                        <Select
+                          label="Parent Purchase Order"
+                          value={formData.parent_po_id || ''}
+                          onChange={(e) => handleInputChange('parent_po_id', e.target.value)}
+                          options={[
+                            { label: 'Select a parent PO...', value: '' },
+                            ...(incomingPOs || []).map(po => ({
+                              label: `${po.po_number} - ${po.buyer_company?.name || 'Unknown Buyer'} (${po.quantity} ${po.unit})`,
+                              value: po.id
+                            }))
+                          ]}
+                          errorMessage={errors.parent_po_id}
+                          disabled={isLoading}
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Select the purchase order this new PO will fulfill
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

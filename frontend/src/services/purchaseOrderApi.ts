@@ -18,6 +18,10 @@ export interface PurchaseOrder {
   origin_data?: any;
   notes?: string;
   
+  // Commercial chain linking
+  parent_po_id?: string;
+  is_drop_shipment?: boolean;
+  
   // Seller confirmation fields
   confirmed_quantity?: number;
   confirmed_unit_price?: number;
@@ -86,6 +90,27 @@ export interface PurchaseOrderWithDetails extends PurchaseOrder {
   amendments?: Amendment[];
 }
 
+// Extended interface for components that need the related objects
+export interface PurchaseOrderWithRelations extends PurchaseOrder {
+  buyer_company?: {
+    id: string;
+    name: string;
+    company_type: string;
+  };
+  seller_company?: {
+    id: string;
+    name: string;
+    company_type: string;
+  };
+  product?: {
+    id: string;
+    name: string;
+    description: string;
+    default_unit: string;
+    category: string;
+  };
+}
+
 export interface PurchaseOrderFilters {
   buyer_company_id?: string;
   seller_company_id?: string;
@@ -127,6 +152,9 @@ export interface PurchaseOrderCreate {
   input_materials?: any[];
   origin_data?: any;
   notes?: string;
+  // Commercial chain linking
+  parent_po_id?: string;
+  is_drop_shipment?: boolean;
 }
 
 export interface PurchaseOrderUpdate {
@@ -195,7 +223,7 @@ export const purchaseOrderApi = {
       });
     }
     
-    const response = await apiClient.get(`/purchase-orders?${params.toString()}`);
+    const response = await apiClient.get(`/purchase-orders/?${params.toString()}`);
     return response.data;
   },
 
@@ -207,8 +235,16 @@ export const purchaseOrderApi = {
 
   // Create a new purchase order
   createPurchaseOrder: async (data: PurchaseOrderCreate): Promise<PurchaseOrder> => {
-    const response = await apiClient.post('/purchase-orders', data);
+    console.log('📤 Sending purchase order data to API:', data);
+    const response = await apiClient.post('/purchase-orders/', data);
+    console.log('📥 Purchase order created successfully:', response.data);
     return response.data;
+  },
+
+  // Get incoming purchase orders (where current user's company is the seller)
+  getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
+    const response = await apiClient.get('/purchase-orders/?seller_company_id=current&status=confirmed');
+    return response.data.purchase_orders || [];
   },
 
   // Update a purchase order

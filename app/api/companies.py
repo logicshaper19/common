@@ -12,7 +12,7 @@ from app.schemas.company import CompanyResponse, CompanyListResponse
 from app.services.company import CompanyService
 from app.core.logging import get_logger
 from app.core.response_wrapper import standardize_response, standardize_list_response, ResponseBuilder
-from app.core.response_models import StandardResponse, PaginatedResponse
+from app.core.response_models import StandardResponse, PaginatedResponse, paginated_response
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -69,7 +69,6 @@ async def get_company(
 
 
 @router.get("/")
-@standardize_list_response(success_message="Companies retrieved successfully")
 async def list_companies(
     page: int = 1,
     per_page: int = 20,
@@ -77,7 +76,7 @@ async def list_companies(
     company_type: Optional[str] = None,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> PaginatedResponse:
+):
     """
     List companies with pagination and filtering.
 
@@ -115,13 +114,13 @@ async def list_companies(
             "company_type": company.company_type,
             "email": company.email,
             "phone": company.phone,
-            "address": company.address,
-            "city": company.city,
-            "state": company.state,
-            "country": company.country,
-            "postal_code": company.postal_code,
+            "address": company.address_street,
+            "city": company.address_city,
+            "state": company.address_state,
+            "country": company.address_country,
+            "postal_code": company.address_postal_code,
             "tier_level": company.tier_level,
-            "description": company.description,
+            "description": getattr(company, 'description', None),
             "website": company.website,
             "is_active": company.is_active,
             "erp_integration_enabled": company.erp_integration_enabled,
@@ -154,13 +153,13 @@ async def list_companies(
             "company_type": company.company_type,
             "email": company.email,
             "phone": company.phone,
-            "address": company.address,
-            "city": company.city,
-            "state": company.state,
-            "country": company.country,
-            "postal_code": company.postal_code,
+            "address": company.address_street,
+            "city": company.address_city,
+            "state": company.address_state,
+            "country": company.address_country,
+            "postal_code": company.address_postal_code,
             "tier_level": company.tier_level,
-            "description": company.description,
+            "description": getattr(company, 'description', None),
             "website": company.website,
             "is_active": company.is_active,
             "erp_integration_enabled": company.erp_integration_enabled,
@@ -168,8 +167,14 @@ async def list_companies(
             "updated_at": company.updated_at.isoformat()
         })
 
-    return ResponseBuilder.paginated(
-        data=companies_data,
+    # Debug logging
+    logger.info(f"Companies data: {companies_data}")
+    logger.info(f"Companies data type: {type(companies_data)}")
+    logger.info(f"Companies data length: {len(companies_data) if companies_data else 'None'}")
+
+    # Ensure we always return a list, even if it's empty
+    return paginated_response(
+        data=companies_data or [],
         page=page,
         per_page=per_page,
         total=total,

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transparency API Test</title>
+</head>
+<body>
+    <h1>Transparency API Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        async function testTransparencyAPI() {
+            const results = document.getElementById('results');
+            
+            try {
+                // Test the API endpoint
+                const response = await fetch('http://127.0.0.1:8000/api/v1/transparency/v2/companies/test-company-id/metrics', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.text();
+                results.innerHTML = `
+                    <h2>API Response:</h2>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Response:</strong> ${data}</p>
+                `;
+                
+            } catch (error) {
+                results.innerHTML = `
+                    <h2>Error:</h2>
+                    <p style="color: red;">${error.message}</p>
+                `;
+            }
+        }
+        
+        // Run the test when page loads
+        testTransparencyAPI();
+    </script>
+</body>
+</html>

@@ -42,10 +42,18 @@ export const RealTimeUpdates: React.FC<RealTimeUpdatesProps> = ({
 
   const connect = useCallback(() => {
     try {
-      // TODO: Replace with actual WebSocket URL
-      const wsUrl = process.env.NODE_ENV === 'development' 
-        ? 'ws://localhost:8000/ws/dashboard'
+      // Get authentication token
+      const token = localStorage.getItem('auth_token');
+      
+      // Build WebSocket URL with token as query parameter
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+      const wsProtocol = apiBaseUrl.startsWith('https') ? 'wss' : 'ws';
+      const wsHost = apiBaseUrl.replace(/^https?:\/\//, '');
+      const baseUrl = process.env.NODE_ENV === 'development' 
+        ? `${wsProtocol}://${wsHost}/ws/dashboard`
         : `wss://${window.location.host}/ws/dashboard`;
+      
+      const wsUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
       
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -55,15 +63,6 @@ export const RealTimeUpdates: React.FC<RealTimeUpdatesProps> = ({
         setConnected(true);
         setConnectionAttempts(0);
         onConnectionChange?.(true);
-        
-        // Send authentication if needed
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          ws.send(JSON.stringify({
-            type: 'auth',
-            token: token
-          }));
-        }
       };
 
       ws.onmessage = (event) => {
