@@ -10,7 +10,6 @@ import { useAuth } from '../../contexts/AuthContext';
 const OriginatorDashboard = lazy(() => import('../../pages/OriginatorDashboard'));
 const FarmInformationManager = lazy(() => import('./FarmInformationManager'));
 const CertificationManager = lazy(() => import('./CertificationManager'));
-const OriginDataManager = lazy(() => import('./OriginDataManager'));
 
 // Optimized loading fallback component
 const OriginatorLoadingFallback: React.FC = () => (
@@ -27,7 +26,7 @@ const OriginatorLoadingFallback: React.FC = () => (
 );
 
 interface OriginatorRouterProps {
-  view?: 'dashboard' | 'farms' | 'certifications' | 'origin-data';
+  view?: 'dashboard' | 'farms' | 'certifications';
 }
 
 const OriginatorRouter: React.FC<OriginatorRouterProps> = ({ view = 'dashboard' }) => {
@@ -87,8 +86,6 @@ const OriginatorRouter: React.FC<OriginatorRouterProps> = ({ view = 'dashboard' 
         return <FarmInformationManager companyId={user?.company?.id} />;
       case 'certifications':
         return <CertificationManager companyId={user?.company?.id} />;
-      case 'origin-data':
-        return <OriginDataManager companyId={user?.company?.id} />;
       case 'dashboard':
       default:
         return <OriginatorDashboard />;

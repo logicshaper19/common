@@ -14,12 +14,12 @@ import {
   CubeIcon,
   EyeIcon
 } from '@heroicons/react/24/outline';
-import { PurchaseOrderWithDetails, ProposeChangesRequest, ApproveChangesRequest } from '../../services/purchaseOrderApi';
+import { PurchaseOrderWithDetails, PurchaseOrderWithRelations, ProposeChangesRequest, ApproveChangesRequest } from '../../services/purchaseOrderApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 
 interface PurchaseOrderTableProps {
-  purchaseOrders: PurchaseOrderWithDetails[];
+  purchaseOrders: (PurchaseOrderWithDetails | PurchaseOrderWithRelations)[];
   onProposeChanges?: (id: string, proposal: ProposeChangesRequest) => Promise<void>;
   onApproveChanges?: (id: string, approval: ApproveChangesRequest) => Promise<void>;
   onRefresh?: () => void;
@@ -38,20 +38,20 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const [selectedPO, setSelectedPO] = useState<PurchaseOrderWithDetails | null>(null);
+  const [selectedPO, setSelectedPO] = useState<(PurchaseOrderWithDetails | PurchaseOrderWithRelations) | null>(null);
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Helper function to determine user's role in a PO
-  const getUserRole = (po: PurchaseOrderWithDetails) => {
+  const getUserRole = (po: PurchaseOrderWithDetails | PurchaseOrderWithRelations) => {
     const isBuyer = user?.company?.id === po.buyer_company_id;
     const isSeller = user?.company?.id === po.seller_company_id;
     return { isBuyer, isSeller };
   };
 
   // Helper function to determine available actions
-  const getAvailableActions = (po: PurchaseOrderWithDetails) => {
+  const getAvailableActions = (po: PurchaseOrderWithDetails | PurchaseOrderWithRelations) => {
     const { isBuyer, isSeller } = getUserRole(po);
     
     const canProposeChanges = isSeller && 
@@ -214,11 +214,11 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
                       <div className="text-sm text-gray-900">
                         <div className="flex items-center mb-1">
                           <BuildingOfficeIcon className="h-4 w-4 text-gray-400 mr-1" />
-                          <span className="font-medium">{po.buyer_company.name}</span>
+                          <span className="font-medium">{po.buyer_company?.name || 'Unknown'}</span>
                         </div>
                         <div className="flex items-center text-gray-500">
                           <span className="mr-1">→</span>
-                          <span>{po.seller_company.name}</span>
+                          <span>{po.seller_company?.name || 'Unknown'}</span>
                         </div>
                       </div>
                     </td>
@@ -226,7 +226,7 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
                     {/* Product & Quantity Column */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        <div className="font-medium">{po.product.name}</div>
+                        <div className="font-medium">{po.product?.name || 'Unknown'}</div>
                         <div className="text-gray-500 flex items-center">
                           <CubeIcon className="h-4 w-4 mr-1" />
                           {po.quantity} {po.unit}

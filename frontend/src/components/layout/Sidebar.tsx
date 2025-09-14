@@ -20,6 +20,8 @@ import {
   MapIcon,
   ShieldCheckIcon,
   SunIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
@@ -55,18 +57,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       href: '/dashboard',
       icon: HomeIcon,
     },
-    // Purchase Orders - visible to users who can create or confirm POs
+    // Incoming Purchase Orders - visible to users who can create or confirm POs
     ...(dashboardConfig.can_create_po || dashboardConfig.can_confirm_po ? [{
-      name: 'Purchase Orders',
+      name: 'Incoming Purchase Orders',
       href: '/purchase-orders',
       icon: DocumentTextIcon,
       badge: pendingCount > 0 ? pendingCount : undefined, // Show count only if there are pending orders
     }] : []),
-    // Fulfillment Hub - visible to users who can create or confirm POs
+    // Outgoing Purchase Orders - visible to users who can create or confirm POs
     ...(dashboardConfig.can_create_po || dashboardConfig.can_confirm_po ? [{
-      name: 'Fulfillment Hub',
-      href: '/fulfillment',
-      icon: QueueListIcon,
+      name: 'Outgoing Purchase Orders',
+      href: '/purchase-orders/outgoing',
+      icon: ArrowRightIcon,
     }] : []),
     // Products - only for brands and processors (not originators)
     ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
@@ -93,14 +95,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       icon: BuildingOfficeIcon,
     }] : []),
     ...(dashboardConfig.can_report_farm_data ? [{
-      name: 'Harvest Management',
+      name: 'Production Tracking',
       href: '/harvest',
       icon: SunIcon,
-    }] : []),
-    ...(dashboardConfig.can_report_farm_data ? [{
-      name: 'Origin Data',
-      href: '/originator/origin-data',
-      icon: MapIcon,
     }] : []),
     ...(dashboardConfig.can_manage_certifications ? [{
       name: 'Certifications',

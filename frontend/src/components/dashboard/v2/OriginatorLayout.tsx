@@ -58,7 +58,6 @@ interface OriginatorMetrics {
 const OriginatorLayout: React.FC = () => {
   const { config, loading: configLoading } = useDashboardConfig();
   const { metrics, loading: metricsLoading } = useDashboardMetrics('originator');
-  const [activeTab, setActiveTab] = React.useState<'purchase-orders' | 'origin-data'>('purchase-orders');
   const [searchTerm, setSearchTerm] = React.useState('');
   const [sortField, setSortField] = React.useState<string>('');
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
@@ -137,53 +136,6 @@ const OriginatorLayout: React.FC = () => {
     }
   ];
 
-  const latestOriginData = [
-    {
-      id: '1',
-      batch_id: 'BATCH-2025-001',
-      farm_name: 'Kalimantan Estate Block A',
-      harvest_date: '2025-01-10',
-      status: 'verified',
-      eudr_status: 'compliant',
-      quality_score: 89.2
-    },
-    {
-      id: '2',
-      batch_id: 'BATCH-2025-002',
-      farm_name: 'Sumatra Smallholder Cooperative',
-      harvest_date: '2025-01-09',
-      status: 'submitted',
-      eudr_status: 'compliant',
-      quality_score: 87.8
-    },
-    {
-      id: '3',
-      batch_id: 'BATCH-2025-003',
-      farm_name: 'Kalimantan Estate Block B',
-      harvest_date: '2025-01-08',
-      status: 'draft',
-      eudr_status: 'pending',
-      quality_score: 88.5
-    },
-    {
-      id: '4',
-      batch_id: 'BATCH-2025-004',
-      farm_name: 'Borneo Sustainable Farms',
-      harvest_date: '2025-01-07',
-      status: 'verified',
-      eudr_status: 'compliant',
-      quality_score: 91.2
-    },
-    {
-      id: '5',
-      batch_id: 'BATCH-2025-005',
-      farm_name: 'Sumatra Smallholder Cooperative',
-      harvest_date: '2025-01-06',
-      status: 'submitted',
-      eudr_status: 'compliant',
-      quality_score: 86.7
-    }
-  ];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -202,21 +154,9 @@ const OriginatorLayout: React.FC = () => {
     }
   };
 
-  const getEUDRStatusBadge = (status: string) => {
-    switch (status) {
-      case 'compliant':
-        return <Badge variant="success">Compliant</Badge>;
-      case 'pending':
-        return <Badge variant="warning">Pending</Badge>;
-      case 'non_compliant':
-        return <Badge variant="error">Non-Compliant</Badge>;
-      default:
-        return <Badge variant="neutral">{status}</Badge>;
-    }
-  };
 
   // Filter and sort data
-  const getFilteredAndSortedData = (data: any[], type: 'purchase-orders' | 'origin-data') => {
+  const getFilteredAndSortedData = (data: any[], type: 'purchase-orders') => {
     let filtered = data;
 
     // Apply search filter
@@ -281,15 +221,11 @@ const OriginatorLayout: React.FC = () => {
 
   // Get filtered data
   const filteredPurchaseOrders = getFilteredAndSortedData(latestPurchaseOrders, 'purchase-orders');
-  const filteredOriginData = getFilteredAndSortedData(latestOriginData, 'origin-data');
 
   // Status counts for metrics
   const statusCounts = {
     confirmedPOs: latestPurchaseOrders.filter(po => po.status === 'confirmed').length,
     pendingPOs: latestPurchaseOrders.filter(po => po.status === 'pending').length,
-    verifiedOriginData: latestOriginData.filter(data => data.status === 'verified').length,
-    pendingOriginData: latestOriginData.filter(data => data.status === 'submitted' || data.status === 'draft').length,
-    compliantEUDR: latestOriginData.filter(data => data.eudr_status === 'compliant').length,
     expiringCertifications: originatorMetrics?.farm_management?.certifications_expiring || 0
   };
 
@@ -401,25 +337,7 @@ const OriginatorLayout: React.FC = () => {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">Latest Activity</h3>
-                    <div className="flex space-x-1">
-                      <Button
-                        variant={activeTab === 'purchase-orders' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => setActiveTab('purchase-orders')}
-                      >
-                        <DocumentTextIcon className="h-4 w-4 mr-2" />
-                        Purchase Orders
-                      </Button>
-                      <Button
-                        variant={activeTab === 'origin-data' ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => setActiveTab('origin-data')}
-                      >
-                        <MapIcon className="h-4 w-4 mr-2" />
-                        Origin Data
-                      </Button>
-                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">Latest Purchase Orders</h3>
                   </div>
                 </CardHeader>
                 
@@ -431,7 +349,7 @@ const OriginatorLayout: React.FC = () => {
                         <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                         <Input
                           type="text"
-                          placeholder={`Search ${activeTab === 'purchase-orders' ? 'PO numbers, suppliers, products...' : 'batch IDs, farm names...'}`}
+                          placeholder="Search PO numbers, suppliers, products..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           className="pl-10"
@@ -444,18 +362,9 @@ const OriginatorLayout: React.FC = () => {
                         onChange={(e) => setStatusFilter(e.target.value)}
                         options={[
                           { label: 'All Status', value: '' },
-                          ...(activeTab === 'purchase-orders' 
-                            ? [
-                                { label: 'Confirmed', value: 'confirmed' },
-                                { label: 'Pending', value: 'pending' },
-                                { label: 'Draft', value: 'draft' }
-                              ]
-                            : [
-                                { label: 'Verified', value: 'verified' },
-                                { label: 'Submitted', value: 'submitted' },
-                                { label: 'Draft', value: 'draft' }
-                              ]
-                          )
+                          { label: 'Confirmed', value: 'confirmed' },
+                          { label: 'Pending', value: 'pending' },
+                          { label: 'Draft', value: 'draft' }
                         ]}
                         className="min-w-[120px]"
                       />
@@ -476,8 +385,7 @@ const OriginatorLayout: React.FC = () => {
             </div>
 
                 <CardBody padding="none">
-                  {activeTab === 'purchase-orders' ? (
-                    <div className="overflow-x-auto">
+                  <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
@@ -582,120 +490,13 @@ const OriginatorLayout: React.FC = () => {
                         </tbody>
                       </table>
                     </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th 
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => handleSort('batch_id')}
-                            >
-                              <div className="flex items-center space-x-1">
-                                <span>Batch ID</span>
-                                {getSortIcon('batch_id')}
-                              </div>
-                            </th>
-                            <th 
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => handleSort('farm_name')}
-                            >
-                              <div className="flex items-center space-x-1">
-                                <span>Farm Name</span>
-                                {getSortIcon('farm_name')}
-                              </div>
-                            </th>
-                            <th 
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => handleSort('harvest_date')}
-                            >
-                              <div className="flex items-center space-x-1">
-                                <span>Harvest Date</span>
-                                {getSortIcon('harvest_date')}
-                              </div>
-                            </th>
-                            <th 
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => handleSort('status')}
-                            >
-                              <div className="flex items-center space-x-1">
-                                <span>Status</span>
-                                {getSortIcon('status')}
-                              </div>
-                            </th>
-                            <th 
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => handleSort('eudr_status')}
-                            >
-                              <div className="flex items-center space-x-1">
-                                <span>EUDR</span>
-                                {getSortIcon('eudr_status')}
-                                <InformationCircleIcon className="h-4 w-4 text-gray-400" title="EU Deforestation Regulation compliance status" />
-                              </div>
-                            </th>
-                            <th 
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => handleSort('quality_score')}
-                            >
-                              <div className="flex items-center space-x-1">
-                                <span>Quality</span>
-                                {getSortIcon('quality_score')}
-                        </div>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {filteredOriginData.map((data, index) => (
-                            <tr 
-                              key={data.id} 
-                              className={`hover:bg-gray-50 cursor-pointer ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                              onClick={() => {
-                                // Navigate to origin data details
-                                console.log('Navigate to origin data:', data.id);
-                              }}
-                            >
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {data.batch_id}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {data.farm_name}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {data.harvest_date}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {getStatusBadge(data.status)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {getEUDRStatusBadge(data.eudr_status)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div className="flex items-center">
-                                  <span className="mr-2">{data.quality_score}%</span>
-                                  <div className="w-16 bg-gray-200 rounded-full h-2">
-                                    <div 
-                                      className={`h-2 rounded-full ${
-                                        data.quality_score >= 90 ? 'bg-green-500' :
-                                        data.quality_score >= 80 ? 'bg-yellow-500' : 'bg-red-500'
-                                      }`}
-                                      style={{ width: `${data.quality_score}%` }}
-                                    ></div>
-                      </div>
-                      </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
                   
                   {/* See More Button */}
                   <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div className="text-sm text-gray-600">
                         <p>
-                          Showing {activeTab === 'purchase-orders' ? filteredPurchaseOrders.length : filteredOriginData.length} of {activeTab === 'purchase-orders' ? latestPurchaseOrders.length : latestOriginData.length} items
+                          Showing {filteredPurchaseOrders.length} of {latestPurchaseOrders.length} items
                           {(searchTerm || statusFilter) && (
                             <span className="text-blue-600 ml-1">
                               (filtered)
@@ -719,11 +520,7 @@ const OriginatorLayout: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            if (activeTab === 'purchase-orders') {
-                              window.location.href = '/purchase-orders';
-                            } else {
-                              window.location.href = '/originator/origin-data';
-                            }
+                            window.location.href = '/purchase-orders';
                           }}
                         >
                           See More
