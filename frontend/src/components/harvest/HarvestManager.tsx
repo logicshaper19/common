@@ -264,8 +264,8 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Harvest Management</h1>
-          <p className="text-gray-600">Manage harvest declarations and batch creation</p>
+          <h1 className="text-2xl font-bold text-gray-900">Production Tracking</h1>
+          <p className="text-gray-600">Track harvest declarations and production batches</p>
         </div>
         <Button
           onClick={() => setShowCreateModal(true)}

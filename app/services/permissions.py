@@ -141,7 +141,7 @@ class PermissionService:
         
         return (
             (user.company.company_type == CompanyType.PROCESSOR and user.role in processor_roles) or
-            (user.company.company_type == CompanyType.ORIGINATOR and user.role in originator_roles)
+            (user.company.company_type in [CompanyType.ORIGINATOR, "smallholder_cooperative", "plantation_grower"] and user.role in originator_roles)
         )
     
     def can_user_view_po(self, user: User, po: PurchaseOrder) -> bool:
@@ -222,7 +222,7 @@ class PermissionService:
             config["can_manage_trader_chain"] = True
             config["can_view_margin_analysis"] = True
 
-        if user.company.company_type == CompanyType.ORIGINATOR:
+        if user.company.company_type in [CompanyType.ORIGINATOR, "smallholder_cooperative", "plantation_grower"]:
             config["can_report_farm_data"] = True
             config["can_manage_certifications"] = True
 
@@ -240,7 +240,9 @@ class PermissionService:
             CompanyType.ORIGINATOR: "originator",
             CompanyType.TRADER: "trader",
             CompanyType.AUDITOR: "auditor",
-            CompanyType.REGULATOR: "regulator"
+            CompanyType.REGULATOR: "regulator",
+            "smallholder_cooperative": "originator",
+            "plantation_grower": "originator"
         }
 
         # Special handling for platform admin roles

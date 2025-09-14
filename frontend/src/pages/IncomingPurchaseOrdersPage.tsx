@@ -6,11 +6,10 @@ import Select from '../components/ui/Select';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AnalyticsCard from '../components/ui/AnalyticsCard';
 import PurchaseOrderTable from '../components/purchase-orders/PurchaseOrderTable';
-import CreatePurchaseOrderModal from '../components/purchase-orders/CreatePurchaseOrderModal';
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
-  PlusIcon,
+  ArrowLeftIcon,
   DocumentTextIcon,
   ClockIcon,
   CheckCircleIcon,
@@ -20,16 +19,19 @@ import {
 import {
   purchaseOrderApi,
   PurchaseOrderWithDetails,
+  PurchaseOrderWithRelations,
   PurchaseOrderFilters,
-  PurchaseOrderCreate,
   ProposeChangesRequest,
   ApproveChangesRequest
 } from '../services/purchaseOrderApi';
 import { useAmendments } from '../hooks/useAmendments';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { FulfillmentModal } from '../components/purchase-orders/FulfillmentModal';
 
-export const PurchaseOrdersPage: React.FC = () => {
+interface IncomingPurchaseOrdersPageProps {}
+
+export const IncomingPurchaseOrdersPage: React.FC<IncomingPurchaseOrdersPageProps> = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { proposeChanges: proposeChangesHook, approveChanges: approveChangesHook } = useAmendments();
@@ -43,7 +45,8 @@ export const PurchaseOrdersPage: React.FC = () => {
     await approveChangesHook(id, approval);
   };
   
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderWithDetails[]>([]);
+  // State
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<PurchaseOrderFilters>({
@@ -51,26 +54,22 @@ export const PurchaseOrdersPage: React.FC = () => {
     per_page: 20
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
+  const [selectedPO, setSelectedPO] = useState<PurchaseOrderWithRelations | null>(null);
 
   // Calculate analytics from purchase orders
   const analytics = React.useMemo(() => {
     const total = purchaseOrders.length;
-    const pending = purchaseOrders.filter(po => po.status === 'PENDING').length;
-    const confirmed = purchaseOrders.filter(po => po.status === 'CONFIRMED').length;
-    const delivered = purchaseOrders.filter(po => po.status === 'DELIVERED').length;
-    const cancelled = purchaseOrders.filter(po => po.status === 'CANCELLED').length;
-
-    // Calculate total value
-    const totalValue = purchaseOrders.reduce((sum, po) => {
-      return sum + (po.total_amount || 0);
-    }, 0);
-
-    // Calculate amendments
-    const withAmendments = purchaseOrders.filter(po =>
-      po.amendments && po.amendments.length > 0
-    ).length;
+    const pending = purchaseOrders.filter(po => po.status === 'PENDING' || po.status === 'pending').length;
+    const confirmed = purchaseOrders.filter(po => po.status === 'CONFIRMED' || po.status === 'confirmed').length;
+    const delivered = purchaseOrders.filter(po => po.status === 'DELIVERED' || po.status === 'delivered').length;
+    const urgent = purchaseOrders.filter(po => {
+      if (!po.delivery_date) return false;
+      const deliveryDate = new Date(po.delivery_date);
+      const today = new Date();
+      const daysUntilDelivery = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntilDelivery <= 7 && po.status !== 'DELIVERED' && po.status !== 'delivered';
+    }).length;
 
     return [
       {
@@ -95,25 +94,25 @@ export const PurchaseOrdersPage: React.FC = () => {
         icon: CheckCircleIcon,
       },
       {
-        name: 'Delivered',
-        value: delivered.toString(),
-        change: delivered > 0 ? `${Math.round((delivered / total) * 100)}%` : '0%',
-        changeType: 'increase' as const,
-        icon: TruckIcon,
+        name: 'Urgent (≤7 days)',
+        value: urgent.toString(),
+        change: urgent > 0 ? `${Math.round((urgent / total) * 100)}%` : '0%',
+        changeType: urgent > 0 ? 'increase' as const : 'neutral' as const,
+        icon: ExclamationTriangleIcon,
       },
     ];
   }, [purchaseOrders]);
 
   // Calculate pending amendments for alerts
   const pendingAmendments = purchaseOrders.filter(po =>
-    po.amendments?.some(amendment =>
+    'amendments' in po && po.amendments && Array.isArray(po.amendments) && po.amendments.length > 0 && po.amendments.some(amendment =>
       amendment.status === 'pending' &&
       amendment.proposed_by_user_id !== user?.id
     )
   );
 
   const myProposedAmendments = purchaseOrders.filter(po =>
-    po.amendments?.some(amendment =>
+    'amendments' in po && po.amendments && Array.isArray(po.amendments) && po.amendments.length > 0 && po.amendments.some(amendment =>
       amendment.status === 'pending' &&
       amendment.proposed_by_user_id === user?.id
     )
@@ -125,8 +124,9 @@ export const PurchaseOrdersPage: React.FC = () => {
     setError(null);
     
     try {
+      // Load all purchase orders (moved from main Purchase Orders page)
       const response = await purchaseOrderApi.getPurchaseOrders(filters);
-      setPurchaseOrders(response.purchase_orders);
+      setPurchaseOrders(response.purchase_orders || []);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to load purchase orders';
       setError(errorMessage);
@@ -163,23 +163,10 @@ export const PurchaseOrdersPage: React.FC = () => {
     });
   };
 
-  // Handle purchase order creation
-  const handleCreatePurchaseOrder = async (data: PurchaseOrderCreate) => {
-    setIsCreating(true);
-    try {
-      await purchaseOrderApi.createPurchaseOrder(data);
-      await loadPurchaseOrders(); // Refresh the list
-      showToast({ type: 'success', title: 'Purchase order created successfully' });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to create purchase order';
-      showToast({ type: 'error', title: errorMessage });
-      throw error; // Re-throw so the modal can handle it
-    } finally {
-      setIsCreating(false);
-    }
+  const handleFulfillPO = (po: PurchaseOrderWithRelations) => {
+    setSelectedPO(po);
+    setShowFulfillmentModal(true);
   };
-
-
 
   if (isLoading && purchaseOrders.length === 0) {
     return (
@@ -193,20 +180,14 @@ export const PurchaseOrdersPage: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <ArrowLeftIcon className="h-8 w-8 text-blue-600" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Purchase Orders</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Incoming Purchase Orders</h1>
             <p className="mt-2 text-gray-600">
-              Manage your purchase orders and amendments
+              Manage all your purchase orders and amendments
             </p>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => setShowCreateModal(true)}
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Create Purchase Order
-          </Button>
         </div>
       </div>
 
@@ -371,7 +352,7 @@ export const PurchaseOrdersPage: React.FC = () => {
           {/* All Purchase Orders */}
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              All Purchase Orders
+              All Incoming Purchase Orders
             </h2>
             <PurchaseOrderTable
               purchaseOrders={purchaseOrders}
@@ -391,15 +372,18 @@ export const PurchaseOrdersPage: React.FC = () => {
         </div>
       )}
 
-      {/* Create Purchase Order Modal */}
-      <CreatePurchaseOrderModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onCreate={handleCreatePurchaseOrder}
-        isLoading={isCreating}
+      {/* Fulfillment Modal */}
+      <FulfillmentModal
+        isOpen={showFulfillmentModal}
+        onClose={() => setShowFulfillmentModal(false)}
+        po={selectedPO}
+        onFulfilled={() => {
+          setShowFulfillmentModal(false);
+          loadPurchaseOrders();
+        }}
       />
     </div>
   );
 };
 
-export default PurchaseOrdersPage;
+export default IncomingPurchaseOrdersPage;

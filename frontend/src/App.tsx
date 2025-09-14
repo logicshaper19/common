@@ -19,9 +19,9 @@ import { SystemMonitoring } from './components/admin/SystemMonitoring';
 import { AuditLogViewer } from './components/admin/AuditLogViewer';
 import { SupportTicketSystem } from './components/admin/SupportTicketSystem';
 import TeamManagement from './pages/TeamManagement';
-import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
 import PurchaseOrderDetailPage from './pages/PurchaseOrderDetailPage';
-import FulfillmentHubPage from './pages/FulfillmentHubPage';
+import IncomingPurchaseOrdersPage from './pages/IncomingPurchaseOrdersPage';
+import OutgoingPurchaseOrdersPage from './pages/OutgoingPurchaseOrdersPage';
 import ProductsRouter from './components/products/ProductsRouter';
 import InventoryRouter from './components/inventory/InventoryRouter';
 import OriginatorRouter from './components/origin/OriginatorRouter';
@@ -54,7 +54,7 @@ function App() {
             {/* Main application routes */}
             <Route path="purchase-orders" element={
               <ProtectedRoute>
-                <PurchaseOrdersPage />
+                <IncomingPurchaseOrdersPage />
               </ProtectedRoute>
             } />
 
@@ -64,9 +64,15 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="fulfillment" element={
+            <Route path="purchase-orders/incoming" element={
               <ProtectedRoute>
-                <FulfillmentHubPage />
+                <IncomingPurchaseOrdersPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="purchase-orders/outgoing" element={
+              <ProtectedRoute>
+                <OutgoingPurchaseOrdersPage />
               </ProtectedRoute>
             } />
 
@@ -112,11 +118,6 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="originator/origin-data" element={
-              <ProtectedRoute>
-                <OriginatorRouter view="origin-data" />
-              </ProtectedRoute>
-            } />
 
             <Route path="originator/demo" element={
               <ProtectedRoute>

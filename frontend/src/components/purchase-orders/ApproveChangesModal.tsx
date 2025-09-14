@@ -3,10 +3,10 @@ import { Card, CardHeader, CardBody } from '../ui/Card';
 import Button from '../ui/Button';
 import TextArea from '../ui/Textarea';
 import { CheckCircleIcon, XCircleIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { PurchaseOrderWithDetails, ApproveChangesRequest } from '../../services/purchaseOrderApi';
+import { PurchaseOrderWithDetails, PurchaseOrderWithRelations, ApproveChangesRequest } from '../../services/purchaseOrderApi';
 
 interface ApproveChangesModalProps {
-  purchaseOrder: PurchaseOrderWithDetails;
+  purchaseOrder: PurchaseOrderWithDetails | PurchaseOrderWithRelations;
   isOpen: boolean;
   onClose: () => void;
   onApprove: (approval: ApproveChangesRequest) => Promise<void>;
@@ -103,8 +103,8 @@ export const ApproveChangesModal: React.FC<ApproveChangesModalProps> = ({
                 Amendment Request for PO #{purchaseOrder.po_number}
               </h3>
               <div className="text-sm text-amber-700">
-                <p><strong>From:</strong> {purchaseOrder.seller_company.name}</p>
-                <p><strong>Product:</strong> {purchaseOrder.product.name}</p>
+                <p><strong>From:</strong> {purchaseOrder.seller_company?.name || 'Unknown'}</p>
+                <p><strong>Product:</strong> {purchaseOrder.product?.name || 'Unknown'}</p>
               </div>
             </div>
 

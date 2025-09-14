@@ -140,7 +140,7 @@ export const canConfirmPO = (user: User): boolean => {
     (user.company.company_type === CompanyType.PROCESSOR && processorRoles.includes(user.role as any)) ||
     (user.company.company_type === 'mill_processor' && millRoles.includes(user.role as any)) ||
     (user.company.company_type === 'plantation_grower' && plantationRoles.includes(user.role as any)) ||
-    (user.company.company_type === CompanyType.ORIGINATOR && originatorRoles.includes(user.role as any))
+    ([CompanyType.ORIGINATOR, 'smallholder_cooperative', 'plantation_grower'].includes(user.company.company_type) && originatorRoles.includes(user.role as any))
   );
 };
 
@@ -239,6 +239,10 @@ export const shouldShowNavigationItem = (user: User, itemKey: string): boolean =
   
   switch (itemKey) {
     case 'purchase-orders':
+      return config.can_create_po || config.can_confirm_po;
+    case 'incoming-orders':
+      return config.can_create_po || config.can_confirm_po;
+    case 'outgoing-orders':
       return config.can_create_po || config.can_confirm_po;
     case 'team':
       return config.can_manage_team;

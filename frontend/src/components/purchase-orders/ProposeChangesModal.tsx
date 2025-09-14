@@ -5,10 +5,10 @@ import Input from '../ui/Input';
 import TextArea from '../ui/Textarea';
 import Select from '../ui/Select';
 import { PencilSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { PurchaseOrderWithDetails, ProposeChangesRequest } from '../../services/purchaseOrderApi';
+import { PurchaseOrderWithDetails, PurchaseOrderWithRelations, ProposeChangesRequest } from '../../services/purchaseOrderApi';
 
 interface ProposeChangesModalProps {
-  purchaseOrder: PurchaseOrderWithDetails;
+  purchaseOrder: PurchaseOrderWithDetails | PurchaseOrderWithRelations;
   isOpen: boolean;
   onClose: () => void;
   onPropose: (proposal: ProposeChangesRequest) => Promise<void>;
@@ -131,11 +131,11 @@ export const ProposeChangesModal: React.FC<ProposeChangesModalProps> = ({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600">Product:</span>
-                  <span className="ml-2 font-medium">{purchaseOrder.product.name}</span>
+                  <span className="ml-2 font-medium">{purchaseOrder.product?.name || 'Unknown'}</span>
                 </div>
                 <div>
                   <span className="text-gray-600">Buyer:</span>
-                  <span className="ml-2 font-medium">{purchaseOrder.buyer_company.name}</span>
+                  <span className="ml-2 font-medium">{purchaseOrder.buyer_company?.name || 'Unknown'}</span>
                 </div>
                 <div>
                   <span className="text-gray-600">Current Quantity:</span>
