@@ -10,7 +10,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import Button from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
-import OriginatorConfirmationForm from '../origin/OriginatorConfirmationForm';
+import BatchSelectionModal from './BatchSelectionModal';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -25,7 +25,14 @@ interface ConfirmationRequest {
   confirmed_delivery_date: string;
   confirmed_delivery_location: string;
   seller_notes?: string;
-  origin_data?: any; // Origin data for originators
+  batch_id?: string; // Reference to selected harvest batch
+  origin_data?: any; // Legacy origin data (deprecated)
+}
+
+interface SelectedBatch {
+  id: string;
+  batch_id: string;
+  farm_name: string;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -38,8 +45,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [isOriginator, setIsOriginator] = useState(false);
-  const [showOriginForm, setShowOriginForm] = useState(false);
-  const [originData, setOriginData] = useState(null);
+  const [showBatchSelection, setShowBatchSelection] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState<SelectedBatch | null>(null);
 
   // Confirmation fields - start with original values
   const [confirmedQuantity, setConfirmedQuantity] = useState(Number(purchaseOrder.quantity));
@@ -72,9 +79,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       const originatorStatus = Boolean(isOriginatorType || isOriginatorTier || hasOriginatorPermissions);
       setIsOriginator(originatorStatus);
 
-      // For raw materials from originators, show origin form by default
+      // For raw materials from originators, show batch selection by default
       if (originatorStatus && purchaseOrder.product.category === 'raw_material') {
-        setShowOriginForm(true);
+        setShowBatchSelection(true);
       }
     };
 
@@ -83,18 +90,19 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     }
   }, [user, isOpen, purchaseOrder.product.category]);
 
-  // Handle origin data submission
-  const handleOriginDataSubmit = async (submittedOriginData: any) => {
-    setOriginData(submittedOriginData);
+  // Handle batch selection
+  const handleBatchSelection = async (batch: any, selectedQuantity: number) => {
+    setSelectedBatch(batch);
+    setConfirmedQuantity(selectedQuantity);
 
-    // Proceed with standard confirmation including origin data
+    // Proceed with standard confirmation including batch reference
     const confirmation: ConfirmationRequest = {
-      confirmed_quantity: confirmedQuantity,
+      confirmed_quantity: selectedQuantity,
       confirmed_unit_price: confirmedPrice,
       confirmed_delivery_date: confirmedDeliveryDate,
       confirmed_delivery_location: confirmedLocation,
       seller_notes: sellerNotes.trim() || undefined,
-      origin_data: submittedOriginData
+      batch_id: batch.id // Reference to the selected harvest batch
     };
 
     setLoading(true);
@@ -140,14 +148,14 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       return;
     }
 
-    // Check if originator should provide origin data
-    if (isOriginator && purchaseOrder.product.category === 'raw_material' && !originData) {
+    // Check if originator should select a batch
+    if (isOriginator && purchaseOrder.product.category === 'raw_material' && !selectedBatch) {
       showToast({
         type: 'warning',
-        title: 'Origin Data Required',
-        message: 'As an originator, please provide origin data for this raw material.'
+        title: 'Batch Selection Required',
+        message: 'As an originator, please select a harvest batch for this raw material.'
       });
-      setShowOriginForm(true);
+      setShowBatchSelection(true);
       return;
     }
 
@@ -160,7 +168,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         confirmed_delivery_date: confirmedDeliveryDate,
         confirmed_delivery_location: confirmedLocation,
         seller_notes: sellerNotes.trim() || undefined,
-        origin_data: originData
+        batch_id: selectedBatch?.id
       };
 
       await onSubmit(confirmation);
@@ -189,38 +197,18 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Show originator form if required
-  if (showOriginForm && isOriginator) {
+  // Show batch selection if required
+  if (showBatchSelection && isOriginator) {
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-          <div className="fixed inset-0 bg-neutral-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-
-          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-neutral-900">
-                  Originator Confirmation - {purchaseOrder.po_number}
-                </h3>
-                <button
-                  onClick={onClose}
-                  className="text-neutral-400 hover:text-neutral-600"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
-
-              <OriginatorConfirmationForm
-                purchaseOrderId={purchaseOrder.po_number}
-                productType={purchaseOrder.product.name}
-                onSubmit={handleOriginDataSubmit}
-                onCancel={() => setShowOriginForm(false)}
-                isLoading={loading}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <BatchSelectionModal
+        isOpen={showBatchSelection}
+        onClose={() => setShowBatchSelection(false)}
+        onSelectBatch={handleBatchSelection}
+        productId={purchaseOrder.product.id}
+        requiredQuantity={Number(purchaseOrder.quantity)}
+        requiredUnit={purchaseOrder.unit}
+        isLoading={loading}
+      />
     );
   }
 
@@ -266,15 +254,15 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                           : 'You can optionally provide origin data for enhanced traceability.'
                         }
                       </p>
-                      {!showOriginForm && purchaseOrder.product.category === 'raw_material' && (
+                      {!showBatchSelection && purchaseOrder.product.category === 'raw_material' && (
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="mt-2"
-                          onClick={() => setShowOriginForm(true)}
+                          onClick={() => setShowBatchSelection(true)}
                         >
-                          Add Origin Data
+                          Select Harvest Batch
                         </Button>
                       )}
                     </div>
@@ -439,6 +427,31 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 />
               </div>
 
+              {/* Batch Selection for Originators */}
+              {isOriginator && purchaseOrder.product.category === 'raw_material' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-blue-900">Harvest Batch Selection</h4>
+                      <p className="text-sm text-blue-700">
+                        {selectedBatch 
+                          ? `Selected: ${selectedBatch.batch_id} (${selectedBatch.farm_name})`
+                          : 'Select a harvest batch with origin data to fulfill this order'
+                        }
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowBatchSelection(true)}
+                      disabled={loading}
+                    >
+                      {selectedBatch ? 'Change Batch' : 'Select Batch'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex justify-end space-x-3 pt-4">
                 <Button
@@ -454,6 +467,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                   variant="primary"
                   isLoading={loading}
                   leftIcon={<CheckCircleIcon className="h-4 w-4" />}
+                  disabled={isOriginator && purchaseOrder.product.category === 'raw_material' && !selectedBatch}
                 >
                   Confirm Order
                 </Button>

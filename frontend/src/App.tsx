@@ -21,10 +21,12 @@ import { SupportTicketSystem } from './components/admin/SupportTicketSystem';
 import TeamManagement from './pages/TeamManagement';
 import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
 import PurchaseOrderDetailPage from './pages/PurchaseOrderDetailPage';
+import FulfillmentHubPage from './pages/FulfillmentHubPage';
 import ProductsRouter from './components/products/ProductsRouter';
 import InventoryRouter from './components/inventory/InventoryRouter';
 import OriginatorRouter from './components/origin/OriginatorRouter';
 import OriginatorFeaturesDemo from './pages/OriginatorFeaturesDemo';
+import HarvestManagement from './pages/HarvestManagement';
 
 function App() {
   return (
@@ -59,6 +61,12 @@ function App() {
             <Route path="purchase-orders/:id" element={
               <ProtectedRoute>
                 <PurchaseOrderDetailPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="fulfillment" element={
+              <ProtectedRoute>
+                <FulfillmentHubPage />
               </ProtectedRoute>
             } />
 
@@ -113,6 +121,12 @@ function App() {
             <Route path="originator/demo" element={
               <ProtectedRoute>
                 <OriginatorFeaturesDemo />
+              </ProtectedRoute>
+            } />
+
+            <Route path="harvest" element={
+              <ProtectedRoute>
+                <HarvestManagement />
               </ProtectedRoute>
             } />
 

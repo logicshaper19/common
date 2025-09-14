@@ -17,6 +17,7 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, CardBody } from '../ui/Card';
+import DataTable, { DataTableColumn } from '../ui/DataTable';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import TextArea from '../ui/Textarea';
@@ -203,16 +204,155 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
     }
   };
 
-  // Filter farms
-  const filteredFarms = farms.filter(farm => {
-    const matchesSearch = farm.farm_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         farm.farm_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         farm.owner_name.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesType = !filterType || farm.plantation_type === filterType;
-    
-    return matchesSearch && matchesType;
-  });
+  // Define table columns
+  const farmColumns: DataTableColumn[] = [
+    {
+      key: 'icon',
+      label: '',
+      sortable: false,
+      searchable: false,
+      render: () => <BuildingOfficeIcon className="h-5 w-5 text-gray-400" />,
+      className: 'w-12'
+    },
+    {
+      key: 'farm_name',
+      label: 'Farm Name',
+      sortable: true,
+      searchable: true,
+      render: (value, farm) => (
+        <div>
+          <div className="font-medium text-gray-900">{value}</div>
+          <div className="text-sm text-gray-500">
+            {farm.gps_coordinates.latitude.toFixed(4)}, {farm.gps_coordinates.longitude.toFixed(4)}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'farm_id',
+      label: 'Farm ID',
+      sortable: true,
+      searchable: true,
+      render: (value) => <div className="text-sm font-medium text-gray-900">{value}</div>
+    },
+    {
+      key: 'owner_name',
+      label: 'Owner',
+      sortable: true,
+      searchable: true,
+      render: (value, farm) => (
+        <div>
+          <div className="text-sm text-gray-900">{value}</div>
+          <div className="text-xs text-gray-500">{farm.owner_contact}</div>
+        </div>
+      )
+    },
+    {
+      key: 'plantation_type',
+      label: 'Type',
+      sortable: true,
+      searchable: false,
+      render: (value) => getPlantationTypeBadge(value)
+    },
+    {
+      key: 'farm_size_hectares',
+      label: 'Size (ha)',
+      sortable: true,
+      searchable: false,
+      render: (value) => <div className="text-sm text-gray-900">{value} ha</div>
+    },
+    {
+      key: 'establishment_year',
+      label: 'Established',
+      sortable: true,
+      searchable: false,
+      render: (value) => <div className="text-sm text-gray-900">{value}</div>
+    },
+    {
+      key: 'annual_production_capacity',
+      label: 'Capacity',
+      sortable: true,
+      searchable: false,
+      render: (value) => (
+        <div className="text-sm text-gray-900">
+          {value?.toLocaleString() || 'N/A'} MT/year
+        </div>
+      )
+    },
+    {
+      key: 'certification_status',
+      label: 'Certifications',
+      sortable: false,
+      searchable: false,
+      render: (value) => (
+        <div className="flex flex-wrap gap-1">
+          {value.slice(0, 2).map((cert: string) => (
+            <Badge key={cert} variant="success" size="sm">
+              {cert}
+            </Badge>
+          ))}
+          {value.length > 2 && (
+            <Badge variant="neutral" size="sm">
+              +{value.length - 2}
+            </Badge>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'is_active',
+      label: 'Status',
+      sortable: true,
+      searchable: false,
+      render: (value, farm) => (
+        <div className="flex flex-col gap-1">
+          {value ? (
+            <Badge variant="success">Active</Badge>
+          ) : (
+            <Badge variant="error">Inactive</Badge>
+          )}
+          <div className="text-xs text-gray-500">
+            Updated {formatDate(farm.last_updated)}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      sortable: false,
+      searchable: false,
+      render: (_, farm) => (
+        <div className="flex items-center space-x-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openViewModal(farm)}
+            title="View details"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openEditModal(farm)}
+            title="Edit farm"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleDelete(farm)}
+            title="Delete farm"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+      className: 'w-32'
+    }
+  ];
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -343,7 +483,7 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
         <div>
           <h2 className="text-xl font-bold text-gray-900">Farm Information Management</h2>
           <p className="text-gray-600 mt-1">
-            Manage detailed information for all your farms and plantations.
+            Comprehensive farm data management with GPS tracking, certification status, and production capacity monitoring.
           </p>
         </div>
         <Button
@@ -377,99 +517,26 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
         </CardBody>
       </Card>
 
-      {/* Farms List */}
-      <Card>
-        <CardHeader title={`Farms (${filteredFarms.length})`} />
-        <CardBody padding="none">
-          {filteredFarms.length === 0 ? (
-            <div className="text-center py-12">
-              <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">No farms found</p>
-              <Button onClick={openCreateModal} variant="primary">
-                Add Your First Farm
-              </Button>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {filteredFarms.map((farm) => (
-                <div key={farm.id} className="p-6 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {farm.farm_name}
-                        </h3>
-                        {getPlantationTypeBadge(farm.plantation_type)}
-                        {!farm.is_active && (
-                          <Badge variant="error">Inactive</Badge>
-                        )}
-                      </div>
-                      
-                      <div className="text-sm text-gray-600 mb-3">
-                        <span className="font-medium">ID:</span> {farm.farm_id} • 
-                        <span className="font-medium ml-2">Owner:</span> {farm.owner_name}
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">Size:</span>
-                          <span className="ml-1 font-medium">{farm.farm_size_hectares} ha</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Established:</span>
-                          <span className="ml-1 font-medium">{farm.establishment_year}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Capacity:</span>
-                          <span className="ml-1 font-medium">
-                            {farm.annual_production_capacity?.toLocaleString() || 'N/A'} MT/year
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Updated:</span>
-                          <span className="ml-1 font-medium">{formatDate(farm.last_updated)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1 mt-3">
-                        {farm.certification_status.map((cert) => (
-                          <Badge key={cert} variant="success" size="sm">
-                            {cert}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-2 ml-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openViewModal(farm)}
-                      >
-                        <EyeIcon className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditModal(farm)}
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(farm)}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardBody>
-      </Card>
+      {/* Farms Table */}
+      <DataTable
+        title={`Farms (${farms.length})`}
+        data={farms}
+        columns={farmColumns}
+        searchPlaceholder="Search farm names, IDs, owners..."
+        statusFilterOptions={[
+          { label: 'Active', value: 'true' },
+          { label: 'Inactive', value: 'false' }
+        ]}
+        onRowClick={(farm) => openViewModal(farm)}
+        onExport={() => console.log('Export farms')}
+        emptyState={{
+          icon: BuildingOfficeIcon,
+          title: 'No farms found',
+          description: 'Get started by adding your first farm to the system.',
+          actionLabel: 'Add Your First Farm',
+          onAction: openCreateModal
+        }}
+      />
 
       {/* Create/Edit Modal */}
       {(showCreateModal || showEditModal) && (

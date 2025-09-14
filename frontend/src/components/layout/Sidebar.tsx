@@ -19,11 +19,13 @@ import {
   QueueListIcon,
   MapIcon,
   ShieldCheckIcon,
+  SunIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 import Button from '../ui/Button';
 import { shouldShowNavigationItem, getDashboardConfig } from '../../utils/permissions';
+import { usePurchaseOrderCount } from '../../hooks/usePurchaseOrderCount';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ interface NavigationItem {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
+  const { pendingCount } = usePurchaseOrderCount();
   
   if (!user) return null;
   
@@ -57,7 +60,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       name: 'Purchase Orders',
       href: '/purchase-orders',
       icon: DocumentTextIcon,
-      badge: '12', // This would come from API
+      badge: pendingCount > 0 ? pendingCount : undefined, // Show count only if there are pending orders
+    }] : []),
+    // Fulfillment Hub - visible to users who can create or confirm POs
+    ...(dashboardConfig.can_create_po || dashboardConfig.can_confirm_po ? [{
+      name: 'Fulfillment Hub',
+      href: '/fulfillment',
+      icon: QueueListIcon,
     }] : []),
     // Products - only for brands and processors (not originators)
     ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
@@ -82,6 +91,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       name: 'Farm Management',
       href: '/originator/farms',
       icon: BuildingOfficeIcon,
+    }] : []),
+    ...(dashboardConfig.can_report_farm_data ? [{
+      name: 'Harvest Management',
+      href: '/harvest',
+      icon: SunIcon,
     }] : []),
     ...(dashboardConfig.can_report_farm_data ? [{
       name: 'Origin Data',
@@ -136,12 +150,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       name: 'Support Tickets',
       href: '/admin/support',
       icon: UserGroupIcon,
-    }] : []),
-    // Settings - only for admins
-    ...(dashboardConfig.can_manage_settings ? [{
-      name: 'Settings',
-      href: '/settings',
-      icon: Cog6ToothIcon,
     }] : []),
     // Trader-specific features
     ...(dashboardConfig.can_manage_trader_chain ? [{

@@ -54,6 +54,10 @@ class PurchaseOrderCreate(BaseModel):
     input_materials: Optional[List[Dict[str, Any]]] = None
     origin_data: Optional[Dict[str, Any]] = None
     notes: Optional[str] = Field(None, max_length=1000)
+    
+    # Commercial chain linking
+    parent_po_id: Optional[str] = Field(None, description="Parent PO ID if this is fulfilling another PO")
+    is_drop_shipment: Optional[bool] = Field(False, description="Whether this PO is a drop-shipment fulfillment")
 
     @field_validator('composition')
     @classmethod
@@ -189,6 +193,20 @@ class AmendmentResponse(BaseModel):
         }
 
 
+class BatchSelection(BaseModel):
+    """Schema for batch selection in PO confirmation."""
+    batch_id: str = Field(..., description="ID of the selected batch")
+    quantity_to_use: Decimal = Field(..., gt=0, decimal_places=3, description="Quantity to use from this batch")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "batch_id": "H-20241201-001",
+                "quantity_to_use": "500.000"
+            }
+        }
+
+
 class SellerConfirmation(BaseModel):
     """Schema for seller confirmation of purchase order."""
     confirmed_quantity: Decimal = Field(..., gt=0, decimal_places=3)
@@ -196,6 +214,19 @@ class SellerConfirmation(BaseModel):
     confirmed_delivery_date: Optional[date] = None
     confirmed_delivery_location: Optional[str] = Field(None, min_length=1, max_length=500)
     seller_notes: Optional[str] = Field(None, max_length=1000)
+    
+    # Batch selection for originators - supports multiple batches
+    selected_batches: Optional[List[BatchSelection]] = Field(None, description="List of selected harvest batches")
+    
+    # Commercial chain linking - for drop-shipment scenarios
+    is_drop_shipment: Optional[bool] = Field(False, description="Whether this PO is a drop-shipment fulfillment")
+    parent_po_id: Optional[str] = Field(None, description="Parent PO ID if this is fulfilling another PO")
+    
+    # Legacy single batch selection (deprecated - use selected_batches instead)
+    batch_id: Optional[str] = Field(None, description="Reference to selected harvest batch (deprecated)")
+    
+    # Legacy origin data (deprecated - use selected_batches instead)
+    origin_data: Optional[Dict[str, Any]] = Field(None, description="Legacy origin data (deprecated)")
 
     class Config:
         json_schema_extra = {

@@ -8,6 +8,9 @@ import LoadingSpinner from '../../ui/LoadingSpinner';
 import { Card, CardHeader, CardBody } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
+import AnalyticsCard from '../../ui/AnalyticsCard';
+import Input from '../../ui/Input';
+import Select from '../../ui/Select';
 import { 
   MapIcon,
   ShieldCheckIcon,
@@ -17,7 +20,17 @@ import {
   BuildingOfficeIcon,
   ExclamationTriangleIcon,
   EyeIcon,
-  CalendarIcon
+  CalendarIcon,
+  DocumentTextIcon,
+  ArrowRightIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  BellIcon,
+  InformationCircleIcon,
+  ArrowDownTrayIcon,
+  HomeIcon
 } from '@heroicons/react/24/outline';
 
 interface ProductionTracker {
@@ -45,6 +58,11 @@ interface OriginatorMetrics {
 const OriginatorLayout: React.FC = () => {
   const { config, loading: configLoading } = useDashboardConfig();
   const { metrics, loading: metricsLoading } = useDashboardMetrics('originator');
+  const [activeTab, setActiveTab] = React.useState<'purchase-orders' | 'origin-data'>('purchase-orders');
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [sortField, setSortField] = React.useState<string>('');
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+  const [statusFilter, setStatusFilter] = React.useState<string>('');
 
   if (configLoading) {
     return (
@@ -65,8 +83,236 @@ const OriginatorLayout: React.FC = () => {
 
   const originatorMetrics = metrics as OriginatorMetrics;
 
+  // Mock data for the tabs
+  const latestPurchaseOrders = [
+    {
+      id: '1',
+      po_number: 'PO-2025-001',
+      supplier: 'PT Kalimantan Plantation',
+      product: 'Fresh Fruit Bunches',
+      quantity: 5000,
+      status: 'confirmed',
+      date: '2025-01-10',
+      value: 125000
+    },
+    {
+      id: '2',
+      po_number: 'PO-2025-002',
+      supplier: 'Sumatra Smallholder Cooperative',
+      product: 'Fresh Fruit Bunches',
+      quantity: 3200,
+      status: 'pending',
+      date: '2025-01-09',
+      value: 80000
+    },
+    {
+      id: '3',
+      po_number: 'PO-2025-003',
+      supplier: 'PT Kalimantan Plantation',
+      product: 'Fresh Fruit Bunches',
+      quantity: 7500,
+      status: 'confirmed',
+      date: '2025-01-08',
+      value: 187500
+    },
+    {
+      id: '4',
+      po_number: 'PO-2025-004',
+      supplier: 'Borneo Sustainable Farms',
+      product: 'Fresh Fruit Bunches',
+      quantity: 2800,
+      status: 'draft',
+      date: '2025-01-07',
+      value: 70000
+    },
+    {
+      id: '5',
+      po_number: 'PO-2025-005',
+      supplier: 'Sumatra Smallholder Cooperative',
+      product: 'Fresh Fruit Bunches',
+      quantity: 4100,
+      status: 'confirmed',
+      date: '2025-01-06',
+      value: 102500
+    }
+  ];
+
+  const latestOriginData = [
+    {
+      id: '1',
+      batch_id: 'BATCH-2025-001',
+      farm_name: 'Kalimantan Estate Block A',
+      harvest_date: '2025-01-10',
+      status: 'verified',
+      eudr_status: 'compliant',
+      quality_score: 89.2
+    },
+    {
+      id: '2',
+      batch_id: 'BATCH-2025-002',
+      farm_name: 'Sumatra Smallholder Cooperative',
+      harvest_date: '2025-01-09',
+      status: 'submitted',
+      eudr_status: 'compliant',
+      quality_score: 87.8
+    },
+    {
+      id: '3',
+      batch_id: 'BATCH-2025-003',
+      farm_name: 'Kalimantan Estate Block B',
+      harvest_date: '2025-01-08',
+      status: 'draft',
+      eudr_status: 'pending',
+      quality_score: 88.5
+    },
+    {
+      id: '4',
+      batch_id: 'BATCH-2025-004',
+      farm_name: 'Borneo Sustainable Farms',
+      harvest_date: '2025-01-07',
+      status: 'verified',
+      eudr_status: 'compliant',
+      quality_score: 91.2
+    },
+    {
+      id: '5',
+      batch_id: 'BATCH-2025-005',
+      farm_name: 'Sumatra Smallholder Cooperative',
+      harvest_date: '2025-01-06',
+      status: 'submitted',
+      eudr_status: 'compliant',
+      quality_score: 86.7
+    }
+  ];
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return <Badge variant="success">Confirmed</Badge>;
+      case 'pending':
+        return <Badge variant="warning">Pending</Badge>;
+      case 'draft':
+        return <Badge variant="neutral">Draft</Badge>;
+      case 'verified':
+        return <Badge variant="success">Verified</Badge>;
+      case 'submitted':
+        return <Badge variant="primary">Submitted</Badge>;
+      default:
+        return <Badge variant="neutral">{status}</Badge>;
+    }
+  };
+
+  const getEUDRStatusBadge = (status: string) => {
+    switch (status) {
+      case 'compliant':
+        return <Badge variant="success">Compliant</Badge>;
+      case 'pending':
+        return <Badge variant="warning">Pending</Badge>;
+      case 'non_compliant':
+        return <Badge variant="error">Non-Compliant</Badge>;
+      default:
+        return <Badge variant="neutral">{status}</Badge>;
+    }
+  };
+
+  // Filter and sort data
+  const getFilteredAndSortedData = (data: any[], type: 'purchase-orders' | 'origin-data') => {
+    let filtered = data;
+
+    // Apply search filter
+    if (searchTerm) {
+      if (type === 'purchase-orders') {
+        filtered = filtered.filter(item => 
+          item.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.product.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      } else {
+        filtered = filtered.filter(item => 
+          item.batch_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.farm_name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+    }
+
+    // Apply status filter
+    if (statusFilter) {
+      filtered = filtered.filter(item => item.status === statusFilter);
+    }
+
+    // Apply sorting
+    if (sortField) {
+      filtered = [...filtered].sort((a, b) => {
+        const aValue = a[sortField];
+        const bValue = b[sortField];
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortDirection === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        
+        return 0;
+      });
+    }
+
+    return filtered;
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' 
+      ? <ChevronUpIcon className="h-4 w-4" />
+      : <ChevronDownIcon className="h-4 w-4" />;
+  };
+
+  // Get filtered data
+  const filteredPurchaseOrders = getFilteredAndSortedData(latestPurchaseOrders, 'purchase-orders');
+  const filteredOriginData = getFilteredAndSortedData(latestOriginData, 'origin-data');
+
+  // Status counts for metrics
+  const statusCounts = {
+    confirmedPOs: latestPurchaseOrders.filter(po => po.status === 'confirmed').length,
+    pendingPOs: latestPurchaseOrders.filter(po => po.status === 'pending').length,
+    verifiedOriginData: latestOriginData.filter(data => data.status === 'verified').length,
+    pendingOriginData: latestOriginData.filter(data => data.status === 'submitted' || data.status === 'draft').length,
+    compliantEUDR: latestOriginData.filter(data => data.eudr_status === 'compliant').length,
+    expiringCertifications: originatorMetrics?.farm_management?.certifications_expiring || 0
+  };
+
   return (
     <div className="space-y-6">
+      {/* Breadcrumbs */}
+      <nav className="flex" aria-label="Breadcrumb">
+        <ol className="flex items-center space-x-2">
+          <li>
+            <div className="flex items-center">
+              <HomeIcon className="h-4 w-4 text-gray-400" />
+              <span className="ml-2 text-sm text-gray-500">Dashboard</span>
+            </div>
+          </li>
+          <li>
+            <div className="flex items-center">
+              <span className="text-gray-400 mx-2">/</span>
+              <span className="text-sm font-medium text-gray-900">Originator</span>
+            </div>
+          </li>
+        </ol>
+      </nav>
+
       {/* Page header */}
       <div className="md:flex md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
@@ -77,13 +323,38 @@ const OriginatorLayout: React.FC = () => {
             Farm management and certification tracking
           </p>
         </div>
-        <div className="mt-4 flex md:ml-4 md:mt-0">
+        <div className="mt-4 flex space-x-3 md:ml-4 md:mt-0">
+          <Button variant="outline" size="sm">
+            <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+            Export Data
+          </Button>
           <Button>
             <PlusIcon className="h-4 w-4 mr-2" />
             Add New Farm
           </Button>
         </div>
       </div>
+
+      {/* Notifications/Alerts */}
+      {statusCounts.expiringCertifications > 0 && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardBody>
+            <div className="flex items-start space-x-3">
+              <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-yellow-800">Certifications Expiring Soon</h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  You have {statusCounts.expiringCertifications} certification(s) expiring within 90 days. 
+                  <Button variant="link" className="text-yellow-700 underline p-0 ml-1">
+                    Review now
+                  </Button>
+                </p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
 
       {/* Dashboard content */}
       {metricsLoading ? (
@@ -94,186 +365,372 @@ const OriginatorLayout: React.FC = () => {
       ) : (
         <div className="space-y-6">
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <Card>
-              <CardBody className="p-6">
-                    <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <MapIcon className="h-8 w-8 text-primary-600" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        Total Farms
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                        {originatorMetrics?.farm_management?.total_farms || 0}
-                      </dd>
-                    </dl>
-                      </div>
-                    </div>
-                </CardBody>
-              </Card>
-
-              <Card>
-              <CardBody className="p-6">
-                    <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <ShieldCheckIcon className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        EUDR Compliant
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                          {originatorMetrics?.farm_management?.eudr_compliant || 0}
-                      </dd>
-                    </dl>
-                      </div>
-                    </div>
-                </CardBody>
-              </Card>
-
-              <Card>
-              <CardBody className="p-6">
-                    <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <BuildingOfficeIcon className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        Recent Harvests
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                        {originatorMetrics?.production_tracker?.recent_harvests || 0}
-                      </dd>
-                    </dl>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card>
-              <CardBody className="p-6">
-                  <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <ChartBarIcon className="h-8 w-8 text-purple-600" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        POs Confirmed
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                          {originatorMetrics?.recent_activity?.pos_confirmed || 0}
-                      </dd>
-                    </dl>
-                      </div>
-                    </div>
-                </CardBody>
-              </Card>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <AnalyticsCard
+              title="Total Farms"
+              value={originatorMetrics?.farm_management?.total_farms || 0}
+              subtitle="Active farms"
+              icon={MapIcon}
+              trend={{ value: 2, isPositive: true }}
+            />
+            <AnalyticsCard
+              title="EUDR Compliant"
+              value={originatorMetrics?.farm_management?.eudr_compliant || 0}
+              subtitle="Compliant farms"
+              icon={ShieldCheckIcon}
+              trend={{ value: 5, isPositive: true }}
+            />
+            <AnalyticsCard
+              title="Certifications Expiring"
+              value={originatorMetrics?.farm_management?.certifications_expiring || 0}
+              subtitle="Within 90 days"
+              icon={BuildingOfficeIcon}
+              trend={{ value: 1, isPositive: false }}
+            />
+            <AnalyticsCard
+              title="POs Confirmed"
+              value={originatorMetrics?.recent_activity?.pos_confirmed || 0}
+              subtitle="This month"
+              icon={ChartBarIcon}
+              trend={{ value: 12, isPositive: true }}
+            />
             </div>
 
-          {/* Farm Management */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+
+              {/* Latest Activity Tabs */}
               <Card>
                 <CardHeader>
-                <h3 className="text-lg font-medium text-gray-900">Production Tracker</h3>
-              </CardHeader>
-              <CardBody>
-                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Recent Harvests</span>
-                    <Badge variant="primary">
-                      {originatorMetrics?.production_tracker?.recent_harvests || 0}
-                    </Badge>
-                  </div>
-                      <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Pending PO Links</span>
-                    <Badge variant="warning">
-                      {originatorMetrics?.production_tracker?.pending_po_links || 0}
-                    </Badge>
-                      </div>
-                    </div>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <h3 className="text-lg font-medium text-gray-900">Farm Management</h3>
-              </CardHeader>
-              <CardBody>
-                <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Total Farms</span>
-                    <Badge variant="primary">
-                      {originatorMetrics?.farm_management?.total_farms || 0}
-                    </Badge>
-                        </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">EUDR Compliant</span>
-                    <Badge variant="success">
-                      {originatorMetrics?.farm_management?.eudr_compliant || 0}
-                    </Badge>
-                      </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Certifications Expiring</span>
-                    <Badge variant="error">
-                      {originatorMetrics?.farm_management?.certifications_expiring || 0}
-                    </Badge>
-                      </div>
-                    </div>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <h3 className="text-lg font-medium text-gray-900">Recent Activity</h3>
-              </CardHeader>
-              <CardBody>
-                <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Harvests This Week</span>
-                    <span className="text-sm font-medium text-gray-900">
-                      {originatorMetrics?.recent_activity?.harvests_this_week || 0}
-                    </span>
-                        </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">POs Confirmed</span>
-                    <span className="text-sm font-medium text-gray-900">
-                      {originatorMetrics?.recent_activity?.pos_confirmed || 0}
-                    </span>
+                    <h3 className="text-lg font-medium text-gray-900">Latest Activity</h3>
+                    <div className="flex space-x-1">
+                      <Button
+                        variant={activeTab === 'purchase-orders' ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => setActiveTab('purchase-orders')}
+                      >
+                        <DocumentTextIcon className="h-4 w-4 mr-2" />
+                        Purchase Orders
+                      </Button>
+                      <Button
+                        variant={activeTab === 'origin-data' ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => setActiveTab('origin-data')}
+                      >
+                        <MapIcon className="h-4 w-4 mr-2" />
+                        Origin Data
+                      </Button>
                     </div>
                   </div>
-                </CardBody>
-              </Card>
-          </div>
-
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader>
-              <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
                 </CardHeader>
-                <CardBody>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Button variant="outline" className="w-full justify-start">
-                      <PlusIcon className="h-4 w-4 mr-2" />
-                  Add New Farm
-                    </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <ShieldCheckIcon className="h-4 w-4 mr-2" />
-                  Manage Certifications
-                    </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <ChartBarIcon className="h-4 w-4 mr-2" />
-                  View Farm Analytics
-                    </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <DocumentCheckIcon className="h-4 w-4 mr-2" />
-                  Report Harvest Data
-                    </Button>
+                
+                {/* Search and Filter Bar */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <div className="relative">
+                        <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        <Input
+                          type="text"
+                          placeholder={`Search ${activeTab === 'purchase-orders' ? 'PO numbers, suppliers, products...' : 'batch IDs, farm names...'}`}
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        options={[
+                          { label: 'All Status', value: '' },
+                          ...(activeTab === 'purchase-orders' 
+                            ? [
+                                { label: 'Confirmed', value: 'confirmed' },
+                                { label: 'Pending', value: 'pending' },
+                                { label: 'Draft', value: 'draft' }
+                              ]
+                            : [
+                                { label: 'Verified', value: 'verified' },
+                                { label: 'Submitted', value: 'submitted' },
+                                { label: 'Draft', value: 'draft' }
+                              ]
+                          )
+                        ]}
+                        className="min-w-[120px]"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSearchTerm('');
+                          setStatusFilter('');
+                          setSortField('');
+                        }}
+                      >
+                        <FunnelIcon className="h-4 w-4 mr-2" />
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+            </div>
+
+                <CardBody padding="none">
+                  {activeTab === 'purchase-orders' ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('po_number')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>PO Number</span>
+                                {getSortIcon('po_number')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('supplier')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Supplier</span>
+                                {getSortIcon('supplier')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('product')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Product</span>
+                                {getSortIcon('product')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('quantity')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Quantity</span>
+                                {getSortIcon('quantity')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('status')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Status</span>
+                                {getSortIcon('status')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('date')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Date</span>
+                                {getSortIcon('date')}
+                  </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('value')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Value</span>
+                                {getSortIcon('value')}
+                      </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {filteredPurchaseOrders.map((po, index) => (
+                            <tr 
+                              key={po.id} 
+                              className={`hover:bg-gray-50 cursor-pointer ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                              onClick={() => {
+                                // Navigate to PO details
+                                console.log('Navigate to PO:', po.id);
+                              }}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {po.po_number}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {po.supplier}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {po.product}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {po.quantity.toLocaleString()} KG
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {getStatusBadge(po.status)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {po.date}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${po.value.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('batch_id')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Batch ID</span>
+                                {getSortIcon('batch_id')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('farm_name')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Farm Name</span>
+                                {getSortIcon('farm_name')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('harvest_date')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Harvest Date</span>
+                                {getSortIcon('harvest_date')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('status')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Status</span>
+                                {getSortIcon('status')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('eudr_status')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>EUDR</span>
+                                {getSortIcon('eudr_status')}
+                                <InformationCircleIcon className="h-4 w-4 text-gray-400" title="EU Deforestation Regulation compliance status" />
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('quality_score')}
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Quality</span>
+                                {getSortIcon('quality_score')}
+                        </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {filteredOriginData.map((data, index) => (
+                            <tr 
+                              key={data.id} 
+                              className={`hover:bg-gray-50 cursor-pointer ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                              onClick={() => {
+                                // Navigate to origin data details
+                                console.log('Navigate to origin data:', data.id);
+                              }}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {data.batch_id}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {data.farm_name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {data.harvest_date}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {getStatusBadge(data.status)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {getEUDRStatusBadge(data.eudr_status)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div className="flex items-center">
+                                  <span className="mr-2">{data.quality_score}%</span>
+                                  <div className="w-16 bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className={`h-2 rounded-full ${
+                                        data.quality_score >= 90 ? 'bg-green-500' :
+                                        data.quality_score >= 80 ? 'bg-yellow-500' : 'bg-red-500'
+                                      }`}
+                                      style={{ width: `${data.quality_score}%` }}
+                                    ></div>
+                      </div>
+                      </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  
+                  {/* See More Button */}
+                  <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        <p>
+                          Showing {activeTab === 'purchase-orders' ? filteredPurchaseOrders.length : filteredOriginData.length} of {activeTab === 'purchase-orders' ? latestPurchaseOrders.length : latestOriginData.length} items
+                          {(searchTerm || statusFilter) && (
+                            <span className="text-blue-600 ml-1">
+                              (filtered)
+                    </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // Export functionality
+                            console.log('Export data');
+                          }}
+                        >
+                          <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+                          Export
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (activeTab === 'purchase-orders') {
+                              window.location.href = '/purchase-orders';
+                            } else {
+                              window.location.href = '/originator/origin-data';
+                            }
+                          }}
+                        >
+                          See More
+                          <ArrowRightIcon className="h-4 w-4 ml-2" />
+                        </Button>
+                        </div>
+                    </div>
                   </div>
                 </CardBody>
               </Card>

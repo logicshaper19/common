@@ -46,7 +46,25 @@ export const UserRole = {
   SUPPLY_CHAIN_MANAGER: 'supply_chain_manager',
   PRODUCTION_MANAGER: 'production_manager',
   VIEWER: 'viewer',
-  AUDITOR: 'auditor'
+  AUDITOR: 'auditor',
+  // Brand roles
+  BRAND_MANAGER: 'brand_manager',
+  PROCUREMENT_DIRECTOR: 'procurement_director',
+  CSR_MANAGER: 'csr_manager',
+  // Trader roles
+  TRADER: 'trader',
+  SUSTAINABILITY_MANAGER: 'sustainability_manager',
+  // Processor roles
+  REFINERY_MANAGER: 'refinery_manager',
+  QUALITY_MANAGER: 'quality_manager',
+  // Mill roles
+  MILL_MANAGER: 'mill_manager',
+  OPERATIONS_MANAGER: 'operations_manager',
+  // Plantation roles
+  PLANTATION_MANAGER: 'plantation_manager',
+  HARVEST_MANAGER: 'harvest_manager',
+  // Originator roles
+  COOPERATIVE_MANAGER: 'cooperative_manager'
 } as const;
 
 /**
@@ -55,9 +73,32 @@ export const UserRole = {
  * Originators are the source - they don't create POs, they only receive them
  */
 export const canCreatePO = (user: User): boolean => {
+  // Brand roles that can create POs
+  const brandRoles = [
+    UserRole.BRAND_MANAGER,
+    UserRole.PROCUREMENT_DIRECTOR,
+    UserRole.CSR_MANAGER,
+    UserRole.SUPPLY_CHAIN_MANAGER
+  ];
+  
+  // Trader roles that can create POs
+  const traderRoles = [
+    UserRole.TRADER,
+    UserRole.SUSTAINABILITY_MANAGER,
+    UserRole.SUPPLY_CHAIN_MANAGER
+  ];
+  
+  // Processor roles that can create POs
+  const processorRoles = [
+    UserRole.REFINERY_MANAGER,
+    UserRole.QUALITY_MANAGER,
+    UserRole.SUPPLY_CHAIN_MANAGER
+  ];
+  
   return (
-    user.role === UserRole.SUPPLY_CHAIN_MANAGER &&
-    [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR].includes(user.company.company_type as any)
+    (user.company.company_type === CompanyType.BRAND && brandRoles.includes(user.role as any)) ||
+    (user.company.company_type === CompanyType.TRADER && traderRoles.includes(user.role as any)) ||
+    (user.company.company_type === CompanyType.PROCESSOR && processorRoles.includes(user.role as any))
   );
 };
 
@@ -66,9 +107,40 @@ export const canCreatePO = (user: User): boolean => {
  * Processors and Originators confirm POs received from UPSTREAM
  */
 export const canConfirmPO = (user: User): boolean => {
+  // Processor roles that can confirm POs
+  const processorRoles = [
+    UserRole.REFINERY_MANAGER,
+    UserRole.QUALITY_MANAGER,
+    UserRole.PRODUCTION_MANAGER,
+    'processor',  // Generic processor role
+    'quality_manager'  // Quality manager role
+  ];
+  
+  // Mill roles that can confirm POs
+  const millRoles = [
+    UserRole.MILL_MANAGER,
+    UserRole.OPERATIONS_MANAGER,
+    UserRole.PRODUCTION_MANAGER
+  ];
+  
+  // Plantation roles that can confirm POs
+  const plantationRoles = [
+    UserRole.PLANTATION_MANAGER,
+    UserRole.HARVEST_MANAGER,
+    UserRole.PRODUCTION_MANAGER
+  ];
+  
+  // Originator roles that can confirm POs
+  const originatorRoles = [
+    UserRole.COOPERATIVE_MANAGER,
+    'originator'
+  ];
+  
   return (
-    (user.role === UserRole.PRODUCTION_MANAGER || user.role === 'originator') &&
-    ([CompanyType.PROCESSOR, CompanyType.ORIGINATOR, 'plantation_grower'].includes(user.company.company_type as any))
+    (user.company.company_type === CompanyType.PROCESSOR && processorRoles.includes(user.role as any)) ||
+    (user.company.company_type === 'mill_processor' && millRoles.includes(user.role as any)) ||
+    (user.company.company_type === 'plantation_grower' && plantationRoles.includes(user.role as any)) ||
+    (user.company.company_type === CompanyType.ORIGINATOR && originatorRoles.includes(user.role as any))
   );
 };
 
@@ -76,14 +148,22 @@ export const canConfirmPO = (user: User): boolean => {
  * Check if user can manage team members
  */
 export const canManageTeam = (user: User): boolean => {
-  return user.role === UserRole.ADMIN || user.role === 'originator';
+  return user.role === UserRole.ADMIN || 
+         user.role === 'originator' ||
+         user.role === UserRole.BRAND_MANAGER ||
+         user.role === UserRole.PLANTATION_MANAGER ||
+         user.role === UserRole.COOPERATIVE_MANAGER;
 };
 
 /**
  * Check if user can manage company settings
  */
 export const canManageSettings = (user: User): boolean => {
-  return user.role === UserRole.ADMIN || user.role === 'originator';
+  return user.role === UserRole.ADMIN || 
+         user.role === 'originator' ||
+         user.role === UserRole.BRAND_MANAGER ||
+         user.role === UserRole.PLANTATION_MANAGER ||
+         user.role === UserRole.COOPERATIVE_MANAGER;
 };
 
 /**

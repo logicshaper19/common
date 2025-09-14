@@ -1,0 +1,319 @@
+"""
+Harvest declaration API endpoints.
+
+This API handles harvest declarations that create batches with origin data,
+following the correct "create then transfer" model where harvest events
+create batches that can later be sold via Purchase Orders.
+"""
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
+from typing import List, Optional
+from uuid import UUID
+from datetime import date, datetime
+
+from app.core.database import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
+from app.models.batch import Batch, BatchType, BatchStatus
+from app.services.batch import BatchTrackingService
+from app.schemas.batch import BatchCreate, BatchResponse, BatchListResponse
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+router = APIRouter(prefix="/harvest", tags=["harvest"])
+
+
+@router.post("/declare", response_model=BatchResponse)
+def declare_harvest(
+    harvest_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Declare a new harvest event and create a batch with origin data.
+    
+    This is the CORRECT way to capture origin data - as part of a harvest
+    declaration that creates a batch, not as part of a Purchase Order.
+    
+    The harvest declaration creates a batch with:
+    - batch_type = "harvest"
+    - origin_data = all the harvest-specific information
+    - location_coordinates = GPS coordinates from harvest
+    - quality_metrics = quality parameters from harvest
+    
+    This batch can later be sold via Purchase Orders, and the origin data
+    is automatically inherited by the PO batch.
+    """
+    batch_service = BatchTrackingService(db)
+    
+    try:
+        # Extract harvest data
+        geographic_coords = harvest_data.get('geographic_coordinates', {})
+        farm_info = harvest_data.get('farm_information', {})
+        quality_params = harvest_data.get('quality_parameters', {})
+        
+        # Create batch data for harvest declaration
+        batch_data = BatchCreate(
+            batch_id=harvest_data.get('batch_number', ''),
+            batch_type=BatchType.HARVEST,  # This is a harvest batch
+            product_id=UUID(harvest_data.get('product_id', '')),  # Should be passed from frontend
+            quantity=harvest_data.get('quantity', 1000),  # Should be passed from frontend
+            unit=harvest_data.get('unit', 'KGM'),
+            production_date=datetime.strptime(harvest_data.get('harvest_date', ''), '%Y-%m-%d').date(),
+            expiry_date=None,  # Will be set based on product shelf life
+            
+            # Location from harvest
+            location_name=farm_info.get('farm_name', ''),
+            location_coordinates={
+                'latitude': geographic_coords.get('latitude', 0),
+                'longitude': geographic_coords.get('longitude', 0),
+                'accuracy_meters': geographic_coords.get('accuracy_meters')
+            } if geographic_coords else None,
+            facility_code=farm_info.get('farm_id', ''),
+            
+            # Quality metrics from harvest
+            quality_metrics=quality_params,
+            
+            # Origin data - this is the key part!
+            origin_data={
+                'harvest_date': harvest_data.get('harvest_date'),
+                'farm_information': farm_info,
+                'geographic_coordinates': geographic_coords,
+                'certifications': harvest_data.get('certifications', []),
+                'cultivation_methods': farm_info.get('cultivation_methods', []),
+                'processing_notes': harvest_data.get('processing_notes', ''),
+                'declared_by_user_id': str(current_user.id),
+                'declared_at': datetime.utcnow().isoformat()
+            },
+            certifications=harvest_data.get('certifications', []),
+            
+            # Metadata
+            batch_metadata={
+                'harvest_declaration': True,
+                'declared_by': current_user.email,
+                'declaration_source': 'harvest_api',
+                'plantation_type': farm_info.get('plantation_type', 'smallholder')
+            }
+        )
+        
+        # Create the harvest batch
+        batch = batch_service.create_batch(
+            batch_data=batch_data,
+            company_id=current_user.company_id,
+            user_id=current_user.id
+        )
+        
+        logger.info(
+            "Harvest batch created from declaration",
+            batch_id=str(batch.id),
+            batch_number=batch.batch_id,
+            company_id=str(current_user.company_id),
+            user_id=str(current_user.id),
+            harvest_date=harvest_data.get('harvest_date'),
+            farm_name=farm_info.get('farm_name')
+        )
+        
+        return batch
+        
+    except Exception as e:
+        logger.error(
+            "Error creating harvest batch",
+            error=str(e),
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create harvest batch"
+        )
+
+
+@router.get("/batches", response_model=BatchListResponse)
+def get_harvest_batches(
+    company_id: Optional[UUID] = Query(None, description="Filter by company ID"),
+    status: Optional[BatchStatus] = Query(None, description="Filter by batch status"),
+    farm_name: Optional[str] = Query(None, description="Filter by farm name"),
+    harvest_date_from: Optional[date] = Query(None, description="Filter by harvest date from"),
+    harvest_date_to: Optional[date] = Query(None, description="Filter by harvest date to"),
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get harvest batches for the current user's company.
+    
+    This returns only harvest-type batches (not processing or transformation batches).
+    """
+    batch_service = BatchTrackingService(db)
+    
+    try:
+        # Build filter conditions
+        filters = [Batch.batch_type == BatchType.HARVEST.value]
+        
+        # Company filter
+        if company_id:
+            filters.append(Batch.company_id == company_id)
+        else:
+            # Default to current user's company
+            filters.append(Batch.company_id == current_user.company_id)
+        
+        # Status filter
+        if status:
+            filters.append(Batch.status == status.value)
+        
+        # Farm name filter (search in origin_data)
+        if farm_name:
+            filters.append(
+                Batch.origin_data['farm_information']['farm_name'].astext.ilike(f'%{farm_name}%')
+            )
+        
+        # Harvest date filters (search in origin_data)
+        if harvest_date_from:
+            filters.append(
+                Batch.origin_data['harvest_date'].astext >= harvest_date_from.isoformat()
+            )
+        if harvest_date_to:
+            filters.append(
+                Batch.origin_data['harvest_date'].astext <= harvest_date_to.isoformat()
+            )
+        
+        # Get batches
+        batches, total = batch_service.get_batches(
+            filters=filters,
+            page=page,
+            per_page=per_page,
+            order_by='created_at',
+            order_direction='desc'
+        )
+        
+        return BatchListResponse(
+            batches=batches,
+            total=total,
+            page=page,
+            per_page=per_page,
+            total_pages=(total + per_page - 1) // per_page
+        )
+        
+    except Exception as e:
+        logger.error(
+            "Error fetching harvest batches",
+            error=str(e),
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch harvest batches"
+        )
+
+
+@router.get("/batches/{batch_id}", response_model=BatchResponse)
+def get_harvest_batch(
+    batch_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a specific harvest batch by ID.
+    """
+    batch_service = BatchTrackingService(db)
+    
+    try:
+        batch = batch_service.get_batch_by_id(batch_id)
+        
+        if not batch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Harvest batch not found"
+            )
+        
+        # Check if user has access to this batch
+        if batch.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this harvest batch"
+            )
+        
+        # Verify this is a harvest batch
+        if batch.batch_type != BatchType.HARVEST.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Batch is not a harvest batch"
+            )
+        
+        return batch
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Error fetching harvest batch",
+            error=str(e),
+            batch_id=str(batch_id),
+            user_id=str(current_user.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch harvest batch"
+        )
+
+
+@router.get("/batches/{batch_id}/traceability")
+def get_harvest_traceability(
+    batch_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get traceability information for a harvest batch.
+    
+    This shows the complete traceability chain from this harvest batch
+    through any transformations and Purchase Orders.
+    """
+    batch_service = BatchTrackingService(db)
+    
+    try:
+        # Get the harvest batch
+        batch = batch_service.get_batch_by_id(batch_id)
+        
+        if not batch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Harvest batch not found"
+            )
+        
+        # Check access
+        if batch.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this harvest batch"
+            )
+        
+        # Get traceability chain
+        traceability = batch_service.get_batch_traceability(batch_id)
+        
+        return {
+            'batch_id': str(batch_id),
+            'batch_identifier': batch.batch_id,
+            'traceability_chain': traceability,
+            'origin_data': batch.origin_data,
+            'created_at': batch.created_at,
+            'harvest_date': batch.origin_data.get('harvest_date') if batch.origin_data else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Error fetching harvest traceability",
+            error=str(e),
+            batch_id=str(batch_id),
+            user_id=str(current_user.id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch harvest traceability"
+        )

@@ -32,7 +32,7 @@ def require_permission(permission_func: Callable, error_message: str = "Permissi
             for key, value in kwargs.items():
                 if isinstance(value, Session):
                     db = value
-                elif isinstance(value, User):
+                elif isinstance(value, User) or hasattr(value, 'user'):  # Handle both User and CurrentUser
                     user = value
             
             if not db or not user:
@@ -43,7 +43,31 @@ def require_permission(permission_func: Callable, error_message: str = "Permissi
             
             # Check permission
             permission_service = get_permission_service(db)
-            if not permission_func(user, permission_service):
+            
+            # Extract actual User object if we have a CurrentUser
+            actual_user = user.user if hasattr(user, 'user') else user
+            
+            # Debug logging for permission checks
+            from app.core.logging import get_logger
+            logger = get_logger(__name__)
+            logger.info(
+                "Permission check debug",
+                user_id=str(actual_user.id),
+                user_role=actual_user.role,
+                company_id=str(actual_user.company_id),
+                company_type=getattr(actual_user.company, 'company_type', 'unknown') if hasattr(actual_user, 'company') else 'unknown',
+                permission_func=permission_func.__name__ if hasattr(permission_func, '__name__') else str(permission_func)
+            )
+            
+            if not permission_func(actual_user, permission_service):
+                logger.warning(
+                    "Permission denied",
+                    user_id=str(actual_user.id),
+                    user_role=actual_user.role,
+                    company_id=str(actual_user.company_id),
+                    company_type=getattr(actual_user.company, 'company_type', 'unknown') if hasattr(actual_user, 'company') else 'unknown',
+                    error_message=error_message
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=error_message

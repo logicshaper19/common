@@ -34,12 +34,16 @@ export const companiesApi = {
   // Get companies that can be used as suppliers/buyers
   getBusinessPartners: async (): Promise<Company[]> => {
     try {
+      console.log('🏢 Fetching business partners...');
       // Try to get suppliers from business relationships
       const response = await apiClient.get('/business-relationships/suppliers');
+      console.log('🏢 Raw response:', response);
       
       // Transform the supplier response to company format
       const suppliers = response.data.suppliers || [];
-      return suppliers.map((supplier: any) => ({
+      console.log('🏢 Suppliers array:', suppliers);
+      
+      const companies = suppliers.map((supplier: any) => ({
         id: supplier.company_id,
         name: supplier.company_name,
         email: supplier.company_email || '',
@@ -50,8 +54,12 @@ export const companiesApi = {
         created_at: supplier.created_at || '',
         updated_at: supplier.updated_at || ''
       }));
-    } catch (error) {
-      console.error('Error fetching business partners:', error);
+      
+      console.log('🏢 Transformed companies:', companies);
+      return companies;
+    } catch (error: any) {
+      console.error('❌ Error fetching business partners:', error);
+      console.error('❌ Error details:', error.response?.data || error.message);
       
       // Fallback to mock data for now
       return [

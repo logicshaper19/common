@@ -41,6 +41,7 @@ class RelationshipType(str, Enum):
     SPLIT = "split"
     MERGE = "merge"
     TRANSFORMATION = "transformation"
+    SALE = "sale"  # Commercial transfer between companies
 
 
 class GeographicCoordinates(BaseModel):

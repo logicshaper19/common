@@ -5,11 +5,12 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from math import ceil
+from datetime import date
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_sync
 from app.models.user import User
-from app.services.purchase_order import PurchaseOrderService
+from app.services.purchase_order import create_purchase_order_service, PurchaseOrderService
 from app.core.permissions import (
     require_po_creation_permission,
     require_po_confirmation_permission,
@@ -45,6 +46,8 @@ from app.models.data_access import DataCategory, AccessType
 from app.core.response_wrapper import standardize_response, standardize_list_response, ResponseBuilder
 from app.core.response_models import StandardResponse, PaginatedResponse
 from app.models.purchase_order import PurchaseOrder
+from app.schemas.batch import BatchCreate, BatchType
+from app.models.batch import Batch
 
 logger = get_logger(__name__)
 
@@ -57,28 +60,52 @@ router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
 async def create_purchase_order(
     purchase_order: PurchaseOrderCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Create a new purchase order.
     
     Only users from the buyer or seller company can create the purchase order.
     """
-    purchase_order_service = PurchaseOrderService(db)
-    
-    created_po = purchase_order_service.create_purchase_order(
-        purchase_order, 
-        current_user.company_id
-    )
-    
-    logger.info(
-        "Purchase order created via API",
-        po_id=str(created_po.id),
-        user_id=str(current_user.id),
-        company_id=str(current_user.company_id)
-    )
-    
-    return created_po
+    try:
+        logger.info(
+            "Creating purchase order via API",
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            buyer_company_id=str(purchase_order.buyer_company_id),
+            seller_company_id=str(purchase_order.seller_company_id),
+            product_id=str(purchase_order.product_id)
+        )
+        
+        purchase_order_service = create_purchase_order_service(db)
+        
+        created_po = purchase_order_service.create_purchase_order(
+            purchase_order, 
+            current_user.company_id
+        )
+        
+        logger.info(
+            "Purchase order created via API",
+            po_id=str(created_po.id),
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id)
+        )
+        
+        return created_po
+        
+    except Exception as e:
+        logger.error(
+            "Error creating purchase order via API",
+            error=str(e),
+            error_type=type(e).__name__,
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            buyer_company_id=str(purchase_order.buyer_company_id),
+            seller_company_id=str(purchase_order.seller_company_id),
+            product_id=str(purchase_order.product_id),
+            exc_info=True
+        )
+        raise
 
 
 @router.get("/", response_model=PurchaseOrderListResponse)
@@ -93,7 +120,7 @@ def list_purchase_orders(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     List purchase orders with filtering and pagination.
@@ -206,7 +233,7 @@ def list_purchase_orders(
 def get_purchase_order(
     purchase_order_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Get a specific purchase order by ID.
@@ -222,14 +249,20 @@ def get_purchase_order(
             detail="Purchase order not found"
         )
     
-    # Check access permissions (admins may view all POs)
+    # Check access permissions (admins and processors may view all POs)
     if current_user.role != 'admin':
-        if (current_user.company_id != purchase_order.buyer_company["id"] and
-            current_user.company_id != purchase_order.seller_company["id"]):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only access purchase orders for your own company"
-            )
+        # Check if user is from a processor company
+        from app.models.company import Company
+        user_company = db.query(Company).filter(Company.id == current_user.company_id).first()
+        
+        if not (user_company and user_company.company_type == "processor"):
+            # Non-processor companies can only see POs where they are buyer or seller
+            if (current_user.company_id != purchase_order.buyer_company["id"] and
+                current_user.company_id != purchase_order.seller_company["id"]):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only access purchase orders for your own company"
+                )
 
     logger.info(
         "Purchase order retrieved",
@@ -247,7 +280,7 @@ def update_purchase_order(
     purchase_order_id: str,
     purchase_order_update: PurchaseOrderUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Update a purchase order.
@@ -278,7 +311,7 @@ def seller_confirm_purchase_order(
     purchase_order_id: str,
     confirmation: SellerConfirmation,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Seller confirmation of purchase order with discrepancy detection.
@@ -371,7 +404,7 @@ def confirm_purchase_order(
     purchase_order_id: str,
     confirmation: PurchaseOrderConfirmation,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Confirm a purchase order and automatically create child POs if needed.
@@ -460,7 +493,7 @@ def confirm_purchase_order(
 def get_po_chain(
     purchase_order_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Get the complete supply chain for a purchase order.
@@ -503,7 +536,7 @@ def buyer_approve_discrepancies(
     purchase_order_id: str,
     approval: BuyerApprovalRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Buyer approval or rejection of seller confirmation discrepancies.
@@ -611,7 +644,7 @@ def buyer_approve_discrepancies(
 def get_purchase_order_discrepancies(
     purchase_order_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Get discrepancy details for a purchase order awaiting buyer approval.
@@ -663,7 +696,7 @@ def get_purchase_order_history(
     purchase_order_id: str,
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Get the history/audit trail for a purchase order.
@@ -697,7 +730,7 @@ def get_purchase_order_history(
 def delete_purchase_order(
     purchase_order_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Delete a purchase order.
@@ -726,7 +759,7 @@ def delete_purchase_order(
 def trace_supply_chain(
     request: TraceabilityRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Trace the supply chain for a purchase order.
@@ -773,7 +806,7 @@ def propose_po_changes(
     po_id: str,
     proposal: ProposeChangesRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Phase 1 MVP: Propose changes to a purchase order.
@@ -833,7 +866,7 @@ def approve_po_changes(
     po_id: str,
     approval: ApproveChangesRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_sync)
 ):
     """
     Phase 1 MVP: Approve or reject proposed changes to a purchase order.
@@ -903,6 +936,8 @@ def _confirm_po(
         history_service: Service for logging history
     """
     from datetime import datetime
+    from decimal import Decimal
+    from uuid import UUID
     from app.services.batch import BatchTrackingService
     from app.models.batch import Batch
 
@@ -914,6 +949,41 @@ def _confirm_po(
     po.seller_notes = confirmation.seller_notes
     po.status = PurchaseOrderStatus.CONFIRMED.value
     po.confirmed_at = datetime.utcnow()
+    
+    # 1.5. HANDLE COMMERCIAL CHAIN LINKING (NEW)
+    if confirmation.is_drop_shipment and confirmation.parent_po_id:
+        # This PO is fulfilling another PO (commercial chain)
+        try:
+            parent_po_uuid = UUID(confirmation.parent_po_id)
+            parent_po = db.query(PurchaseOrder).filter(PurchaseOrder.id == parent_po_uuid).first()
+            
+            if parent_po:
+                po.parent_po_id = parent_po_uuid
+                po.supply_chain_level = parent_po.supply_chain_level + 1
+                po.is_chain_initiated = False  # This is not the chain initiator
+                
+                logger.info(
+                    "Commercial chain link established",
+                    po_id=str(po.id),
+                    parent_po_id=confirmation.parent_po_id,
+                    supply_chain_level=po.supply_chain_level
+                )
+            else:
+                logger.warning(
+                    "Parent PO not found for commercial linking",
+                    po_id=str(po.id),
+                    parent_po_id=confirmation.parent_po_id
+                )
+        except ValueError:
+            logger.warning(
+                "Invalid parent PO ID format",
+                po_id=str(po.id),
+                parent_po_id=confirmation.parent_po_id
+            )
+    else:
+        # This PO is initiating a new commercial chain
+        po.is_chain_initiated = True
+        po.supply_chain_level = 1
 
     # 2. LOG CONFIRMATION IN HISTORY
     # history_service.log_po_confirmed(
@@ -923,34 +993,306 @@ def _confirm_po(
     #     po_number=po.po_number
     # )
 
-    # 3. CREATE BATCH AUTOMATICALLY - THE CRITICAL LINKAGE
+    # 3. HANDLE BATCH CREATION - NEW CORRECTED FLOW
     batch_service = BatchTrackingService(db)
 
     try:
-        # Create deterministic batch ID: "PO-{po_number}-BATCH-1"
-        batch_id = f"PO-{po.po_number}-BATCH-1"
-
-        # Check if batch already exists (idempotency)
-        existing_batch = db.query(Batch).filter(Batch.batch_id == batch_id).first()
-
-        if existing_batch:
-            logger.warning(
-                "Batch already exists for PO - skipping creation",
+        if confirmation.selected_batches:
+            # NEW FLOW: Use multiple selected harvest batches
+            logger.info(
+                "Using multiple selected harvest batches for PO confirmation",
                 po_id=str(po.id),
-                batch_id=batch_id,
-                existing_batch_uuid=str(existing_batch.id)
+                po_number=po.po_number,
+                selected_batch_count=len(confirmation.selected_batches)
             )
-            return
-
-        # Create the batch with CRITICAL linkage back to PO
-        batch = batch_service.create_batch_from_purchase_order(
-            purchase_order_id=po.id,
-            po_number=po.po_number,
-            seller_company_id=po.seller_company_id,
-            product_id=po.product_id,
-            confirmed_quantity=confirmation.confirmed_quantity,  # Use CONFIRMED quantity
-            user_id=current_user.id
-        )
+            
+            # Validate all selected batches
+            harvest_batches = []
+            total_quantity = Decimal('0')
+            
+            for batch_selection in confirmation.selected_batches:
+                # Get the harvest batch
+                harvest_batch = db.query(Batch).filter(Batch.id == batch_selection.batch_id).first()
+                
+                if not harvest_batch:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Selected harvest batch {batch_selection.batch_id} not found"
+                    )
+                
+                # Verify the batch belongs to the seller
+                if harvest_batch.company_id != po.seller_company_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Selected batch {batch_selection.batch_id} does not belong to seller company"
+                    )
+                
+                # Verify it's a harvest batch
+                if harvest_batch.batch_type != 'harvest':
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Selected batch {batch_selection.batch_id} is not a harvest batch"
+                    )
+                
+                # Verify quantity doesn't exceed available
+                if batch_selection.quantity_to_use > harvest_batch.quantity:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Requested quantity {batch_selection.quantity_to_use} exceeds available quantity {harvest_batch.quantity} for batch {batch_selection.batch_id}"
+                    )
+                
+                harvest_batches.append((harvest_batch, batch_selection.quantity_to_use))
+                total_quantity += batch_selection.quantity_to_use
+            
+            # Verify total quantity matches confirmed quantity
+            if abs(total_quantity - confirmation.confirmed_quantity) > Decimal('0.001'):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Total selected quantity {total_quantity} does not match confirmed quantity {confirmation.confirmed_quantity}"
+                )
+            
+            # Create PO batch that references all harvest batches
+            po_batch_id = f"PO-{po.po_number}-BATCH-1"
+            
+            # Check if PO batch already exists
+            existing_po_batch = db.query(Batch).filter(Batch.batch_id == po_batch_id).first()
+            
+            if existing_po_batch:
+                logger.warning(
+                    "PO batch already exists - skipping creation",
+                    po_id=str(po.id),
+                    batch_id=po_batch_id
+                )
+                po_batch = existing_po_batch
+            else:
+                # Use the first harvest batch as the primary source for metadata
+                primary_harvest_batch = harvest_batches[0][0]
+                
+                # Create PO batch with reference to all harvest batches
+                po_batch_data = BatchCreate(
+                    batch_id=po_batch_id,
+                    batch_type=BatchType.PROCESSING,  # PO batch is processing type
+                    product_id=po.product_id,
+                    quantity=confirmation.confirmed_quantity,
+                    unit=po.unit,
+                    production_date=date.today(),
+                    expiry_date=None,
+                    location_name=primary_harvest_batch.location_name,
+                    location_coordinates=primary_harvest_batch.location_coordinates,
+                    facility_code=primary_harvest_batch.facility_code,
+                    quality_metrics=primary_harvest_batch.quality_metrics,
+                    transformation_id=None,
+                    parent_batch_ids=[batch[0].id for batch in harvest_batches],  # Link to all harvest batches
+                    origin_data=primary_harvest_batch.origin_data,  # Inherit origin data from primary batch
+                    certifications=primary_harvest_batch.certifications,  # Inherit certifications from primary batch
+                    batch_metadata={
+                        "created_from_po": True,
+                        "purchase_order_id": str(po.id),
+                        "source_harvest_batch_ids": [str(batch[0].id) for batch in harvest_batches],
+                        "source_harvest_batch_numbers": [batch[0].batch_id for batch in harvest_batches],
+                        "auto_created": True,
+                        "creation_source": "purchase_order_confirmation_with_multiple_harvest_batches"
+                    }
+                )
+                
+                po_batch = batch_service.create_batch(
+                    batch_data=po_batch_data,
+                    company_id=po.seller_company_id,
+                    user_id=current_user.id
+                )
+            
+            # Create SALE relationships between each harvest batch and the PO batch
+            from app.schemas.batch import BatchRelationshipCreate, RelationshipType
+            
+            for harvest_batch, quantity_used in harvest_batches:
+                relationship_data = BatchRelationshipCreate(
+                    parent_batch_id=harvest_batch.id,  # The harvest batch (seller's inventory)
+                    child_batch_id=po_batch.id,       # The PO batch (buyer's new batch)
+                    relationship_type=RelationshipType.SALE,
+                    quantity_contribution=quantity_used,
+                    percentage_contribution=(quantity_used / confirmation.confirmed_quantity) * Decimal('100.0'),
+                    transformation_process="Commercial Sale",
+                    transformation_date=datetime.utcnow(),
+                    yield_percentage=Decimal('100.0'),
+                    quality_impact=None
+                )
+                
+                # Create the relationship using the batch service
+                relationship = batch_service.create_batch_relationship(
+                    relationship_data=relationship_data,
+                    company_id=po.seller_company_id,
+                    user_id=current_user.id
+                )
+                
+                logger.info(
+                    "SALE relationship created between harvest batch and PO batch",
+                    po_id=str(po.id),
+                    po_batch_id=str(po_batch.id),
+                    harvest_batch_id=str(harvest_batch.id),
+                    harvest_batch_number=harvest_batch.batch_id,
+                    quantity_used=float(quantity_used),
+                    relationship_id=str(relationship.id)
+                )
+            
+            logger.info(
+                "PO batch created with SALE relationships to multiple harvest batches",
+                po_id=str(po.id),
+                po_batch_id=str(po_batch.id),
+                harvest_batch_count=len(harvest_batches),
+                total_quantity=float(total_quantity)
+            )
+            
+        elif confirmation.batch_id:
+            # LEGACY FLOW: Use single selected harvest batch (deprecated)
+            logger.warning(
+                "Using legacy single batch selection - consider migrating to selected_batches",
+                po_id=str(po.id),
+                po_number=po.po_number,
+                selected_batch_id=confirmation.batch_id
+            )
+            
+            # Get the selected harvest batch
+            harvest_batch = db.query(Batch).filter(Batch.id == confirmation.batch_id).first()
+            
+            if not harvest_batch:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Selected harvest batch not found"
+                )
+            
+            # Verify the batch belongs to the seller
+            if harvest_batch.company_id != po.seller_company_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Selected batch does not belong to seller company"
+                )
+            
+            # Verify it's a harvest batch
+            if harvest_batch.batch_type != 'harvest':
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Selected batch is not a harvest batch"
+                )
+            
+            # Create PO batch that references the harvest batch
+            po_batch_id = f"PO-{po.po_number}-BATCH-1"
+            
+            # Check if PO batch already exists
+            existing_po_batch = db.query(Batch).filter(Batch.batch_id == po_batch_id).first()
+            
+            if existing_po_batch:
+                logger.warning(
+                    "PO batch already exists - skipping creation",
+                    po_id=str(po.id),
+                    batch_id=po_batch_id
+                )
+            else:
+                # Create PO batch with reference to harvest batch
+                po_batch_data = BatchCreate(
+                    batch_id=po_batch_id,
+                    batch_type=BatchType.PROCESSING,  # PO batch is processing type
+                    product_id=po.product_id,
+                    quantity=confirmation.confirmed_quantity,
+                    unit=po.unit,
+                    production_date=date.today(),
+                    expiry_date=None,
+                    location_name=harvest_batch.location_name,
+                    location_coordinates=harvest_batch.location_coordinates,
+                    facility_code=harvest_batch.facility_code,
+                    quality_metrics=harvest_batch.quality_metrics,
+                    transformation_id=None,
+                    parent_batch_ids=[harvest_batch.id],  # Link to harvest batch
+                    origin_data=harvest_batch.origin_data,  # Inherit origin data
+                    certifications=harvest_batch.certifications,  # Inherit certifications
+                    batch_metadata={
+                        "created_from_po": True,
+                        "purchase_order_id": str(po.id),
+                        "source_harvest_batch_id": str(harvest_batch.id),
+                        "source_harvest_batch_number": harvest_batch.batch_id,
+                        "auto_created": True,
+                        "creation_source": "purchase_order_confirmation_with_harvest_batch"
+                    }
+                )
+                
+                po_batch = batch_service.create_batch(
+                    batch_data=po_batch_data,
+                    company_id=po.seller_company_id,
+                    user_id=current_user.id
+                )
+                
+                # Create SALE relationship between harvest batch and PO batch
+                from app.schemas.batch import BatchRelationshipCreate, RelationshipType
+                from app.models.batch import BatchRelationship
+                
+                relationship_data = BatchRelationshipCreate(
+                    parent_batch_id=harvest_batch.id,  # The harvest batch (seller's inventory)
+                    child_batch_id=po_batch.id,       # The PO batch (buyer's new batch)
+                    relationship_type=RelationshipType.SALE,
+                    quantity_contribution=confirmation.confirmed_quantity,
+                    percentage_contribution=Decimal('100.0'),  # 100% of PO batch comes from this harvest batch
+                    transformation_process="Commercial Sale",
+                    transformation_date=datetime.utcnow(),
+                    yield_percentage=Decimal('100.0'),
+                    quality_impact=None
+                )
+                
+                # Create the relationship using the batch service
+                relationship = batch_service.create_batch_relationship(
+                    relationship_data=relationship_data,
+                    company_id=po.seller_company_id,
+                    user_id=current_user.id
+                )
+                
+                logger.info(
+                    "PO batch created with SALE relationship to harvest batch",
+                    po_id=str(po.id),
+                    po_batch_id=str(po_batch.id),
+                    harvest_batch_id=str(harvest_batch.id),
+                    harvest_batch_number=harvest_batch.batch_id,
+                    relationship_id=str(relationship.id),
+                    relationship_type="SALE"
+                )
+        
+        elif confirmation.origin_data:
+            # LEGACY FLOW: Create batch with origin data (deprecated)
+            logger.warning(
+                "Using legacy origin data flow - consider migrating to harvest batch selection",
+                po_id=str(po.id),
+                po_number=po.po_number
+            )
+            
+            # Create batch with origin data (existing logic)
+            batch = batch_service.create_batch_from_purchase_order(
+                purchase_order_id=po.id,
+                po_number=po.po_number,
+                seller_company_id=po.seller_company_id,
+                product_id=po.product_id,
+                confirmed_quantity=confirmation.confirmed_quantity,
+                user_id=current_user.id
+            )
+            
+            # Update batch with origin data
+            if confirmation.origin_data:
+                batch.origin_data = confirmation.origin_data
+                db.commit()
+                db.refresh(batch)
+        
+        else:
+            # DEFAULT FLOW: Create batch without origin data
+            logger.info(
+                "Creating PO batch without origin data",
+                po_id=str(po.id),
+                po_number=po.po_number
+            )
+            
+            batch = batch_service.create_batch_from_purchase_order(
+                purchase_order_id=po.id,
+                po_number=po.po_number,
+                seller_company_id=po.seller_company_id,
+                product_id=po.product_id,
+                confirmed_quantity=confirmation.confirmed_quantity,
+                user_id=current_user.id
+            )
 
         # 4. LOG BATCH CREATION IN AUDIT TRAIL
         # history_service.log_batch_created(

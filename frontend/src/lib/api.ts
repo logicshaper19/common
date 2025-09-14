@@ -125,18 +125,18 @@ class ApiClient {
     // Load token from localStorage on initialization
     this.loadToken();
 
-    // Request interceptor to add auth token
-    this.client.interceptors.request.use(
-      (config) => {
-        if (this.token) {
-          config.headers.Authorization = `Bearer ${this.token}`;
-        }
-        return config;
-      },
-      (error) => {
-        return Promise.reject(error);
+  // Request interceptor to add auth token
+  this.client.interceptors.request.use(
+    (config) => {
+      if (this.token) {
+        config.headers.Authorization = `Bearer ${this.token}`;
       }
-    );
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
 
     // Response interceptor for error handling
     this.client.interceptors.response.use(
@@ -202,41 +202,23 @@ class ApiClient {
 
   // Public HTTP methods
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<{ data: T }> {
-    const response = await this.request<T>({
-      method: 'GET',
-      url,
-      ...config,
-    });
-    return { data: response };
+    const response = await this.client.get<T>(url, config);
+    return { data: response.data };
   }
 
   async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<{ data: T }> {
-    const response = await this.request<T>({
-      method: 'POST',
-      url,
-      data,
-      ...config,
-    });
-    return { data: response };
+    const response = await this.client.post<T>(url, data, config);
+    return { data: response.data };
   }
 
   async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<{ data: T }> {
-    const response = await this.request<T>({
-      method: 'PUT',
-      url,
-      data,
-      ...config,
-    });
-    return { data: response };
+    const response = await this.client.put<T>(url, data, config);
+    return { data: response.data };
   }
 
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<{ data: T }> {
-    const response = await this.request<T>({
-      method: 'DELETE',
-      url,
-      ...config,
-    });
-    return { data: response };
+    const response = await this.client.delete<T>(url, config);
+    return { data: response.data };
   }
 
   // Authentication endpoints

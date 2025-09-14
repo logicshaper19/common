@@ -16,6 +16,7 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, CardBody } from '../ui/Card';
+import DataTable, { DataTableColumn } from '../ui/DataTable';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import TextArea from '../ui/Textarea';
@@ -254,6 +255,130 @@ const CertificationManager: React.FC<CertificationManagerProps> = ({
     }
   };
 
+  // Define table columns
+  const certificationColumns: DataTableColumn[] = [
+    {
+      key: 'icon',
+      label: '',
+      sortable: false,
+      searchable: false,
+      render: (_, cert) => getStatusIcon(cert.status),
+      className: 'w-12'
+    },
+    {
+      key: 'certification_type',
+      label: 'Certification',
+      sortable: true,
+      searchable: true,
+      render: (value, cert) => (
+        <div>
+          <div className="font-medium text-gray-900">{value}</div>
+          <div className="text-sm text-gray-500 max-w-[200px] truncate" title={cert.coverage_scope}>
+            {cert.coverage_scope}
+          </div>
+          {cert.notes && (
+            <div className="text-xs text-gray-400 mt-1 max-w-[200px] truncate" title={cert.notes}>
+              {cert.notes}
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'certificate_number',
+      label: 'Certificate Number',
+      sortable: true,
+      searchable: true,
+      render: (value) => <div className="text-sm font-medium text-gray-900">{value}</div>
+    },
+    {
+      key: 'certification_body',
+      label: 'Certification Body',
+      sortable: true,
+      searchable: true,
+      render: (value) => <div className="text-sm text-gray-900">{value}</div>
+    },
+    {
+      key: 'issue_date',
+      label: 'Issue Date',
+      sortable: true,
+      searchable: false,
+      render: (value) => <div className="text-sm text-gray-900">{formatDate(value)}</div>
+    },
+    {
+      key: 'expiry_date',
+      label: 'Expiry Date',
+      sortable: true,
+      searchable: false,
+      render: (value, cert) => {
+        const daysUntilExpiry = getDaysUntilExpiry(value);
+        return (
+          <div>
+            <div className={`text-sm font-medium ${
+              daysUntilExpiry <= 30 ? 'text-red-600' :
+              daysUntilExpiry <= 90 ? 'text-yellow-600' : 'text-gray-900'
+            }`}>
+              {formatDate(value)}
+            </div>
+            <div className="text-xs text-gray-500">
+              {daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expired'}
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      key: 'coverage_percentage',
+      label: 'Coverage',
+      sortable: true,
+      searchable: false,
+      render: (value, cert) => (
+        <div>
+          <div className="text-sm text-gray-900">{value}%</div>
+          <div className="text-xs text-gray-500">{cert.farm_ids.length} farms</div>
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      searchable: false,
+      render: (value) => (
+        <Badge variant={getStatusBadgeVariant(value)}>
+          {value.charAt(0).toUpperCase() + value.slice(1)}
+        </Badge>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      sortable: false,
+      searchable: false,
+      render: (_, cert) => (
+        <div className="flex items-center space-x-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openViewModal(cert)}
+            title="View details"
+          >
+            <EyeIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openEditModal(cert)}
+            title="Edit certification"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+      className: 'w-24'
+    }
+  ];
+
   // Filter certifications
   const filteredCertifications = certifications.filter(cert => {
     return !filterStatus || cert.status === filterStatus;
@@ -353,7 +478,7 @@ const CertificationManager: React.FC<CertificationManagerProps> = ({
         <div>
           <h2 className="text-xl font-bold text-gray-900">Certification Management</h2>
           <p className="text-gray-600 mt-1">
-            Manage sustainability certifications and track renewal dates.
+            Advanced certification tracking with automated renewal alerts, coverage monitoring, and compliance management.
           </p>
         </div>
         <Button
@@ -387,129 +512,29 @@ const CertificationManager: React.FC<CertificationManagerProps> = ({
         </Card>
       )}
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardBody>
-          <div className="flex items-center space-x-4">
-            <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              options={[
-                { label: 'All Status', value: '' },
-                { label: 'Active', value: 'active' },
-                { label: 'Expiring', value: 'expiring' },
-                { label: 'Expired', value: 'expired' },
-                { label: 'Pending', value: 'pending' },
-                { label: 'Suspended', value: 'suspended' }
-              ]}
-            />
-            <Button
-              variant="outline"
-              leftIcon={<ArrowPathIcon className="h-4 w-4" />}
-              onClick={loadCertifications}
-            >
-              Refresh
-            </Button>
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* Certifications List */}
-      <Card>
-        <CardHeader title={`Certifications (${filteredCertifications.length})`} />
-        <CardBody padding="none">
-          {filteredCertifications.length === 0 ? (
-            <div className="text-center py-12">
-              <ShieldCheckIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">No certifications found</p>
-              <Button onClick={openCreateModal} variant="primary">
-                Add Your First Certification
-              </Button>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {filteredCertifications.map((cert) => {
-                const daysUntilExpiry = getDaysUntilExpiry(cert.expiry_date);
-                const certType = certificationTypes.find(t => t.type === cert.certification_type);
-                
-                return (
-                  <div key={cert.id} className="p-6 hover:bg-gray-50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          {getStatusIcon(cert.status)}
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {cert.certification_type}
-                          </h3>
-                          <Badge variant={getStatusBadgeVariant(cert.status)}>
-                            {cert.status.charAt(0).toUpperCase() + cert.status.slice(1)}
-                          </Badge>
-                        </div>
-                        
-                        <div className="text-sm text-gray-600 mb-3">
-                          <span className="font-medium">Certificate:</span> {cert.certificate_number} • 
-                          <span className="font-medium ml-2">Body:</span> {cert.certification_body}
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
-                          <div>
-                            <span className="text-gray-500">Issue Date:</span>
-                            <span className="ml-1 font-medium">{formatDate(cert.issue_date)}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Expiry Date:</span>
-                            <span className={`ml-1 font-medium ${
-                              daysUntilExpiry <= 30 ? 'text-red-600' :
-                              daysUntilExpiry <= 90 ? 'text-yellow-600' : 'text-gray-900'
-                            }`}>
-                              {formatDate(cert.expiry_date)}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Coverage:</span>
-                            <span className="ml-1 font-medium">{cert.coverage_percentage}%</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Farms:</span>
-                            <span className="ml-1 font-medium">{cert.farm_ids.length}</span>
-                          </div>
-                        </div>
-
-                        <div className="text-sm text-gray-600">
-                          <span className="font-medium">Scope:</span> {cert.coverage_scope}
-                        </div>
-
-                        {cert.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <span className="font-medium">Notes:</span> {cert.notes}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center space-x-2 ml-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openViewModal(cert)}
-                        >
-                          <EyeIcon className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditModal(cert)}
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardBody>
-      </Card>
+      {/* Certifications Table */}
+      <DataTable
+        title={`Certifications (${certifications.length})`}
+        data={certifications}
+        columns={certificationColumns}
+        searchPlaceholder="Search certification types, numbers, bodies..."
+        statusFilterOptions={[
+          { label: 'Active', value: 'active' },
+          { label: 'Expiring', value: 'expiring' },
+          { label: 'Expired', value: 'expired' },
+          { label: 'Pending', value: 'pending' },
+          { label: 'Suspended', value: 'suspended' }
+        ]}
+        onRowClick={(cert) => openViewModal(cert)}
+        onExport={() => console.log('Export certifications')}
+        emptyState={{
+          icon: ShieldCheckIcon,
+          title: 'No certifications found',
+          description: 'Get started by adding your first certification to the system.',
+          actionLabel: 'Add Your First Certification',
+          onAction: openCreateModal
+        }}
+      />
 
       {/* Create/Edit Modal */}
       {(showCreateModal || showEditModal) && (

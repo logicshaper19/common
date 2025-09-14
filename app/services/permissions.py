@@ -81,17 +81,68 @@ class PermissionService:
         Can the user create a purchase order?
         - Brands, Traders, and Processors issue POs DOWNSTREAM
         - Originators are the source - they don't create POs, they only receive them
+        - Admins can always create POs for their company
         """
-        return (user.role == UserRole.SUPPLY_CHAIN_MANAGER and 
-                user.company.company_type in [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR])
+        from app.core.logging import get_logger
+        logger = get_logger(__name__)
+        
+        # Debug logging
+        logger.info(
+            "Checking PO creation permission",
+            user_id=str(user.id),
+            user_role=user.role,
+            company_id=str(user.company_id),
+            company_type=getattr(user.company, 'company_type', 'unknown') if hasattr(user, 'company') else 'unknown'
+        )
+        
+        # Admins can always create POs
+        if user.role == UserRole.ADMIN or user.role == "admin":
+            logger.info("User is admin - allowing PO creation")
+            return True
+            
+        # Check if user has appropriate role and company type allows PO creation
+        has_appropriate_role = (user.role == UserRole.SUPPLY_CHAIN_MANAGER or user.role == "supply_chain_manager" or 
+                              user.role == "brand_manager" or user.role == "procurement_director")
+        company_allows_po_creation = user.company.company_type in [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR, "brand", "trader", "processor"]
+        
+        logger.info(
+            "PO creation permission check details",
+            has_appropriate_role=has_appropriate_role,
+            company_allows_po_creation=company_allows_po_creation,
+            user_role=user.role,
+            expected_roles=[UserRole.SUPPLY_CHAIN_MANAGER, "brand_manager", "procurement_director"],
+            company_type=getattr(user.company, 'company_type', 'unknown') if hasattr(user, 'company') else 'unknown',
+            allowed_company_types=[CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR]
+        )
+        
+        result = has_appropriate_role and company_allows_po_creation
+        logger.info(f"PO creation permission result: {result}")
+        
+        return result
     
     def can_user_confirm_po(self, user: User) -> bool:
         """
         Can the user confirm a purchase order?
         - Processors and Originators confirm POs received from UPSTREAM
         """
-        return (user.role == UserRole.PRODUCTION_MANAGER and 
-                user.company.company_type in [CompanyType.PROCESSOR, CompanyType.ORIGINATOR])
+        # Processor roles that can confirm POs
+        processor_roles = [
+            UserRole.PRODUCTION_MANAGER,
+            "processor",  # Generic processor role
+            "quality_manager",  # Quality manager role
+            "refinery_manager"  # Refinery manager role
+        ]
+        
+        # Originator roles that can confirm POs
+        originator_roles = [
+            "originator",
+            "cooperative_manager"
+        ]
+        
+        return (
+            (user.company.company_type == CompanyType.PROCESSOR and user.role in processor_roles) or
+            (user.company.company_type == CompanyType.ORIGINATOR and user.role in originator_roles)
+        )
     
     def can_user_view_po(self, user: User, po: PurchaseOrder) -> bool:
         """
@@ -182,21 +233,14 @@ class PermissionService:
         Determine which dashboard type to show based on user's company type
         Returns dashboard type string for routing decisions
         """
-        # Map company types to dashboard types (including database values)
+        # Map company types to dashboard types
         company_type_mapping = {
             CompanyType.BRAND: "brand",
             CompanyType.PROCESSOR: "processor",
             CompanyType.ORIGINATOR: "originator",
             CompanyType.TRADER: "trader",
             CompanyType.AUDITOR: "auditor",
-            CompanyType.REGULATOR: "regulator",
-            # Database company type mappings
-            "brand": "brand",
-            "mill_processor": "processor", 
-            "plantation_grower": "originator",
-            "trader_aggregator": "trader",
-            "auditor": "auditor",
-            "regulator": "regulator"
+            CompanyType.REGULATOR: "regulator"
         }
 
         # Special handling for platform admin roles

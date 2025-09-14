@@ -146,7 +146,9 @@ class PurchaseOrderOrchestrator(BaseService):
                     "input_materials": po_data.input_materials,
                     "origin_data": po_data.origin_data,
                     "notes": po_data.notes,
-                    "created_at": datetime.utcnow()
+                    "created_at": datetime.utcnow(),
+                    # Commercial chain linking
+                    "parent_po_id": UUID(po_data.parent_po_id) if po_data.parent_po_id else None
                 }
 
                 # Validate data integrity

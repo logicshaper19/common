@@ -3,7 +3,7 @@ Enhanced origin data schemas for comprehensive validation.
 """
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
@@ -278,3 +278,42 @@ class BulkOriginDataValidationResponse(BaseModel):
     compliance_reports: Optional[List[OriginDataComplianceReport]]
     summary_statistics: Dict[str, Any]
     processing_timestamp: date = Field(default_factory=date.today)
+
+
+class OriginDataRecord(BaseModel):
+    """Origin data record schema."""
+    id: UUID
+    purchase_order_id: Optional[UUID] = None
+    company_id: UUID
+    geographic_coordinates: Dict[str, float] = Field(..., description="Latitude and longitude coordinates")
+    harvest_date: Optional[date] = None
+    farm_information: Dict[str, Any] = Field(default_factory=dict)
+    certifications: List[str] = Field(default_factory=list)
+    quality_parameters: Dict[str, Any] = Field(default_factory=dict)
+    batch_number: Optional[str] = None
+    processing_notes: Optional[str] = None
+    transportation_method: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    status: str = Field(default="pending", description="Record status")
+    validation_status: str = Field(default="pending", description="Validation status")
+    compliance_score: float = Field(default=0.0, description="Compliance score (0-100)")
+
+
+class OriginDataListResponse(BaseModel):
+    """Response for origin data records list."""
+    records: List[OriginDataRecord]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+
+
+class OriginDataFilters(BaseModel):
+    """Filters for origin data records."""
+    purchase_order_id: Optional[UUID] = None
+    status: Optional[str] = None
+    region: Optional[str] = None
+    certification: Optional[str] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None

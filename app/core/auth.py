@@ -36,6 +36,79 @@ class CurrentUser:
         self.user = user  # Full user object for database operations
 
 
+def get_current_user_sync(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> CurrentUser:
+    """
+    Get the current authenticated user from JWT token (synchronous version).
+    
+    Args:
+        credentials: HTTP Bearer credentials
+        db: Database session
+        
+    Returns:
+        Current user information
+        
+    Raises:
+        HTTPException: If authentication fails
+    """
+    # Verify the token
+    payload = verify_token(credentials.credentials)
+    
+    # Extract user ID from token
+    user_id_str = payload.get("sub")
+    if user_id_str is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing user ID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Get user from database
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        logger.warning("User not found for token", user_id=user_id_str)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user is active
+    if not user.is_active:
+        logger.warning("Inactive user attempted access", user_id=user_id_str)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Inactive user",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Get user's company
+    company = db.query(Company).filter(Company.id == user.company_id).first()
+
+    if company is None:
+        logger.warning("Company not found for user", user_id=user_id_str, company_id=str(user.company_id))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User company not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    logger.debug("User authenticated", email=user.email, role=user.role, user_id=str(user.id))
+    
+    return CurrentUser(user, company)
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)

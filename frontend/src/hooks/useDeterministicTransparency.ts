@@ -87,9 +87,17 @@ export const useDeterministicTransparency = (companyId?: string) => {
         throw new Error(result.message || 'Failed to fetch transparency metrics');
       }
     } catch (err) {
+      console.error('Detailed error fetching transparency metrics:', {
+        error: err,
+        companyId: targetCompanyId,
+        url: `/transparency/v2/companies/${targetCompanyId}/metrics?refresh=${refresh}`,
+        errorType: typeof err,
+        errorMessage: err instanceof Error ? err.message : 'Unknown error',
+        errorStack: err instanceof Error ? err.stack : undefined
+      });
+      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      console.error('Error fetching transparency metrics:', err);
     } finally {
       setLoading(false);
     }
