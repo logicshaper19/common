@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import PurchaseOrderTable from '../components/purchase-orders/PurchaseOrderTable';
@@ -12,7 +12,7 @@ const IncomingPurchaseOrdersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   // const [actionLoading, setActionLoading] = useState<string | null>(null); // Not currently used
 
-  const loadIncomingPOs = async () => {
+  const loadIncomingPOs = useCallback(async () => {
     try {
       setLoading(true);
       const response = await purchaseOrderApi.getIncomingPurchaseOrders();
@@ -27,7 +27,7 @@ const IncomingPurchaseOrdersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
     loadIncomingPOs();

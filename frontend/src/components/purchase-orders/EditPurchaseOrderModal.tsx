@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -8,7 +8,7 @@ import { XMarkIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { PurchaseOrderWithRelations } from '../../services/purchaseOrderApi';
 import { productsApi, Product } from '../../services/productsApi';
 import { companiesApi, Company } from '../../services/companiesApi';
-import { useAuth } from '../../contexts/AuthContext';
+// import { useAuth } from '../../contexts/AuthContext'; // Not currently used
 import { useToast } from '../../contexts/ToastContext';
 
 interface EditPurchaseOrderModalProps {
@@ -48,7 +48,7 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoadingData(true);
     try {
       const [productsResponse, companiesResponse] = await Promise.all([
@@ -64,7 +64,7 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     } finally {
       setLoadingData(false);
     }
-  };
+  }, [showToast]);
 
   // Load data when modal opens
   useEffect(() => {
