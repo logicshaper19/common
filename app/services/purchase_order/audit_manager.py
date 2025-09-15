@@ -11,7 +11,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models.purchase_order import PurchaseOrder
-from app.services.audit_logger import AuditLogger
+from app.core.minimal_audit import log_audit_event
 from app.models.audit_event import AuditEventType, AuditEventSeverity
 from app.core.logging import get_logger
 from .exceptions import PurchaseOrderAuditError

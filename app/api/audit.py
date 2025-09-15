@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
-from app.services.audit_logger import AuditLogger
+from app.core.minimal_audit import log_audit_event
 from app.models.audit_event import (
     AuditEvent,
     AuditEventType,
