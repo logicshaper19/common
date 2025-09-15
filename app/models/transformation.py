@@ -1,7 +1,7 @@
 """
 Transformation models for comprehensive supply chain transformation tracking.
 """
-from sqlalchemy import Column, String, DateTime, ForeignKey, func, Numeric, Date, Index, Enum as SQLEnum, Text, Boolean
+from sqlalchemy import Column, String, DateTime, ForeignKey, func, Numeric, Date, Index, Enum as SQLEnum, Text, Boolean, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
@@ -94,10 +94,18 @@ class TransformationEvent(Base):
     # Additional metadata
     event_metadata = Column(JSONB)
     
+    # Versioning fields
+    current_version = Column(Integer, default=1)
+    is_locked = Column(Boolean, default=False)
+    lock_reason = Column(Text)
+    locked_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    locked_at = Column(DateTime(timezone=True))
+    
     # Relationships
     company = relationship("Company", back_populates="transformation_events")
     created_by_user = relationship("User", foreign_keys=[created_by_user_id])
     validated_by_user = relationship("User", foreign_keys=[validated_by_user_id])
+    locked_by_user = relationship("User", foreign_keys=[locked_by_user_id])
     
     # Indexes for performance
     __table_args__ = (
