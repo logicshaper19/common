@@ -112,7 +112,7 @@ class AccessLogger:
         
         # Log to audit system
         self.audit_logger.log_event(
-            event_type=AuditEventType.DATA_ACCESS,
+            event_type=AuditEventType.DATA_EXPORT,
             severity=AuditEventSeverity.INFO,
             user_id=access_request.requesting_user_id,
             company_id=access_request.requesting_company_id,
@@ -235,7 +235,7 @@ class AccessLogger:
             denial_reason: Reason for denial
         """
         self.audit_logger.log_event(
-            event_type=AuditEventType.UNAUTHORIZED_ACCESS,
+            event_type=AuditEventType.UNAUTHORIZED_ACCESS_ATTEMPT,
             severity=AuditEventSeverity.WARNING,
             user_id=access_request.requesting_user_id,
             company_id=access_request.requesting_company_id,
@@ -331,10 +331,10 @@ class AccessLogger:
         # Determine severity based on result
         if access_decision.access_result.value == 'DENIED':
             severity = AuditEventSeverity.WARNING
-            event_type = AuditEventType.ACCESS_DENIED
+            event_type = AuditEventType.UNAUTHORIZED_ACCESS_ATTEMPT
         else:
             severity = AuditEventSeverity.INFO
-            event_type = AuditEventType.ACCESS_GRANTED
+            event_type = AuditEventType.DATA_EXPORT
         
         self.audit_logger.log_event(
             event_type=event_type,

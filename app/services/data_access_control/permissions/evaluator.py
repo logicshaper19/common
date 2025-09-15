@@ -98,13 +98,8 @@ class PermissionEvaluator:
             DataAccessPermission.is_active == True
         )
         
-        # Add target company filter
-        if access_request.target_company_id:
-            query = query.filter(
-                DataAccessPermission.target_company_id == access_request.target_company_id
-            )
-        else:
-            query = query.filter(DataAccessPermission.target_company_id.is_(None))
+        # Note: DataAccessPermission doesn't have target_company_id field
+        # The permission is based on grantor/grantee company relationship
         
         # Check if permission covers the requested data
         permissions = query.all()

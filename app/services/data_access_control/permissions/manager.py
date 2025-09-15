@@ -213,13 +213,11 @@ class PermissionManager:
             List of permissions
         """
         query = self.db.query(DataAccessPermission).filter(
-            DataAccessPermission.requesting_company_id == requesting_company_id
+            DataAccessPermission.grantee_company_id == requesting_company_id
         )
         
-        if target_company_id:
-            query = query.filter(
-                DataAccessPermission.target_company_id == target_company_id
-            )
+        # Note: DataAccessPermission doesn't have target_company_id field
+        # The permission is based on grantor/grantee company relationship
         
         if not include_expired:
             query = query.filter(
@@ -323,13 +321,13 @@ class PermissionManager:
             DataAccessPermission.data_category,
             func.count(DataAccessPermission.id).label('count')
         ).filter(
-            DataAccessPermission.requesting_company_id == company_id,
+            DataAccessPermission.grantee_company_id == company_id,
             DataAccessPermission.is_active == True
         ).group_by(DataAccessPermission.data_category).all()
         
         # Count permissions expiring soon (within 7 days)
         expiring_soon = self.db.query(func.count(DataAccessPermission.id)).filter(
-            DataAccessPermission.requesting_company_id == company_id,
+            DataAccessPermission.grantee_company_id == company_id,
             DataAccessPermission.is_active == True,
             DataAccessPermission.expires_at <= datetime.utcnow() + timedelta(days=7),
             DataAccessPermission.expires_at > datetime.utcnow()

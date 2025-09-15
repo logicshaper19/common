@@ -539,3 +539,33 @@ class PurchaseOrderEditResponse(BaseModel):
     edit_id: Optional[UUID] = None
     requires_approval: bool
     approval_required_from: Optional[str] = None  # "buyer" or "seller"
+
+
+class BuyerApproval(BaseModel):
+    """Buyer approval schema."""
+    notes: Optional[str] = None
+
+
+class ConfirmationResponse(BaseModel):
+    """Confirmation response schema."""
+    success: bool
+    message: str
+    purchase_order_id: str
+    status: str
+    confirmed_at: Optional[str] = None
+
+
+class BatchConfirmationRequest(BaseModel):
+    """Batch confirmation request schema."""
+    harvest_batch_ids: List[UUID]
+    notes: Optional[str] = None
+
+
+class BatchConfirmationResponse(BaseModel):
+    """Batch confirmation response schema."""
+    success: bool
+    message: str
+    purchase_order_id: str
+    batch_ids: List[str]
+    total_quantity: float
+    confirmed_at: str
