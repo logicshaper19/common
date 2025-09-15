@@ -24,6 +24,7 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import AmendmentModal from '../components/purchase-orders/AmendmentModal';
 import SimpleConfirmationModal from '../components/purchase-orders/SimpleConfirmationModal';
+import EditPurchaseOrderModal from '../components/purchase-orders/EditPurchaseOrderModal';
 import { cn, formatCurrency, formatDate } from '../lib/utils';
 
 const PurchaseOrderDetailPage: React.FC = () => {
@@ -38,6 +39,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'details' | 'amendments' | 'history'>('details');
   const [showAmendmentModal, setShowAmendmentModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -101,7 +103,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
   const canProposeAmendment = () => {
     if (!purchaseOrder || !user) return false;
     return (
-      purchaseOrder.status === 'CONFIRMED' &&
+      purchaseOrder.status === 'confirmed' &&
       (purchaseOrder.buyer_company.id === user.company?.id || 
        purchaseOrder.seller_company.id === user.company?.id)
     );
@@ -110,8 +112,17 @@ const PurchaseOrderDetailPage: React.FC = () => {
   const canConfirmOrder = () => {
     if (!purchaseOrder || !user) return false;
     return (
-      purchaseOrder.status === 'PENDING' &&
+      purchaseOrder.status === 'pending' &&
       purchaseOrder.seller_company.id === user.company?.id
+    );
+  };
+
+  const canEditOrder = () => {
+    if (!purchaseOrder || !user) return false;
+    return (
+      purchaseOrder.status === 'pending' &&
+      (purchaseOrder.buyer_company.id === user.company?.id || 
+       purchaseOrder.seller_company.id === user.company?.id)
     );
   };
 
@@ -121,6 +132,10 @@ const PurchaseOrderDetailPage: React.FC = () => {
 
   const handleConfirmOrder = () => {
     setShowConfirmationModal(true);
+  };
+
+  const handleEditOrder = () => {
+    setShowEditModal(true);
   };
 
   const handleAmendmentSubmit = async (amendment: any) => {
@@ -239,6 +254,17 @@ const PurchaseOrderDetailPage: React.FC = () => {
             <Button variant="outline" size="sm" leftIcon={<ShareIcon className="h-4 w-4" />}>
               Share
             </Button>
+            
+            {canEditOrder() && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEditOrder}
+                leftIcon={<PencilIcon className="h-4 w-4" />}
+              >
+                Edit Order
+              </Button>
+            )}
             
             {canConfirmOrder() && (
               <Button
@@ -434,7 +460,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
                 </div>
               </div>
               
-              {purchaseOrder.status === 'CONFIRMED' && (
+              {purchaseOrder.status === 'confirmed' && (
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 w-2 h-2 bg-success-600 rounded-full mt-2"></div>
                   <div>
@@ -464,6 +490,23 @@ const PurchaseOrderDetailPage: React.FC = () => {
           onClose={() => setShowConfirmationModal(false)}
           purchaseOrder={purchaseOrder}
           onSubmit={handleConfirmationSubmit}
+        />
+      )}
+
+      {showEditModal && (
+        <EditPurchaseOrderModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          po={purchaseOrder}
+          onEdit={async (editData) => {
+            // TODO: Implement edit functionality
+            showToast({
+              type: 'info',
+              title: 'Edit Not Yet Implemented',
+              message: 'Purchase order editing will be available soon.'
+            });
+            setShowEditModal(false);
+          }}
         />
       )}
     </div>
