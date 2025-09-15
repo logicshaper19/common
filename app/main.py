@@ -39,6 +39,7 @@ from app.api.users import router as users_router
 from app.api.products import router as products_router
 from app.api.v1.purchase_orders import router as purchase_orders_router
 from app.api.simple_purchase_orders import router as simple_purchase_orders_router
+from app.api.simple_relationships import router as simple_relationships_router
 from app.api.confirmation import router as confirmation_router
 from app.api.traceability import router as traceability_router
 from app.api.transparency_jobs import router as transparency_jobs_router
@@ -294,6 +295,7 @@ app.include_router(companies_router, prefix="/api/v1/companies", tags=["Companie
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["Purchase Orders"])
 app.include_router(simple_purchase_orders_router, prefix="/api/v1/simple", tags=["Simple Purchase Orders"])
+app.include_router(simple_relationships_router, tags=["Simple Relationships"])
 app.include_router(confirmation_router, prefix="/api/v1", tags=["Confirmation"])
 app.include_router(traceability_router, prefix="/api/v1", tags=["Traceability"])
 app.include_router(transparency_jobs_router, prefix="/api/v1", tags=["Transparency Jobs"])
