@@ -572,7 +572,7 @@ class PurchaseOrderAuditManager:
 
             # Log the audit event
             self.audit_logger.log_event(
-                event_type=AuditEventType.PURCHASE_ORDER_DELETED,
+                event_type=AuditEventType.PO_DELETED,
                 severity=AuditEventSeverity.HIGH,
                 entity_type="purchase_order",
                 entity_id=str(po.id),

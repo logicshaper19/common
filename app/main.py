@@ -37,7 +37,7 @@ from app.api.auth import router as auth_router
 from app.api.admin import router as admin_router
 from app.api.users import router as users_router
 from app.api.products import router as products_router
-from app.api.purchase_orders import router as purchase_orders_router
+from app.api.purchase_orders_router import router as purchase_orders_router
 from app.api.confirmation import router as confirmation_router
 from app.api.traceability import router as traceability_router
 from app.api.transparency_jobs import router as transparency_jobs_router
