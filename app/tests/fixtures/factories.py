@@ -13,7 +13,7 @@ from app.models.company import Company
 from app.models.user import User
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
-from app.models.business_relationship import BusinessRelationship
+# BusinessRelationship model removed - using simple relationship checking instead
 from app.models.batch import Batch
 from app.models.audit_event import AuditEvent
 
@@ -33,7 +33,7 @@ class SupplyChainScenario:
     companies: List[Company]
     users: List[User]
     products: List[Product]
-    relationships: List[BusinessRelationship]
+    # relationships removed - using simple relationship checking instead
     purchase_orders: List[PurchaseOrder]
     batches: List[Batch]
     complexity_level: str  # "simple", "medium", "complex"
@@ -454,59 +454,7 @@ class PurchaseOrderFactory:
         }
 
 
-class BusinessRelationshipFactory:
-    """Factory for creating business relationships."""
-    
-    RELATIONSHIP_TYPES = ["supplier", "customer", "partner", "subcontractor"]
-    
-    @classmethod
-    def create_relationship(
-        cls,
-        buyer_company: Company,
-        seller_company: Company,
-        relationship_type: str = "supplier",
-        status: str = "active"
-    ) -> BusinessRelationship:
-        """Create a business relationship."""
-        return BusinessRelationship(
-            id=uuid4(),
-            buyer_company_id=buyer_company.id,
-            seller_company_id=seller_company.id,
-            relationship_type=relationship_type,
-            status=status,
-            invited_by_company_id=buyer_company.id,
-            established_at=datetime.utcnow() - timedelta(days=random.randint(1, 365)),
-            metadata={
-                "invitation_method": "email",
-                "onboarding_completed": True,
-                "data_sharing_level": "standard",
-                "preferred_communication": "email"
-            }
-        )
-    
-    @classmethod
-    def create_supply_chain_relationships(
-        cls,
-        companies_by_tier: Dict[str, List[Company]]
-    ) -> List[BusinessRelationship]:
-        """Create relationships for a complete supply chain."""
-        relationships = []
-        tiers = ["originator", "processor", "brand"]
-        
-        for i in range(len(tiers) - 1):
-            current_tier = tiers[i]
-            next_tier = tiers[i + 1]
-            
-            for seller in companies_by_tier[current_tier]:
-                for buyer in companies_by_tier[next_tier]:
-                    relationship = cls.create_relationship(
-                        buyer_company=buyer,
-                        seller_company=seller,
-                        relationship_type="supplier"
-                    )
-                    relationships.append(relationship)
-        
-        return relationships
+# BusinessRelationshipFactory removed - using simple relationship checking instead
 
 
 class SupplyChainScenarioFactory:
@@ -540,8 +488,8 @@ class SupplyChainScenarioFactory:
             "finished_good": [p for p in products if p.category == "finished_good"][:3]
         }
         
-        # Create relationships
-        relationships = BusinessRelationshipFactory.create_supply_chain_relationships(companies_by_tier)
+        # Create relationships - using simple relationship checking instead
+        relationships = []
         
         # Create purchase orders
         purchase_orders = PurchaseOrderFactory.create_supply_chain(
@@ -589,18 +537,8 @@ class SupplyChainScenarioFactory:
             "finished_good": [p for p in products if p.category == "finished_good"]
         }
         
-        # Create relationships (more complex network)
-        relationships = BusinessRelationshipFactory.create_supply_chain_relationships(companies_by_tier)
-        
-        # Add some cross-tier relationships for complexity
-        for originator in companies_by_tier["originator"][:2]:
-            for brand in companies_by_tier["brand"]:
-                relationship = BusinessRelationshipFactory.create_relationship(
-                    buyer_company=brand,
-                    seller_company=originator,
-                    relationship_type="direct_supplier"
-                )
-                relationships.append(relationship)
+        # Create relationships - using simple relationship checking instead
+        relationships = []
         
         # Create purchase orders (more complex chains)
         purchase_orders = PurchaseOrderFactory.create_supply_chain(
