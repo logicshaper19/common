@@ -243,7 +243,8 @@ export const purchaseOrderApi = {
 
   // Get incoming purchase orders (where current user's company is the seller)
   getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
-    const response = await apiClient.get('/purchase-orders/?seller_company_id=current&status=confirmed');
+    // Get POs that are confirmed or in transit - these are available for chain linking
+    const response = await apiClient.get('/purchase-orders/?seller_company_id=current&status=confirmed,in_transit,shipped');
     return response.data.purchase_orders || [];
   },
 

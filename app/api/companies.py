@@ -74,6 +74,7 @@ async def list_companies(
     per_page: int = 20,
     search: Optional[str] = None,
     company_type: Optional[str] = None,
+    for_supplier_selection: bool = False,  # New parameter for supplier selection
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -96,8 +97,8 @@ async def list_companies(
 
     company_service = CompanyService(db)
 
-    # For non-admin users, only return their own company
-    if current_user.role != "admin":
+    # For non-admin users, only return their own company unless it's for supplier selection
+    if current_user.role != "admin" and not for_supplier_selection:
         company = company_service.get_company_by_id(current_user.company_id)
         if not company:
             return ResponseBuilder.paginated(
