@@ -223,20 +223,20 @@ export const purchaseOrderApi = {
       });
     }
     
-    const response = await apiClient.get(`/purchase-orders/?${params.toString()}`);
+    const response = await apiClient.get(`/simple/purchase-orders/?${params.toString()}`);
     return response.data;
   },
 
   // Get a specific purchase order by ID
   getPurchaseOrder: async (id: string): Promise<PurchaseOrderWithDetails> => {
-    const response = await apiClient.get(`/purchase-orders/${id}`);
+    const response = await apiClient.get(`/simple/purchase-orders/${id}`);
     return response.data;
   },
 
   // Create a new purchase order
   createPurchaseOrder: async (data: PurchaseOrderCreate): Promise<PurchaseOrder> => {
     console.log('📤 Sending purchase order data to API:', data);
-    const response = await apiClient.post('/purchase-orders/', data);
+    const response = await apiClient.post('/simple/purchase-orders/', data);
     console.log('📥 Purchase order created successfully:', response.data);
     return response.data;
   },
@@ -244,69 +244,70 @@ export const purchaseOrderApi = {
   // Get incoming purchase orders (where current user's company is the seller)
   getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
     // Get POs where current user is the seller and status is pending (awaiting acceptance/editing)
-    const response = await apiClient.get('/purchase-orders/incoming-simple');
+    const response = await apiClient.get('/simple/purchase-orders/incoming-simple');
     return response.data || [];
   },
 
-  // Update a purchase order
+  // Update a purchase order (not available in simplified API yet)
   updatePurchaseOrder: async (id: string, data: PurchaseOrderUpdate): Promise<PurchaseOrder> => {
-    const response = await apiClient.put(`/purchase-orders/${id}`, data);
-    return response.data;
+    // TODO: Implement in simplified API
+    throw new Error('Update purchase order not yet available in simplified API');
   },
 
-  // Seller confirmation of purchase order
+  // Seller confirmation of purchase order (using simplified confirm endpoint)
   sellerConfirmPurchaseOrder: async (id: string, confirmation: SellerConfirmation): Promise<PurchaseOrder> => {
-    const response = await apiClient.post(`/purchase-orders/${id}/seller-confirm`, confirmation);
+    const response = await apiClient.put(`/simple/purchase-orders/${id}/confirm`, {});
     return response.data;
   },
 
-  // Delete a purchase order
+  // Delete a purchase order (not available in simplified API yet)
   deletePurchaseOrder: async (id: string): Promise<void> => {
-    await apiClient.delete(`/purchase-orders/${id}`);
+    // TODO: Implement in simplified API
+    throw new Error('Delete purchase order not yet available in simplified API');
   },
 
-  // Get traceability information for a purchase order
+  // Get traceability information for a purchase order (not available in simplified API yet)
   getTraceability: async (id: string): Promise<any> => {
-    const response = await apiClient.get(`/purchase-orders/${id}/traceability`);
-    return response.data;
+    // TODO: Implement in simplified API
+    throw new Error('Traceability not yet available in simplified API');
   },
 
   // Amendment API functions
   proposeChanges: async (id: string, proposal: ProposeChangesRequest): Promise<AmendmentResponse> => {
-    const response = await apiClient.put(`/purchase-orders/${id}/propose-changes`, proposal);
-    return response.data;
+    // TODO: Implement in simplified API
+    throw new Error('Amendment functions not yet available in simplified API');
   },
 
   approveChanges: async (id: string, approval: ApproveChangesRequest): Promise<AmendmentResponse> => {
-    const response = await apiClient.put(`/purchase-orders/${id}/approve-changes`, approval);
-    return response.data;
+    // TODO: Implement in simplified API
+    throw new Error('Amendment functions not yet available in simplified API');
   },
 
   // Simple confirmation API function
   confirmPurchaseOrder: async (id: string, confirmation: PurchaseOrderConfirmation): Promise<ConfirmationResponse> => {
-    const response = await apiClient.post(`/purchase-orders/${id}/confirm`, confirmation);
-    return response.data;
+    // TODO: Implement in simplified API
+    throw new Error('Buyer confirmation not yet available in simplified API');
   },
 
   // New acceptance and editing API functions
   acceptPurchaseOrder: async (id: string, acceptance: any): Promise<any> => {
-    const response = await apiClient.post(`/purchase-orders/${id}/accept`, acceptance);
+    const response = await apiClient.put(`/simple/purchase-orders/${id}/approve`, {});
     return response.data;
   },
 
   rejectPurchaseOrder: async (id: string, rejection: any): Promise<any> => {
-    const response = await apiClient.post(`/purchase-orders/${id}/reject`, rejection);
-    return response.data;
+    // TODO: Implement in simplified API
+    throw new Error('Reject purchase order not yet available in simplified API');
   },
 
   editPurchaseOrder: async (id: string, editRequest: any): Promise<any> => {
-    const response = await apiClient.put(`/purchase-orders/${id}/edit`, editRequest);
-    return response.data;
+    // TODO: Implement in simplified API
+    throw new Error('Edit purchase order not yet available in simplified API');
   },
 
   approvePurchaseOrderEdit: async (id: string, approval: any): Promise<any> => {
-    const response = await apiClient.put(`/purchase-orders/${id}/edit-approval`, approval);
-    return response.data;
+    // TODO: Implement in simplified API
+    throw new Error('Edit approval not yet available in simplified API');
   }
 };
 
