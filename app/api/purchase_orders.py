@@ -113,7 +113,7 @@ def list_purchase_orders(
     buyer_company_id: str = Query(None, description="Filter by buyer company ID"),
     seller_company_id: str = Query(None, description="Filter by seller company ID"),
     product_id: str = Query(None, description="Filter by product ID"),
-    status: PurchaseOrderStatus = Query(None, description="Filter by status"),
+    status: str = Query(None, description="Filter by status (comma-separated for multiple)"),
     delivery_date_from: str = Query(None, description="Filter by delivery date from (YYYY-MM-DD)"),
     delivery_date_to: str = Query(None, description="Filter by delivery date to (YYYY-MM-DD)"),
     search: str = Query(None, description="Search in PO number, notes, or delivery location"),
@@ -158,22 +158,30 @@ def list_purchase_orders(
     product_id_parsed = None
     
     if buyer_company_id:
-        try:
-            buyer_company_id_parsed = UUID(buyer_company_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid buyer_company_id format"
-            )
+        if buyer_company_id == "current":
+            # Special case: use current user's company ID
+            buyer_company_id_parsed = current_user.company_id
+        else:
+            try:
+                buyer_company_id_parsed = UUID(buyer_company_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid buyer_company_id format"
+                )
     
     if seller_company_id:
-        try:
-            seller_company_id_parsed = UUID(seller_company_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid seller_company_id format"
-            )
+        if seller_company_id == "current":
+            # Special case: use current user's company ID
+            seller_company_id_parsed = current_user.company_id
+        else:
+            try:
+                seller_company_id_parsed = UUID(seller_company_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid seller_company_id format"
+                )
     
     if product_id:
         try:
@@ -184,12 +192,24 @@ def list_purchase_orders(
                 detail="Invalid product_id format"
             )
     
+    # Parse status filter (comma-separated values)
+    status_list = None
+    if status:
+        status_values = [s.strip() for s in status.split(',')]
+        try:
+            status_list = [PurchaseOrderStatus(s) for s in status_values]
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status value: {str(e)}"
+            )
+    
     # Create filter object
     filters = PurchaseOrderFilter(
         buyer_company_id=buyer_company_id_parsed,
         seller_company_id=seller_company_id_parsed,
         product_id=product_id_parsed,
-        status=status,
+        status=status_list,
         delivery_date_from=delivery_date_from_parsed,
         delivery_date_to=delivery_date_to_parsed,
         search=search,

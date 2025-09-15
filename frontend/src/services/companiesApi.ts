@@ -56,9 +56,35 @@ export const companiesApi = {
       }));
       
       console.log('🏢 Transformed companies:', companies);
+      
+      // If no suppliers found, provide a fallback with all companies
+      if (companies.length === 0) {
+        console.log('⚠️ No business relationships found, falling back to all companies...');
+        try {
+          const fallbackResponse = await apiClient.get('/companies');
+          const allCompanies = fallbackResponse.data.companies || [];
+          console.log('🏢 Fallback companies:', allCompanies.length);
+          return allCompanies;
+        } catch (fallbackError) {
+          console.error('❌ Error fetching fallback companies:', fallbackError);
+          // Return empty array if both fail
+          return [];
+        }
+      }
+      
       return companies;
     } catch (error: any) {
       console.error('❌ Error fetching business partners:', error);
+      
+      // Fallback: try to get all companies if business relationships fail
+      try {
+        console.log('🔄 Falling back to all companies...');
+        const fallbackResponse = await apiClient.get('/companies');
+        const allCompanies = fallbackResponse.data.companies || [];
+        console.log('🏢 Fallback companies:', allCompanies.length);
+        return allCompanies;
+      } catch (fallbackError) {
+        console.error('❌ Error fetching fallback companies:', fallbackError);
       console.error('❌ Error details:', error.response?.data || error.message);
       
       // Fallback to mock data for now
