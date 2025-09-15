@@ -187,16 +187,16 @@ class ApiClient {
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
-        throw error.response.data as ApiError;
+        throw new Error(JSON.stringify(error.response.data as ApiError));
       }
-      throw {
+      throw new Error(JSON.stringify({
         error: {
           code: 'NETWORK_ERROR',
           message: 'Network error occurred',
         },
         request_id: 'unknown',
         timestamp: new Date().toISOString(),
-      } as ApiError;
+      } as ApiError));
     }
   }
 
