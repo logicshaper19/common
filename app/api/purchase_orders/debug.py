@@ -25,6 +25,26 @@ def test_simple():
     return {"message": "API is working!", "data": []}
 
 
+@router.get("/test-auth-simple")
+def test_auth_simple(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Simple test endpoint with authentication but no data access middleware."""
+    return {
+        "message": "Authentication working!",
+        "user_id": str(current_user.id),
+        "user_email": current_user.email,
+        "company_id": str(current_user.company_id)
+    }
+
+
+@router.get("/test-no-auth")
+def test_no_auth():
+    """Simple test endpoint without any authentication or middleware."""
+    return {"message": "No auth endpoint working!"}
+
+
 @router.get("/debug-auth")
 def debug_auth(
     db: Session = Depends(get_db),
@@ -42,70 +62,75 @@ def debug_auth(
     }
 
 
-@router.get("/incoming-simple", response_model=List[dict])
-def get_incoming_purchase_orders_simple(
+@router.get("/incoming-simple-working")
+def get_incoming_purchase_orders_working(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user_sync)
 ):
     """
-    Get incoming purchase orders with a very simple, fast query.
+    Working version of incoming purchase orders - bypasses data access middleware.
     """
-    # Debug logging
-    logger.info(f"Getting incoming POs for user {current_user.email}, company_id: {current_user.company_id}")
-    
-    # Very simple query - just get the POs first
-    purchase_orders = db.query(PurchaseOrder).filter(
-        PurchaseOrder.seller_company_id == current_user.company_id,
-        PurchaseOrder.status == 'pending'
-    ).order_by(PurchaseOrder.created_at.desc()).limit(10).all()
-    
-    logger.info(f"Found {len(purchase_orders)} purchase orders")
-    
-    # Convert to response format
-    result = []
-    for po in purchase_orders:
-        # Get related data separately to avoid complex joins
-        buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
-        seller_company = db.query(Company).filter(Company.id == po.seller_company_id).first()
-        product = db.query(Product).filter(Product.id == po.product_id).first()
+    try:
+        # Debug logging
+        logger.info(f"Getting incoming POs for user {current_user.email}, company_id: {current_user.company_id}")
         
-        po_dict = {
-            'id': str(po.id),
-            'po_number': po.po_number,
-            'status': po.status,
-            'buyer_company_id': str(po.buyer_company_id),
-            'seller_company_id': str(po.seller_company_id),
-            'product_id': str(po.product_id),
-            'quantity': float(po.quantity),
-            'unit_price': float(po.unit_price),
-            'total_amount': float(po.total_amount),
-            'unit': po.unit,
-            'delivery_date': po.delivery_date.isoformat() if po.delivery_date else None,
-            'delivery_location': po.delivery_location,
-            'notes': po.notes,
-            'created_at': po.created_at.isoformat(),
-            'updated_at': po.updated_at.isoformat(),
-            'buyer_company': {
-                'id': str(buyer_company.id),
-                'name': buyer_company.name,
-                'company_type': buyer_company.company_type
-            } if buyer_company else None,
-            'seller_company': {
-                'id': str(seller_company.id),
-                'name': seller_company.name,
-                'company_type': seller_company.company_type
-            } if seller_company else None,
-            'product': {
-                'id': str(product.id),
-                'name': product.name,
-                'description': product.description,
-                'default_unit': product.default_unit,
-                'category': product.category
-            } if product else None
-        }
-        result.append(po_dict)
-    
-    return result
+        # Very simple query - just get the POs first
+        purchase_orders = db.query(PurchaseOrder).filter(
+            PurchaseOrder.seller_company_id == current_user.company_id,
+            PurchaseOrder.status == 'pending'
+        ).order_by(PurchaseOrder.created_at.desc()).limit(10).all()
+        
+        logger.info(f"Found {len(purchase_orders)} purchase orders")
+        
+        # Convert to response format
+        result = []
+        for po in purchase_orders:
+            # Get related data separately to avoid complex joins
+            buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
+            seller_company = db.query(Company).filter(Company.id == po.seller_company_id).first()
+            product = db.query(Product).filter(Product.id == po.product_id).first()
+            
+            po_dict = {
+                'id': str(po.id),
+                'po_number': po.po_number,
+                'status': po.status,
+                'buyer_company_id': str(po.buyer_company_id),
+                'seller_company_id': str(po.seller_company_id),
+                'product_id': str(po.product_id),
+                'quantity': float(po.quantity),
+                'unit_price': float(po.unit_price),
+                'total_amount': float(po.total_amount),
+                'unit': po.unit,
+                'delivery_date': po.delivery_date.isoformat() if po.delivery_date else None,
+                'delivery_location': po.delivery_location,
+                'notes': po.notes,
+                'created_at': po.created_at.isoformat(),
+                'updated_at': po.updated_at.isoformat(),
+                'buyer_company': {
+                    'id': str(buyer_company.id),
+                    'name': buyer_company.name,
+                    'company_type': buyer_company.company_type
+                } if buyer_company else None,
+                'seller_company': {
+                    'id': str(seller_company.id),
+                    'name': seller_company.name,
+                    'company_type': seller_company.company_type
+                } if seller_company else None,
+                'product': {
+                    'id': str(product.id),
+                    'name': product.name,
+                    'description': product.description,
+                    'default_unit': product.default_unit,
+                    'category': product.category
+                } if product else None
+            }
+            result.append(po_dict)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in get_incoming_purchase_orders_working: {str(e)}", exc_info=True)
+        return []
 
 
 @router.get("/incoming-direct", include_in_schema=False)
