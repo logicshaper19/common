@@ -19,6 +19,15 @@ from app.core.simple_relationships import (
     get_company_buyers,
     get_business_partners
 )
+from app.schemas.simple_relationships import (
+    RelationshipCheckResponse,
+    RelationshipSummaryResponse,
+    SupplierListResponse,
+    BuyerListResponse,
+    PartnerListResponse,
+    DataAccessCheckResponse,
+    SimpleRelationshipAnalytics
+)
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -26,12 +35,12 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/simple/relationships", tags=["Simple Relationships"])
 
 
-@router.get("/check/{target_company_id}")
+@router.get("/check/{target_company_id}", response_model=RelationshipCheckResponse)
 async def check_relationship(
     target_company_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+):
     """
     Check if current user's company has a relationship with target company.
     
@@ -53,15 +62,13 @@ async def check_relationship(
             target_company_id
         )
         
-        return {
-            "has_relationship": has_relationship,
-            "can_access_data": can_access_company_data(
-                db, 
-                current_user.company_id, 
-                target_company_id
-            ),
-            "relationship_summary": summary
-        }
+        return RelationshipCheckResponse(
+            has_relationship=has_relationship,
+            relationship_type=summary.get("relationship_type") if summary else None,
+            first_transaction_date=summary.get("first_transaction_date") if summary else None,
+            last_transaction_date=summary.get("last_transaction_date") if summary else None,
+            total_transactions=summary.get("total_transactions", 0) if summary else 0
+        )
         
     except Exception as e:
         logger.error(f"Failed to check relationship: {str(e)}")
@@ -71,11 +78,11 @@ async def check_relationship(
         )
 
 
-@router.get("/suppliers")
+@router.get("/suppliers", response_model=SupplierListResponse)
 async def get_suppliers(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> List[Dict[str, Any]]:
+):
     """
     Get list of suppliers for current user's company.
     
@@ -83,8 +90,29 @@ async def get_suppliers(
     purchase order-based supplier identification.
     """
     try:
-        suppliers = get_company_suppliers(db, current_user.company_id)
-        return suppliers
+        suppliers_data = get_company_suppliers(db, current_user.company_id)
+        
+        # Convert to SupplierInfo objects
+        suppliers = []
+        for supplier_data in suppliers_data:
+            suppliers.append(SupplierInfo(
+                company_id=supplier_data["company_id"],
+                company_name=supplier_data["company_name"],
+                company_type=supplier_data["company_type"],
+                email=supplier_data["email"],
+                first_transaction_date=supplier_data["first_transaction_date"],
+                last_transaction_date=supplier_data.get("last_transaction_date"),
+                total_purchase_orders=supplier_data.get("total_purchase_orders", 0),
+                total_value=supplier_data.get("total_value")
+            ))
+        
+        return SupplierListResponse(
+            suppliers=suppliers,
+            total=len(suppliers),
+            page=1,
+            per_page=len(suppliers),
+            total_pages=1
+        )
         
     except Exception as e:
         logger.error(f"Failed to get suppliers: {str(e)}")
@@ -94,11 +122,11 @@ async def get_suppliers(
         )
 
 
-@router.get("/buyers")
+@router.get("/buyers", response_model=BuyerListResponse)
 async def get_buyers(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> List[Dict[str, Any]]:
+):
     """
     Get list of buyers for current user's company.
     
@@ -106,8 +134,29 @@ async def get_buyers(
     purchase order-based buyer identification.
     """
     try:
-        buyers = get_company_buyers(db, current_user.company_id)
-        return buyers
+        buyers_data = get_company_buyers(db, current_user.company_id)
+        
+        # Convert to BuyerInfo objects
+        buyers = []
+        for buyer_data in buyers_data:
+            buyers.append(BuyerInfo(
+                company_id=buyer_data["company_id"],
+                company_name=buyer_data["company_name"],
+                company_type=buyer_data["company_type"],
+                email=buyer_data["email"],
+                first_transaction_date=buyer_data["first_transaction_date"],
+                last_transaction_date=buyer_data.get("last_transaction_date"),
+                total_purchase_orders=buyer_data.get("total_purchase_orders", 0),
+                total_value=buyer_data.get("total_value")
+            ))
+        
+        return BuyerListResponse(
+            buyers=buyers,
+            total=len(buyers),
+            page=1,
+            per_page=len(buyers),
+            total_pages=1
+        )
         
     except Exception as e:
         logger.error(f"Failed to get buyers: {str(e)}")
@@ -140,12 +189,12 @@ async def get_business_partners(
         )
 
 
-@router.get("/access/{target_company_id}")
+@router.get("/access/{target_company_id}", response_model=DataAccessCheckResponse)
 async def check_data_access(
     target_company_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+):
     """
     Check if current user's company can access target company's data.
     
@@ -158,12 +207,12 @@ async def check_data_access(
             target_company_id
         )
         
-        return {
-            "can_access": can_access,
-            "requesting_company_id": current_user.company_id,
-            "target_company_id": target_company_id,
-            "reason": "Same company" if current_user.company_id == target_company_id else "Business relationship"
-        }
+        return DataAccessCheckResponse(
+            can_access=can_access,
+            access_reason="Same company" if current_user.company_id == target_company_id else "Business relationship",
+            relationship_type="self" if current_user.company_id == target_company_id else "business_partner",
+            access_level="full" if current_user.company_id == target_company_id else "standard"
+        )
         
     except Exception as e:
         logger.error(f"Failed to check data access: {str(e)}")
