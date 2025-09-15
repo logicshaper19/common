@@ -206,11 +206,15 @@ class AccessLogger:
             error_message: Error message
         """
         self.audit_logger.log_event(
-            event_type=AuditEventType.ACCESS_ERROR,
-            severity=AuditEventSeverity.ERROR,
-            user_id=requesting_user_id,
-            company_id=requesting_company_id,
-            details={
+            event_type=AuditEventType.UNAUTHORIZED_ACCESS_ATTEMPT,
+            entity_type="purchase_order",
+            entity_id=requesting_company_id,
+            action="access_denied",
+            description=f"Access denied: {error_message}",
+            actor_user_id=requesting_user_id,
+            actor_company_id=requesting_company_id,
+            severity=AuditEventSeverity.HIGH,
+            metadata={
                 'target_company_id': str(target_company_id) if target_company_id else None,
                 'error_message': error_message
             }

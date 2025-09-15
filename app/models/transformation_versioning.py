@@ -254,3 +254,4 @@ class RealTimeMonitoringEndpoint(Base):
         Index('idx_monitoring_endpoints_company', 'company_id'),
         Index('idx_monitoring_endpoints_active', 'is_active'),
     )
+

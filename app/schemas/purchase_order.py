@@ -1,7 +1,7 @@
 """
 Purchase Order-related Pydantic schemas.
 """
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from uuid import UUID
 from datetime import datetime, date
 from decimal import Decimal
@@ -13,6 +13,8 @@ class PurchaseOrderStatus(str, Enum):
     """Purchase order status enumeration."""
     DRAFT = "draft"
     PENDING = "pending"
+    AWAITING_ACCEPTANCE = "awaiting_acceptance"  # New status for awaiting seller acceptance
+    ACCEPTED = "accepted"  # New status for accepted by seller
     AWAITING_BUYER_APPROVAL = "awaiting_buyer_approval"  # New status for discrepancy approval
     CONFIRMED = "confirmed"
     IN_TRANSIT = "in_transit"
@@ -22,6 +24,7 @@ class PurchaseOrderStatus(str, Enum):
     AMENDMENT_PENDING = "amendment_pending"  # New status for pending amendments
     CANCELLED = "cancelled"
     DECLINED = "declined"  # New status for buyer-declined orders
+    REJECTED = "rejected"  # New status for seller-rejected orders
 
 
 class AmendmentStatus(str, Enum):
@@ -368,7 +371,7 @@ class PurchaseOrderFilter(BaseModel):
     buyer_company_id: Optional[UUID] = None
     seller_company_id: Optional[UUID] = None
     product_id: Optional[UUID] = None
-    status: Optional[PurchaseOrderStatus] = None
+    status: Optional[Union[PurchaseOrderStatus, List[PurchaseOrderStatus]]] = None
     delivery_date_from: Optional[date] = None
     delivery_date_to: Optional[date] = None
     search: Optional[str] = None  # Search in PO number, notes, or delivery location
@@ -471,3 +474,68 @@ class PurchaseOrderHistoryEntry(BaseModel):
     class Config:
         from_attributes = True
     max_depth_reached: int
+
+
+# New schemas for acceptance and enhanced editing
+
+class PurchaseOrderAcceptance(BaseModel):
+    """Schema for purchase order acceptance by seller."""
+    accept: bool
+    acceptance_notes: Optional[str] = Field(None, max_length=1000, description="Notes about the acceptance")
+    acceptance_terms: Optional[str] = Field(None, max_length=2000, description="Terms and conditions agreed upon")
+    expected_delivery_date: Optional[date] = Field(None, description="Expected delivery date if different from original")
+    special_instructions: Optional[str] = Field(None, max_length=1000, description="Special delivery or handling instructions")
+
+
+class PurchaseOrderRejection(BaseModel):
+    """Schema for purchase order rejection by seller."""
+    rejection_reason: str = Field(..., min_length=10, max_length=1000, description="Reason for rejection")
+    alternative_suggestions: Optional[str] = Field(None, max_length=1000, description="Alternative suggestions or counter-proposals")
+    can_negotiate: bool = Field(False, description="Whether the seller is open to negotiation")
+
+
+class PurchaseOrderEditRequest(BaseModel):
+    """Schema for comprehensive purchase order editing."""
+    # Basic fields that can be edited
+    quantity: Optional[Decimal] = Field(None, gt=0, decimal_places=3)
+    unit_price: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
+    unit: Optional[str] = Field(None, min_length=1, max_length=20)
+    delivery_date: Optional[date] = None
+    delivery_location: Optional[str] = Field(None, max_length=200)
+    notes: Optional[str] = Field(None, max_length=2000)
+    
+    # Additional editable fields
+    product_id: Optional[UUID] = None
+    seller_company_id: Optional[UUID] = None
+    
+    # Edit metadata
+    edit_reason: str = Field(..., min_length=10, max_length=500, description="Reason for the edit")
+    requires_approval: bool = Field(True, description="Whether this edit requires buyer approval")
+    edit_notes: Optional[str] = Field(None, max_length=1000, description="Additional notes about the edit")
+
+
+class PurchaseOrderEditApproval(BaseModel):
+    """Schema for approving or rejecting purchase order edits."""
+    approve: bool
+    approval_notes: Optional[str] = Field(None, max_length=1000, description="Notes about the approval decision")
+    conditions: Optional[str] = Field(None, max_length=1000, description="Any conditions for approval")
+
+
+class PurchaseOrderAcceptanceResponse(BaseModel):
+    """Response schema for purchase order acceptance."""
+    success: bool
+    message: str
+    purchase_order_id: UUID
+    new_status: str
+    accepted_at: Optional[datetime] = None
+    acceptance_id: Optional[UUID] = None
+
+
+class PurchaseOrderEditResponse(BaseModel):
+    """Response schema for purchase order editing."""
+    success: bool
+    message: str
+    purchase_order_id: UUID
+    edit_id: Optional[UUID] = None
+    requires_approval: bool
+    approval_required_from: Optional[str] = None  # "buyer" or "seller"

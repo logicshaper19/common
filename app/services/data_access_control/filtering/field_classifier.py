@@ -30,7 +30,7 @@ class FieldClassifier:
                 r'^(created_at|updated_at|version)$',
                 r'^(description|title|label)$',
             ],
-            DataSensitivityLevel.INTERNAL: [
+            DataSensitivityLevel.OPERATIONAL: [
                 r'^(quantity|unit|weight|dimensions)$',
                 r'^(supplier_name|buyer_name|company_name)$',
                 r'^(product_name|product_code|sku)$',
@@ -54,9 +54,9 @@ class FieldClassifier:
         
         # Field-specific overrides
         self.field_overrides = {
-            'po_number': DataSensitivityLevel.INTERNAL,
-            'order_number': DataSensitivityLevel.INTERNAL,
-            'tracking_number': DataSensitivityLevel.INTERNAL,
+            'po_number': DataSensitivityLevel.OPERATIONAL,
+            'order_number': DataSensitivityLevel.OPERATIONAL,
+            'tracking_number': DataSensitivityLevel.OPERATIONAL,
             'public_notes': DataSensitivityLevel.PUBLIC,
             'general_description': DataSensitivityLevel.PUBLIC,
         }
@@ -128,7 +128,7 @@ class FieldClassifier:
             return entity_classification
         
         # Default to internal if no specific classification found
-        return DataSensitivityLevel.INTERNAL
+        return DataSensitivityLevel.OPERATIONAL
     
     def _get_database_classification(
         self, 
@@ -167,7 +167,7 @@ class FieldClassifier:
         for sensitivity_level in [
             DataSensitivityLevel.RESTRICTED,
             DataSensitivityLevel.CONFIDENTIAL,
-            DataSensitivityLevel.INTERNAL,
+            DataSensitivityLevel.OPERATIONAL,
             DataSensitivityLevel.PUBLIC
         ]:
             patterns = self.sensitivity_patterns.get(sensitivity_level, [])
@@ -220,7 +220,7 @@ class FieldClassifier:
         
         entity_rules = {
             'purchase_order': {
-                'po_number': DataSensitivityLevel.INTERNAL,
+                'po_number': DataSensitivityLevel.OPERATIONAL,
                 'total_amount': DataSensitivityLevel.CONFIDENTIAL,
                 'supplier_notes': DataSensitivityLevel.CONFIDENTIAL,
                 'buyer_notes': DataSensitivityLevel.CONFIDENTIAL,
@@ -229,19 +229,19 @@ class FieldClassifier:
                 'company_name': DataSensitivityLevel.PUBLIC,
                 'tax_id': DataSensitivityLevel.RESTRICTED,
                 'revenue': DataSensitivityLevel.CONFIDENTIAL,
-                'employee_count': DataSensitivityLevel.INTERNAL,
+                'employee_count': DataSensitivityLevel.OPERATIONAL,
             },
             'user': {
-                'username': DataSensitivityLevel.INTERNAL,
+                'username': DataSensitivityLevel.OPERATIONAL,
                 'email': DataSensitivityLevel.CONFIDENTIAL,
-                'role': DataSensitivityLevel.INTERNAL,
-                'last_login': DataSensitivityLevel.INTERNAL,
+                'role': DataSensitivityLevel.OPERATIONAL,
+                'last_login': DataSensitivityLevel.OPERATIONAL,
             },
             'product': {
                 'product_name': DataSensitivityLevel.PUBLIC,
                 'cost': DataSensitivityLevel.CONFIDENTIAL,
                 'supplier_cost': DataSensitivityLevel.RESTRICTED,
-                'specifications': DataSensitivityLevel.INTERNAL,
+                'specifications': DataSensitivityLevel.OPERATIONAL,
             }
         }
         

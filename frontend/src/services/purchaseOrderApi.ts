@@ -243,9 +243,9 @@ export const purchaseOrderApi = {
 
   // Get incoming purchase orders (where current user's company is the seller)
   getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
-    // Get POs that are confirmed or in transit - these are available for chain linking
-    const response = await apiClient.get('/purchase-orders/?seller_company_id=current&status=confirmed,in_transit,shipped');
-    return response.data.purchase_orders || [];
+    // Get POs where current user is the seller and status is pending (awaiting acceptance/editing)
+    const response = await apiClient.get('/purchase-orders/incoming-simple');
+    return response.data || [];
   },
 
   // Update a purchase order
@@ -285,6 +285,27 @@ export const purchaseOrderApi = {
   // Simple confirmation API function
   confirmPurchaseOrder: async (id: string, confirmation: PurchaseOrderConfirmation): Promise<ConfirmationResponse> => {
     const response = await apiClient.post(`/purchase-orders/${id}/confirm`, confirmation);
+    return response.data;
+  },
+
+  // New acceptance and editing API functions
+  acceptPurchaseOrder: async (id: string, acceptance: any): Promise<any> => {
+    const response = await apiClient.post(`/purchase-orders/${id}/accept`, acceptance);
+    return response.data;
+  },
+
+  rejectPurchaseOrder: async (id: string, rejection: any): Promise<any> => {
+    const response = await apiClient.post(`/purchase-orders/${id}/reject`, rejection);
+    return response.data;
+  },
+
+  editPurchaseOrder: async (id: string, editRequest: any): Promise<any> => {
+    const response = await apiClient.put(`/purchase-orders/${id}/edit`, editRequest);
+    return response.data;
+  },
+
+  approvePurchaseOrderEdit: async (id: string, approval: any): Promise<any> => {
+    const response = await apiClient.put(`/purchase-orders/${id}/edit-approval`, approval);
     return response.data;
   }
 };

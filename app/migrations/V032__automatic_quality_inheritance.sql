@@ -439,3 +439,4 @@ INSERT INTO transformation_cost_rates (facility_id, transformation_type, energy_
 CREATE INDEX IF NOT EXISTS idx_transformation_cost_rates_facility ON transformation_cost_rates(facility_id);
 CREATE INDEX IF NOT EXISTS idx_transformation_cost_rates_type ON transformation_cost_rates(transformation_type);
 CREATE INDEX IF NOT EXISTS idx_transformation_cost_rates_active ON transformation_cost_rates(is_active);
+

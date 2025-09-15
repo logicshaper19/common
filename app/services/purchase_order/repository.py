@@ -8,7 +8,7 @@ providing a clean data access layer with optimized queries.
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID, uuid4
 from datetime import datetime
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import and_, or_, func, desc, asc
 
 from app.models.purchase_order import PurchaseOrder
@@ -241,7 +241,12 @@ class PurchaseOrderRepository:
         
         # Apply filters
         if filters.status:
-            query = query.filter(PurchaseOrder.status.in_([s.value for s in filters.status]))
+            # Handle both single status and list of statuses
+            if isinstance(filters.status, list):
+                status_values = [s.value for s in filters.status]
+            else:
+                status_values = [filters.status.value]
+            query = query.filter(PurchaseOrder.status.in_(status_values))
         
         if filters.buyer_company_id:
             query = query.filter(PurchaseOrder.buyer_company_id == filters.buyer_company_id)
@@ -327,10 +332,11 @@ class PurchaseOrderRepository:
         user_company = self.db.query(Company).filter(Company.id == user_company_id).first()
         
         # Base query with access control and joined entities
+        # Use selectinload for better performance with smaller result sets
         query = self.db.query(PurchaseOrder).options(
-            joinedload(PurchaseOrder.buyer_company),
-            joinedload(PurchaseOrder.seller_company),
-            joinedload(PurchaseOrder.product)
+            selectinload(PurchaseOrder.buyer_company),
+            selectinload(PurchaseOrder.seller_company),
+            selectinload(PurchaseOrder.product)
         )
         
         # Apply access control based on company type
@@ -351,13 +357,21 @@ class PurchaseOrderRepository:
 
         # Apply filters (same as list_with_filters)
         if filters.status:
-            query = query.filter(PurchaseOrder.status.in_([s.value for s in filters.status]))
+            # Handle both single status and list of statuses
+            if isinstance(filters.status, list):
+                status_values = [s.value for s in filters.status]
+            else:
+                status_values = [filters.status.value]
+            query = query.filter(PurchaseOrder.status.in_(status_values))
 
         if filters.buyer_company_id:
             query = query.filter(PurchaseOrder.buyer_company_id == filters.buyer_company_id)
 
         if filters.seller_company_id:
             query = query.filter(PurchaseOrder.seller_company_id == filters.seller_company_id)
+        
+        # Add ordering for consistent results
+        query = query.order_by(desc(PurchaseOrder.created_at))
 
         if filters.product_id:
             query = query.filter(PurchaseOrder.product_id == filters.product_id)
@@ -601,7 +615,12 @@ class PurchaseOrderRepository:
 
         # Apply filters (no company filtering for admin)
         if filters.status:
-            query = query.filter(PurchaseOrder.status == filters.status)
+            # Handle both single status and list of statuses
+            if isinstance(filters.status, list):
+                status_values = [s.value for s in filters.status]
+                query = query.filter(PurchaseOrder.status.in_(status_values))
+            else:
+                query = query.filter(PurchaseOrder.status == filters.status.value)
 
         if filters.buyer_company_id:
             query = query.filter(PurchaseOrder.buyer_company_id == filters.buyer_company_id)

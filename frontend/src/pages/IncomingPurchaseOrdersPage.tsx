@@ -1,387 +1,153 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Select from '../components/ui/Select';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import AnalyticsCard from '../components/ui/AnalyticsCard';
 import PurchaseOrderTable from '../components/purchase-orders/PurchaseOrderTable';
-import {
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  ArrowLeftIcon,
-  DocumentTextIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  TruckIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline';
-import {
-  purchaseOrderApi,
-  PurchaseOrderWithDetails,
-  PurchaseOrderWithRelations,
-  PurchaseOrderFilters,
-  ProposeChangesRequest,
-  ApproveChangesRequest
-} from '../services/purchaseOrderApi';
-import { useAmendments } from '../hooks/useAmendments';
-import { useAuth } from '../contexts/AuthContext';
+import { PurchaseOrderWithRelations, purchaseOrderApi } from '../services/purchaseOrderApi';
 import { useToast } from '../contexts/ToastContext';
-import { FulfillmentModal } from '../components/purchase-orders/FulfillmentModal';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
-interface IncomingPurchaseOrdersPageProps {}
-
-export const IncomingPurchaseOrdersPage: React.FC<IncomingPurchaseOrdersPageProps> = () => {
-  const { user } = useAuth();
+const IncomingPurchaseOrdersPage: React.FC = () => {
   const { showToast } = useToast();
-  const { proposeChanges: proposeChangesHook, approveChanges: approveChangesHook } = useAmendments();
-
-  // Wrapper functions to handle the return values
-  const handleProposeChanges = async (id: string, proposal: ProposeChangesRequest): Promise<void> => {
-    await proposeChangesHook(id, proposal);
-  };
-
-  const handleApproveChanges = async (id: string, approval: ApproveChangesRequest): Promise<void> => {
-    await approveChangesHook(id, approval);
-  };
-  
-  // State
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderWithRelations[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<PurchaseOrderFilters>({
-    page: 1,
-    per_page: 20
-  });
-  const [showFilters, setShowFilters] = useState(false);
-  const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
-  const [selectedPO, setSelectedPO] = useState<PurchaseOrderWithRelations | null>(null);
+  const [loading, setLoading] = useState(true);
+  // const [actionLoading, setActionLoading] = useState<string | null>(null); // Not currently used
 
-  // Calculate analytics from purchase orders
-  const analytics = React.useMemo(() => {
-    const total = purchaseOrders.length;
-    const pending = purchaseOrders.filter(po => po.status === 'PENDING' || po.status === 'pending').length;
-    const confirmed = purchaseOrders.filter(po => po.status === 'CONFIRMED' || po.status === 'confirmed').length;
-    const delivered = purchaseOrders.filter(po => po.status === 'DELIVERED' || po.status === 'delivered').length;
-    const urgent = purchaseOrders.filter(po => {
-      if (!po.delivery_date) return false;
-      const deliveryDate = new Date(po.delivery_date);
-      const today = new Date();
-      const daysUntilDelivery = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return daysUntilDelivery <= 7 && po.status !== 'DELIVERED' && po.status !== 'delivered';
-    }).length;
-
-    return [
-      {
-        name: 'Total Orders',
-        value: total.toString(),
-        change: '+8%',
-        changeType: 'increase' as const,
-        icon: DocumentTextIcon,
-      },
-      {
-        name: 'Pending',
-        value: pending.toString(),
-        change: pending > 0 ? `${Math.round((pending / total) * 100)}%` : '0%',
-        changeType: pending > total * 0.3 ? 'increase' as const : 'neutral' as const,
-        icon: ClockIcon,
-      },
-      {
-        name: 'Confirmed',
-        value: confirmed.toString(),
-        change: confirmed > 0 ? `${Math.round((confirmed / total) * 100)}%` : '0%',
-        changeType: 'increase' as const,
-        icon: CheckCircleIcon,
-      },
-      {
-        name: 'Urgent (≤7 days)',
-        value: urgent.toString(),
-        change: urgent > 0 ? `${Math.round((urgent / total) * 100)}%` : '0%',
-        changeType: urgent > 0 ? 'increase' as const : 'neutral' as const,
-        icon: ExclamationTriangleIcon,
-      },
-    ];
-  }, [purchaseOrders]);
-
-  // Calculate pending amendments for alerts
-  const pendingAmendments = purchaseOrders.filter(po =>
-    'amendments' in po && po.amendments && Array.isArray(po.amendments) && po.amendments.length > 0 && po.amendments.some(amendment =>
-      amendment.status === 'pending' &&
-      amendment.proposed_by_user_id !== user?.id
-    )
-  );
-
-  const myProposedAmendments = purchaseOrders.filter(po =>
-    'amendments' in po && po.amendments && Array.isArray(po.amendments) && po.amendments.length > 0 && po.amendments.some(amendment =>
-      amendment.status === 'pending' &&
-      amendment.proposed_by_user_id === user?.id
-    )
-  );
-
-  // Load purchase orders
-  const loadPurchaseOrders = async () => {
-    setIsLoading(true);
-    setError(null);
-    
+  const loadIncomingPOs = async () => {
     try {
-      // Load all purchase orders (moved from main Purchase Orders page)
-      const response = await purchaseOrderApi.getPurchaseOrders(filters);
-      setPurchaseOrders(response.purchase_orders || []);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to load purchase orders';
-      setError(errorMessage);
-      showToast({ type: 'error', title: errorMessage });
+      setLoading(true);
+      const response = await purchaseOrderApi.getIncomingPurchaseOrders();
+      setPurchaseOrders(response);
+    } catch (error) {
+      console.error('Error loading incoming purchase orders:', error);
+      showToast({
+        type: 'error',
+        title: 'Failed to load purchase orders',
+        message: 'There was an error loading incoming purchase orders.'
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPurchaseOrders();
-  }, [filters]);
+    loadIncomingPOs();
+  }, [loadIncomingPOs]);
 
-  const handleFilterChange = (field: keyof PurchaseOrderFilters, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [field]: value || undefined,
-      page: 1 // Reset to first page when filtering
-    }));
+  const handleAccept = async (id: string, acceptanceData: any) => {
+    try {
+      await purchaseOrderApi.acceptPurchaseOrder(id, acceptanceData);
+      showToast({
+        type: 'success',
+        title: 'Purchase order accepted',
+        message: 'The purchase order has been accepted successfully.'
+      });
+      await loadIncomingPOs(); // Refresh the list
+    } catch (error) {
+      console.error('Error accepting purchase order:', error);
+      showToast({
+        type: 'error',
+        title: 'Failed to accept purchase order',
+        message: 'There was an error accepting the purchase order.'
+      });
+    }
   };
 
-  const handleSearch = (searchTerm: string) => {
-    setFilters(prev => ({
-      ...prev,
-      search: searchTerm || undefined,
-      page: 1
-    }));
+  const handleReject = async (id: string, rejectionData: any) => {
+    try {
+      await purchaseOrderApi.rejectPurchaseOrder(id, rejectionData);
+      showToast({
+        type: 'success',
+        title: 'Purchase order rejected',
+        message: 'The purchase order has been rejected.'
+      });
+      await loadIncomingPOs(); // Refresh the list
+    } catch (error) {
+      console.error('Error rejecting purchase order:', error);
+      showToast({
+        type: 'error',
+        title: 'Failed to reject purchase order',
+        message: 'There was an error rejecting the purchase order.'
+      });
+    }
   };
 
-  const clearFilters = () => {
-    setFilters({
-      page: 1,
-      per_page: 20
-    });
+  const handleEdit = async (id: string, editData: any) => {
+    try {
+      await purchaseOrderApi.editPurchaseOrder(id, editData);
+      showToast({
+        type: 'success',
+        title: 'Purchase order edited',
+        message: 'The purchase order has been edited successfully.'
+      });
+      await loadIncomingPOs(); // Refresh the list
+    } catch (error) {
+      console.error('Error editing purchase order:', error);
+      showToast({
+        type: 'error',
+        title: 'Failed to edit purchase order',
+        message: 'There was an error editing the purchase order.'
+      });
+    }
   };
 
-  const handleFulfillPO = (po: PurchaseOrderWithRelations) => {
-    setSelectedPO(po);
-    setShowFulfillmentModal(true);
+  const handleRefresh = () => {
+    loadIncomingPOs();
   };
-
-  if (isLoading && purchaseOrders.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center space-x-3">
-          <ArrowLeftIcon className="h-8 w-8 text-blue-600" />
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Incoming Purchase Orders</h1>
-            <p className="mt-2 text-gray-600">
-              Manage all your purchase orders and amendments
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        {analytics.map((stat) => (
-          <AnalyticsCard
-            key={stat.name}
-            name={stat.name}
-            value={stat.value}
-            change={stat.change}
-            changeType={stat.changeType}
-            icon={stat.icon}
-          />
-        ))}
-      </div>
-
-      {/* Amendment Alerts */}
-      {(pendingAmendments.length > 0 || myProposedAmendments.length > 0) && (
-        <div className="mb-6 space-y-4">
-          {pendingAmendments.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-amber-800">
-                {pendingAmendments.length} Amendment{pendingAmendments.length > 1 ? 's' : ''} Awaiting Your Review
-              </h3>
-              <p className="text-sm text-amber-700 mt-1">
-                You have amendment proposals that need your approval or rejection.
-              </p>
-            </div>
-          )}
-          
-          {myProposedAmendments.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-blue-800">
-                {myProposedAmendments.length} Amendment{myProposedAmendments.length > 1 ? 's' : ''} Pending Buyer Review
-              </h3>
-              <p className="text-sm text-blue-700 mt-1">
-                Your amendment proposals are waiting for buyer approval.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Search and Filters */}
-      <Card className="mb-6">
-        <CardBody>
-          <div className="space-y-4">
-            {/* Search Bar */}
-            <div className="flex items-center space-x-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="Search by PO number, company, or product..."
-                    className="pl-10"
-                    onChange={(e) => handleSearch(e.target.value)}
-                    value={filters.search || ''}
-                  />
-                </div>
+          <h1 className="text-2xl font-bold text-gray-900">Incoming Purchase Orders</h1>
+          <p className="text-gray-600">
+            Manage purchase orders where your company is the seller
+          </p>
               </div>
               <Button
                 variant="secondary"
-                onClick={() => setShowFilters(!showFilters)}
+          onClick={handleRefresh}
+          disabled={loading}
               >
-                <FunnelIcon className="h-5 w-5 mr-2" />
-                Filters
+          <ArrowPathIcon className="h-4 w-4 mr-2" />
+          Refresh
               </Button>
             </div>
 
-            {/* Advanced Filters */}
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t">
-                <Select
-                  label="Status"
-                  value={filters.status || ''}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  options={[
-                    { label: 'All Statuses', value: '' },
-                    { label: 'Pending', value: 'PENDING' },
-                    { label: 'Confirmed', value: 'CONFIRMED' },
-                    { label: 'Delivered', value: 'DELIVERED' },
-                    { label: 'Cancelled', value: 'CANCELLED' }
-                  ]}
-                />
-
-                <Input
-                  label="Delivery Date From"
-                  type="date"
-                  value={filters.delivery_date_from || ''}
-                  onChange={(e) => handleFilterChange('delivery_date_from', e.target.value)}
-                />
-
-                <Input
-                  label="Delivery Date To"
-                  type="date"
-                  value={filters.delivery_date_to || ''}
-                  onChange={(e) => handleFilterChange('delivery_date_to', e.target.value)}
-                />
-
-                <div className="flex items-end">
-                  <Button
-                    variant="secondary"
-                    onClick={clearFilters}
-                    className="w-full"
-                  >
-                    Clear Filters
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
+      <Card>
+        <CardHeader
+          title="Purchase Orders Awaiting Your Action"
+          subtitle={`${purchaseOrders.length} purchase order(s) found`}
+        />
+        <CardBody>
+          <PurchaseOrderTable
+            purchaseOrders={purchaseOrders}
+            onAccept={handleAccept}
+            onReject={handleReject}
+            onEdit={handleEdit}
+            onRefresh={handleRefresh}
+            loading={loading}
+            showAmendmentSection={true}
+          />
         </CardBody>
       </Card>
 
-      {/* Purchase Orders List */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-800">{error}</p>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={loadPurchaseOrders}
-            className="mt-2"
-          >
-            Retry
-          </Button>
-        </div>
-      )}
-
-      {purchaseOrders.length === 0 && !isLoading ? (
+      {purchaseOrders.length === 0 && !loading && (
         <Card>
-          <CardBody className="text-center py-12">
-            <p className="text-gray-500 text-lg">No purchase orders found</p>
-            <p className="text-gray-400 mt-2">
-              {filters.search || filters.status 
-                ? 'Try adjusting your search or filters'
-                : 'Create your first purchase order to get started'
-              }
-            </p>
+          <CardBody>
+            <div className="text-center py-8">
+              <div className="text-gray-400 mb-4">
+                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Incoming Purchase Orders</h3>
+              <p className="text-gray-600">
+                There are currently no purchase orders awaiting your action.
+              </p>
+            </div>
           </CardBody>
         </Card>
-      ) : (
-        <div className="space-y-6">
-          {/* Priority Section: Pending Amendments */}
-          {pendingAmendments.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                🚨 Amendments Awaiting Your Review
-              </h2>
-              <PurchaseOrderTable
-                purchaseOrders={pendingAmendments}
-                onProposeChanges={handleProposeChanges}
-                onApproveChanges={handleApproveChanges}
-                onRefresh={loadPurchaseOrders}
-                showAmendmentSection={true}
-              />
-            </div>
-          )}
-
-          {/* All Purchase Orders */}
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              All Incoming Purchase Orders
-            </h2>
-            <PurchaseOrderTable
-              purchaseOrders={purchaseOrders}
-              onProposeChanges={handleProposeChanges}
-              onApproveChanges={handleApproveChanges}
-              onRefresh={loadPurchaseOrders}
-              loading={isLoading}
-            />
-          </div>
-
-          {/* Loading indicator for pagination */}
-          {isLoading && (
-            <div className="flex justify-center py-4">
-              <LoadingSpinner />
-            </div>
-          )}
-        </div>
       )}
-
-      {/* Fulfillment Modal */}
-      <FulfillmentModal
-        isOpen={showFulfillmentModal}
-        onClose={() => setShowFulfillmentModal(false)}
-        po={selectedPO}
-        onFulfilled={() => {
-          setShowFulfillmentModal(false);
-          loadPurchaseOrders();
-        }}
-      />
     </div>
   );
 };

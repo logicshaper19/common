@@ -33,7 +33,7 @@ class SensitivityAnalyzer:
             Overall sensitivity level for the entity
         """
         if not field_sensitivity_map:
-            return DataSensitivityLevel.INTERNAL
+            return DataSensitivityLevel.OPERATIONAL
         
         # Get sensitivity levels of all fields
         sensitivity_levels = list(field_sensitivity_map.values())
@@ -41,7 +41,7 @@ class SensitivityAnalyzer:
         # Count fields by sensitivity
         sensitivity_counts = {
             DataSensitivityLevel.PUBLIC: 0,
-            DataSensitivityLevel.INTERNAL: 0,
+            DataSensitivityLevel.OPERATIONAL: 0,
             DataSensitivityLevel.CONFIDENTIAL: 0,
             DataSensitivityLevel.RESTRICTED: 0,
         }
@@ -64,9 +64,9 @@ class SensitivityAnalyzer:
             # Any confidential fields make entity at least confidential
             return DataSensitivityLevel.CONFIDENTIAL
         
-        if sensitivity_counts[DataSensitivityLevel.INTERNAL] > total_fields * 0.5:
+        if sensitivity_counts[DataSensitivityLevel.OPERATIONAL] > total_fields * 0.5:
             # More than 50% internal fields makes entity internal
-            return DataSensitivityLevel.INTERNAL
+            return DataSensitivityLevel.OPERATIONAL
         
         # Default to public if mostly public fields
         return DataSensitivityLevel.PUBLIC
@@ -155,7 +155,7 @@ class SensitivityAnalyzer:
         # Define sensitivity order for comparison
         sensitivity_order = {
             DataSensitivityLevel.PUBLIC: 0,
-            DataSensitivityLevel.INTERNAL: 1,
+            DataSensitivityLevel.OPERATIONAL: 1,
             DataSensitivityLevel.CONFIDENTIAL: 2,
             DataSensitivityLevel.RESTRICTED: 3,
         }

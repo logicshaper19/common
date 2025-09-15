@@ -5,6 +5,8 @@ import Badge from '../ui/Badge';
 import AmendmentStatusBadge from './AmendmentStatusBadge';
 import ProposeChangesModal from './ProposeChangesModal';
 import ApproveChangesModal from './ApproveChangesModal';
+import AcceptanceModal from './AcceptanceModal';
+import EditPurchaseOrderModal from './EditPurchaseOrderModal';
 import { 
   PencilSquareIcon, 
   CheckCircleIcon,
@@ -12,7 +14,9 @@ import {
   MapPinIcon,
   BuildingOfficeIcon,
   CubeIcon,
-  EyeIcon
+  EyeIcon,
+  XCircleIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import { PurchaseOrderWithDetails, PurchaseOrderWithRelations, ProposeChangesRequest, ApproveChangesRequest } from '../../services/purchaseOrderApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -22,6 +26,9 @@ interface PurchaseOrderTableProps {
   purchaseOrders: (PurchaseOrderWithDetails | PurchaseOrderWithRelations)[];
   onProposeChanges?: (id: string, proposal: ProposeChangesRequest) => Promise<void>;
   onApproveChanges?: (id: string, approval: ApproveChangesRequest) => Promise<void>;
+  onAccept?: (id: string, acceptanceData: any) => Promise<void>;
+  onReject?: (id: string, rejectionData: any) => Promise<void>;
+  onEdit?: (id: string, editData: any) => Promise<void>;
   onRefresh?: () => void;
   loading?: boolean;
   showAmendmentSection?: boolean;
@@ -31,6 +38,9 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
   purchaseOrders,
   onProposeChanges,
   onApproveChanges,
+  onAccept,
+  onReject,
+  onEdit,
   onRefresh,
   loading = false,
   showAmendmentSection = false
@@ -41,6 +51,8 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
   const [selectedPO, setSelectedPO] = useState<(PurchaseOrderWithDetails | PurchaseOrderWithRelations) | null>(null);
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Helper function to determine user's role in a PO
@@ -61,7 +73,23 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
     const canApproveChanges = isBuyer && 
       po.amendment_status === 'proposed';
     
-    return { canProposeChanges, canApproveChanges };
+    // New acceptance and editing actions
+    const canAccept = isSeller && 
+      (po.status === 'PENDING' || po.status === 'AWAITING_ACCEPTANCE');
+    
+    const canReject = isSeller && 
+      (po.status === 'PENDING' || po.status === 'AWAITING_ACCEPTANCE');
+    
+    const canEdit = (isBuyer || isSeller) && 
+      (po.status === 'PENDING' || po.status === 'AWAITING_ACCEPTANCE' || po.status === 'ACCEPTED');
+    
+    return { 
+      canProposeChanges, 
+      canApproveChanges, 
+      canAccept, 
+      canReject, 
+      canEdit 
+    };
   };
 
   // Status badge variant mapping
@@ -69,10 +97,14 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
     switch (status.toLowerCase()) {
       case 'draft': return 'neutral';
       case 'pending': return 'warning';
+      case 'awaiting_acceptance': return 'warning';
+      case 'accepted': return 'success';
       case 'confirmed': return 'success';
       case 'shipped': return 'primary';
       case 'delivered': return 'success';
       case 'cancelled': return 'error';
+      case 'rejected': return 'error';
+      case 'declined': return 'error';
       default: return 'neutral';
     }
   };
@@ -123,6 +155,69 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
         type: 'error',
         title: 'Failed to Process Amendment',
         message: 'There was an error processing the amendment.'
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle acceptance
+  const handleAccept = async (acceptanceData: any) => {
+    if (!selectedPO || !onAccept) return;
+    
+    try {
+      setActionLoading(selectedPO.id);
+      await onAccept(selectedPO.id, acceptanceData);
+      setShowAcceptanceModal(false);
+      setSelectedPO(null);
+      onRefresh?.();
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Failed to Accept Order',
+        message: 'There was an error accepting the purchase order.'
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle rejection
+  const handleReject = async (rejectionData: any) => {
+    if (!selectedPO || !onReject) return;
+    
+    try {
+      setActionLoading(selectedPO.id);
+      await onReject(selectedPO.id, rejectionData);
+      setShowAcceptanceModal(false);
+      setSelectedPO(null);
+      onRefresh?.();
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Failed to Reject Order',
+        message: 'There was an error rejecting the purchase order.'
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle edit
+  const handleEdit = async (editData: any) => {
+    if (!selectedPO || !onEdit) return;
+    
+    try {
+      setActionLoading(selectedPO.id);
+      await onEdit(selectedPO.id, editData);
+      setShowEditModal(false);
+      setSelectedPO(null);
+      onRefresh?.();
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Failed to Edit Order',
+        message: 'There was an error editing the purchase order.'
       });
     } finally {
       setActionLoading(null);
@@ -190,7 +285,7 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {purchaseOrders.map((po) => {
-                const { canProposeChanges, canApproveChanges } = getAvailableActions(po);
+                const { canProposeChanges, canApproveChanges, canAccept, canReject, canEdit } = getAvailableActions(po);
                 const isActionLoading = actionLoading === po.id;
                 
                 return (
@@ -305,6 +400,56 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
                           </Button>
                         )}
 
+                        {/* New Acceptance and Editing Actions */}
+                        {canAccept && (
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPO(po);
+                              setShowAcceptanceModal(true);
+                            }}
+                            disabled={isActionLoading}
+                            title="Accept Purchase Order"
+                          >
+                            <CheckCircleIcon className="h-4 w-4 mr-1" />
+                            Accept
+                          </Button>
+                        )}
+
+                        {canReject && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPO(po);
+                              setShowAcceptanceModal(true);
+                            }}
+                            disabled={isActionLoading}
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                            title="Reject Purchase Order"
+                          >
+                            <XCircleIcon className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        )}
+
+                        {canEdit && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPO(po);
+                              setShowEditModal(true);
+                            }}
+                            disabled={isActionLoading}
+                            title="Edit Purchase Order"
+                          >
+                            <PencilIcon className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+
                         {/* View Details Button - always available */}
                         <Button
                           variant="ghost"
@@ -356,6 +501,29 @@ export const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
               setSelectedPO(null);
             }}
             onApprove={handleApproveChanges}
+            isLoading={actionLoading === selectedPO.id}
+          />
+
+          <AcceptanceModal
+            po={selectedPO}
+            isOpen={showAcceptanceModal}
+            onClose={() => {
+              setShowAcceptanceModal(false);
+              setSelectedPO(null);
+            }}
+            onAccept={handleAccept}
+            onReject={handleReject}
+            isLoading={actionLoading === selectedPO.id}
+          />
+
+          <EditPurchaseOrderModal
+            po={selectedPO}
+            isOpen={showEditModal}
+            onClose={() => {
+              setShowEditModal(false);
+              setSelectedPO(null);
+            }}
+            onEdit={handleEdit}
             isLoading={actionLoading === selectedPO.id}
           />
         </>

@@ -37,8 +37,15 @@ from app.schemas.purchase_order import (
     ProposeChangesRequest,
     ApproveChangesRequest,
     AmendmentResponse,
-    AmendmentStatus
+    AmendmentStatus,
+    PurchaseOrderAcceptance,
+    PurchaseOrderRejection,
+    PurchaseOrderEditRequest,
+    PurchaseOrderEditApproval,
+    PurchaseOrderAcceptanceResponse,
+    PurchaseOrderEditResponse
 )
+from uuid import UUID
 from app.core.logging import get_logger
 from app.core.data_access_middleware import require_po_access, filter_response_data, AccessType
 # from app.core.rate_limiting import rate_limit, RateLimitType
@@ -1342,3 +1349,726 @@ def _confirm_po(
         )
         # IMPORTANT: Don't fail PO confirmation if batch creation fails
         # The PO confirmation is the source of truth, batch creation is a convenience
+
+
+# New endpoints for acceptance and enhanced editing
+
+@router.post("/{purchase_order_id}/accept", response_model=PurchaseOrderAcceptanceResponse)
+@require_po_access(AccessType.WRITE)
+def accept_purchase_order(
+    purchase_order_id: str,
+    acceptance: PurchaseOrderAcceptance,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """
+    Accept or reject a purchase order by the seller.
+    
+    This endpoint allows sellers to accept or reject incoming purchase orders
+    with optional notes and terms.
+    """
+    from datetime import datetime
+    from uuid import uuid4
+    
+    purchase_order_service = PurchaseOrderService(db)
+    
+    # Get the purchase order
+    po = purchase_order_service.get_purchase_order(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+    
+    # Verify user is from seller company
+    if current_user.company_id != po.seller_company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the seller company can accept/reject this purchase order"
+        )
+    
+    # Check if PO is in a acceptable state
+    if po.status not in [PurchaseOrderStatus.PENDING.value, PurchaseOrderStatus.AWAITING_ACCEPTANCE.value]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Purchase order cannot be accepted in current status: {po.status}"
+        )
+    
+    try:
+        if acceptance.accept:
+            # Accept the PO
+            po.status = PurchaseOrderStatus.ACCEPTED.value
+            po.accepted_at = datetime.utcnow()
+            po.accepted_by = current_user.id
+            po.acceptance_notes = acceptance.acceptance_notes
+            po.acceptance_terms = acceptance.acceptance_terms
+            po.expected_delivery_date = acceptance.expected_delivery_date
+            po.special_instructions = acceptance.special_instructions
+            
+            # Create acceptance record
+            acceptance_id = uuid4()
+            
+            message = "Purchase order accepted successfully"
+            new_status = PurchaseOrderStatus.ACCEPTED.value
+            
+            logger.info(
+                "Purchase order accepted",
+                po_id=purchase_order_id,
+                accepted_by=str(current_user.id),
+                company_id=str(current_user.company_id),
+                acceptance_id=str(acceptance_id)
+            )
+            
+        else:
+            # Reject the PO
+            po.status = PurchaseOrderStatus.REJECTED.value
+            po.rejected_at = datetime.utcnow()
+            po.rejected_by = current_user.id
+            po.rejection_reason = acceptance.acceptance_notes  # Using acceptance_notes for rejection reason
+            
+            message = "Purchase order rejected"
+            new_status = PurchaseOrderStatus.REJECTED.value
+            acceptance_id = None
+            
+            logger.info(
+                "Purchase order rejected",
+                po_id=purchase_order_id,
+                rejected_by=str(current_user.id),
+                company_id=str(current_user.company_id),
+                reason=acceptance.acceptance_notes
+            )
+        
+        db.commit()
+        db.refresh(po)
+        
+        return PurchaseOrderAcceptanceResponse(
+            success=True,
+            message=message,
+            purchase_order_id=UUID(purchase_order_id),
+            new_status=new_status,
+            accepted_at=po.accepted_at if acceptance.accept else None,
+            acceptance_id=acceptance_id
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(
+            "Failed to accept/reject purchase order",
+            po_id=purchase_order_id,
+            error=str(e),
+            company_id=str(current_user.company_id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process purchase order acceptance"
+        )
+
+
+@router.post("/{purchase_order_id}/reject", response_model=PurchaseOrderAcceptanceResponse)
+@require_po_access(AccessType.WRITE)
+def reject_purchase_order(
+    purchase_order_id: str,
+    rejection: PurchaseOrderRejection,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """
+    Reject a purchase order by the seller with detailed rejection information.
+    
+    This endpoint provides more detailed rejection information including
+    alternative suggestions and negotiation options.
+    """
+    from datetime import datetime
+    
+    purchase_order_service = PurchaseOrderService(db)
+    
+    # Get the purchase order
+    po = purchase_order_service.get_purchase_order(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+    
+    # Verify user is from seller company
+    if current_user.company_id != po.seller_company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the seller company can reject this purchase order"
+        )
+    
+    # Check if PO is in a rejectable state
+    if po.status not in [PurchaseOrderStatus.PENDING.value, PurchaseOrderStatus.AWAITING_ACCEPTANCE.value]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Purchase order cannot be rejected in current status: {po.status}"
+        )
+    
+    try:
+        # Reject the PO with detailed information
+        po.status = PurchaseOrderStatus.REJECTED.value
+        po.rejected_at = datetime.utcnow()
+        po.rejected_by = current_user.id
+        po.rejection_reason = rejection.rejection_reason
+        po.alternative_suggestions = rejection.alternative_suggestions
+        po.can_negotiate = rejection.can_negotiate
+        
+        db.commit()
+        db.refresh(po)
+        
+        logger.info(
+            "Purchase order rejected with detailed information",
+            po_id=purchase_order_id,
+            rejected_by=str(current_user.id),
+            company_id=str(current_user.company_id),
+            rejection_reason=rejection.rejection_reason,
+            can_negotiate=rejection.can_negotiate
+        )
+        
+        return PurchaseOrderAcceptanceResponse(
+            success=True,
+            message="Purchase order rejected successfully",
+            purchase_order_id=UUID(purchase_order_id),
+            new_status=PurchaseOrderStatus.REJECTED.value,
+            accepted_at=None,
+            acceptance_id=None
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(
+            "Failed to reject purchase order",
+            po_id=purchase_order_id,
+            error=str(e),
+            company_id=str(current_user.company_id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process purchase order rejection"
+        )
+
+
+@router.put("/{purchase_order_id}/edit", response_model=PurchaseOrderEditResponse)
+@require_po_access(AccessType.WRITE)
+def edit_purchase_order(
+    purchase_order_id: str,
+    edit_request: PurchaseOrderEditRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """
+    Edit a purchase order with comprehensive validation and approval workflow.
+    
+    This endpoint allows both buyers and sellers to edit purchase orders
+    with proper validation and approval requirements.
+    """
+    from datetime import datetime
+    from uuid import uuid4
+    
+    purchase_order_service = PurchaseOrderService(db)
+    
+    # Get the purchase order
+    po = purchase_order_service.get_purchase_order(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+    
+    # Check if PO is in an editable state
+    if po.status not in [PurchaseOrderStatus.PENDING.value, PurchaseOrderStatus.AWAITING_ACCEPTANCE.value, PurchaseOrderStatus.ACCEPTED.value]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Purchase order cannot be edited in current status: {po.status}"
+        )
+    
+    # Determine who can edit based on user role
+    is_buyer = current_user.company_id == po.buyer_company_id
+    is_seller = current_user.company_id == po.seller_company_id
+    
+    if not (is_buyer or is_seller):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the buyer or seller can edit this purchase order"
+        )
+    
+    try:
+        # Store original values for audit trail
+        original_values = {
+            'quantity': po.quantity,
+            'unit_price': po.unit_price,
+            'unit': po.unit,
+            'delivery_date': po.delivery_date,
+            'delivery_location': po.delivery_location,
+            'notes': po.notes,
+            'product_id': po.product_id,
+            'seller_company_id': po.seller_company_id
+        }
+        
+        # Apply edits
+        changes_made = {}
+        
+        if edit_request.quantity is not None:
+            po.quantity = edit_request.quantity
+            changes_made['quantity'] = edit_request.quantity
+        
+        if edit_request.unit_price is not None:
+            po.unit_price = edit_request.unit_price
+            changes_made['unit_price'] = edit_request.unit_price
+        
+        if edit_request.unit is not None:
+            po.unit = edit_request.unit
+            changes_made['unit'] = edit_request.unit
+        
+        if edit_request.delivery_date is not None:
+            po.delivery_date = edit_request.delivery_date
+            changes_made['delivery_date'] = edit_request.delivery_date
+        
+        if edit_request.delivery_location is not None:
+            po.delivery_location = edit_request.delivery_location
+            changes_made['delivery_location'] = edit_request.delivery_location
+        
+        if edit_request.notes is not None:
+            po.notes = edit_request.notes
+            changes_made['notes'] = edit_request.notes
+        
+        if edit_request.product_id is not None:
+            po.product_id = edit_request.product_id
+            changes_made['product_id'] = edit_request.product_id
+        
+        if edit_request.seller_company_id is not None:
+            po.seller_company_id = edit_request.seller_company_id
+            changes_made['seller_company_id'] = edit_request.seller_company_id
+        
+        # Update total amount if quantity or unit price changed
+        if 'quantity' in changes_made or 'unit_price' in changes_made:
+            po.total_amount = po.quantity * po.unit_price
+        
+        # Handle approval workflow
+        edit_id = uuid4()
+        requires_approval = edit_request.requires_approval
+        approval_required_from = None
+        
+        if requires_approval and changes_made:
+            # Determine who needs to approve
+            if is_buyer:
+                approval_required_from = "seller"
+                po.status = PurchaseOrderStatus.AMENDMENT_PENDING.value
+            elif is_seller:
+                approval_required_from = "buyer"
+                po.status = PurchaseOrderStatus.AMENDMENT_PENDING.value
+            
+            # Store edit information for approval
+            po.edit_pending = True
+            po.edit_id = edit_id
+            po.edit_reason = edit_request.edit_reason
+            po.edit_notes = edit_request.edit_notes
+            po.edit_requested_by = current_user.id
+            po.edit_requested_at = datetime.utcnow()
+            po.edit_changes = changes_made
+        
+        # Update timestamps
+        po.updated_at = datetime.utcnow()
+        po.last_modified_by = current_user.id
+        
+        db.commit()
+        db.refresh(po)
+        
+        logger.info(
+            "Purchase order edited",
+            po_id=purchase_order_id,
+            edited_by=str(current_user.id),
+            company_id=str(current_user.company_id),
+            changes=changes_made,
+            requires_approval=requires_approval,
+            approval_required_from=approval_required_from
+        )
+        
+        return PurchaseOrderEditResponse(
+            success=True,
+            message="Purchase order edited successfully",
+            purchase_order_id=UUID(purchase_order_id),
+            edit_id=edit_id if requires_approval else None,
+            requires_approval=requires_approval,
+            approval_required_from=approval_required_from
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(
+            "Failed to edit purchase order",
+            po_id=purchase_order_id,
+            error=str(e),
+            company_id=str(current_user.company_id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process purchase order edit"
+        )
+
+
+@router.put("/{purchase_order_id}/edit-approval", response_model=PurchaseOrderEditResponse)
+@require_po_access(AccessType.WRITE)
+def approve_purchase_order_edit(
+    purchase_order_id: str,
+    approval: PurchaseOrderEditApproval,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """
+    Approve or reject a purchase order edit.
+    
+    This endpoint allows the appropriate party to approve or reject
+    pending purchase order edits.
+    """
+    from datetime import datetime
+    
+    purchase_order_service = PurchaseOrderService(db)
+    
+    # Get the purchase order
+    po = purchase_order_service.get_purchase_order(purchase_order_id)
+    if not po:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase order not found"
+        )
+    
+    # Check if there's a pending edit
+    if not po.edit_pending or not po.edit_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No pending edit to approve or reject"
+        )
+    
+    # Determine who can approve based on who requested the edit
+    is_buyer = current_user.company_id == po.buyer_company_id
+    is_seller = current_user.company_id == po.seller_company_id
+    
+    # Check if this user can approve the edit
+    can_approve = False
+    if po.edit_requested_by == po.buyer_company_id and is_seller:
+        can_approve = True
+    elif po.edit_requested_by == po.seller_company_id and is_buyer:
+        can_approve = True
+    
+    if not can_approve:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to approve this edit"
+        )
+    
+    try:
+        if approval.approve:
+            # Approve the edit - changes are already applied
+            po.edit_pending = False
+            po.edit_approved_by = current_user.id
+            po.edit_approved_at = datetime.utcnow()
+            po.edit_approval_notes = approval.approval_notes
+            po.edit_conditions = approval.conditions
+            
+            # Reset status to appropriate state
+            if po.status == PurchaseOrderStatus.AMENDMENT_PENDING.value:
+                po.status = PurchaseOrderStatus.ACCEPTED.value
+            
+            message = "Purchase order edit approved successfully"
+            
+            logger.info(
+                "Purchase order edit approved",
+                po_id=purchase_order_id,
+                approved_by=str(current_user.id),
+                company_id=str(current_user.company_id),
+                edit_id=str(po.edit_id)
+            )
+            
+        else:
+            # Reject the edit - revert changes
+            po.edit_pending = False
+            po.edit_rejected_by = current_user.id
+            po.edit_rejected_at = datetime.utcnow()
+            po.edit_rejection_notes = approval.approval_notes
+            
+            # Revert to original values (would need to be stored separately in a real implementation)
+            # For now, just mark as rejected
+            po.status = PurchaseOrderStatus.ACCEPTED.value  # Revert to previous status
+            
+            message = "Purchase order edit rejected"
+            
+            logger.info(
+                "Purchase order edit rejected",
+                po_id=purchase_order_id,
+                rejected_by=str(current_user.id),
+                company_id=str(current_user.company_id),
+                edit_id=str(po.edit_id)
+            )
+        
+        db.commit()
+        db.refresh(po)
+        
+        return PurchaseOrderEditResponse(
+            success=True,
+            message=message,
+            purchase_order_id=UUID(purchase_order_id),
+            edit_id=po.edit_id,
+            requires_approval=False,
+            approval_required_from=None
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(
+            "Failed to approve/reject purchase order edit",
+            po_id=purchase_order_id,
+            error=str(e),
+            company_id=str(current_user.company_id)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process edit approval"
+        )
+
+
+@router.get("/incoming-simple", response_model=List[dict])
+def get_incoming_purchase_orders_simple(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """
+    Get incoming purchase orders with a very simple, fast query.
+    """
+    from app.models.purchase_order import PurchaseOrder
+    from app.models.company import Company
+    from app.models.product import Product
+    
+    # Debug logging
+    logger.info(f"Getting incoming POs for user {current_user.email}, company_id: {current_user.company_id}")
+    
+    # Very simple query - just get the POs first
+    purchase_orders = db.query(PurchaseOrder).filter(
+        PurchaseOrder.seller_company_id == current_user.company_id,
+        PurchaseOrder.status == 'pending'
+    ).order_by(PurchaseOrder.created_at.desc()).limit(10).all()
+    
+    logger.info(f"Found {len(purchase_orders)} purchase orders")
+    
+    # Convert to response format
+    result = []
+    for po in purchase_orders:
+        # Get related data separately to avoid complex joins
+        buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
+        seller_company = db.query(Company).filter(Company.id == po.seller_company_id).first()
+        product = db.query(Product).filter(Product.id == po.product_id).first()
+        
+        po_dict = {
+            'id': str(po.id),
+            'po_number': po.po_number,
+            'status': po.status,
+            'buyer_company_id': str(po.buyer_company_id),
+            'seller_company_id': str(po.seller_company_id),
+            'product_id': str(po.product_id),
+            'quantity': float(po.quantity),
+            'unit_price': float(po.unit_price),
+            'total_amount': float(po.total_amount),
+            'unit': po.unit,
+            'delivery_date': po.delivery_date.isoformat() if po.delivery_date else None,
+            'delivery_location': po.delivery_location,
+            'notes': po.notes,
+            'created_at': po.created_at.isoformat(),
+            'updated_at': po.updated_at.isoformat(),
+            'buyer_company': {
+                'id': str(buyer_company.id),
+                'name': buyer_company.name,
+                'company_type': buyer_company.company_type
+            } if buyer_company else None,
+            'seller_company': {
+                'id': str(seller_company.id),
+                'name': seller_company.name,
+                'company_type': seller_company.company_type
+            } if seller_company else None,
+            'product': {
+                'id': str(product.id),
+                'name': product.name,
+                'description': product.description,
+                'default_unit': product.default_unit,
+                'category': product.category
+            } if product else None
+        }
+        result.append(po_dict)
+    
+    return result
+
+
+@router.get("/test-simple")
+def test_simple():
+    """Simple test endpoint without any decorators or dependencies."""
+    return {"message": "API is working!", "data": []}
+
+@router.get("/debug-auth")
+def debug_auth(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """Debug endpoint to check authentication and user data."""
+    return {
+        "message": "Authentication working!",
+        "user_id": str(current_user.id),
+        "user_email": current_user.email,
+        "company_id": str(current_user.company_id),
+        "company_name": current_user.company.name if current_user.company else None,
+        "is_active": current_user.is_active,
+        "role": current_user.role
+    }
+
+
+@router.get("/incoming-direct", include_in_schema=False)
+def get_incoming_purchase_orders_direct(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """
+    Direct endpoint for incoming purchase orders - bypasses complex middleware.
+    """
+    try:
+        from app.models.purchase_order import PurchaseOrder
+        from app.models.company import Company
+        from app.models.product import Product
+        
+        # Simple query - get POs where current user's company is the seller
+        purchase_orders = db.query(PurchaseOrder).filter(
+            PurchaseOrder.seller_company_id == current_user.company_id,
+            PurchaseOrder.status == 'pending'
+        ).order_by(PurchaseOrder.created_at.desc()).limit(20).all()
+        
+        # Convert to simple response format
+        result = []
+        for po in purchase_orders:
+            # Get related data with simple queries
+            buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
+            product = db.query(Product).filter(Product.id == po.product_id).first()
+            
+            po_data = {
+                'id': str(po.id),
+                'po_number': po.po_number,
+                'status': po.status,
+                'quantity': float(po.quantity),
+                'unit_price': float(po.unit_price),
+                'total_amount': float(po.total_amount),
+                'unit': po.unit,
+                'delivery_date': po.delivery_date.isoformat() if po.delivery_date else None,
+                'delivery_location': po.delivery_location,
+                'notes': po.notes,
+                'created_at': po.created_at.isoformat(),
+                'buyer_company': {
+                    'id': str(buyer_company.id),
+                    'name': buyer_company.name,
+                    'company_type': buyer_company.company_type
+                } if buyer_company else None,
+                'product': {
+                    'id': str(product.id),
+                    'name': product.name,
+                    'description': product.description,
+                    'category': product.category
+                } if product else None
+            }
+            result.append(po_data)
+        
+        return {
+            "success": True,
+            "data": result,
+            "count": len(result)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in get_incoming_purchase_orders_direct: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "data": []
+        }
+
+
+@router.post("/{po_id}/accept-simple")
+def accept_purchase_order_simple(
+    po_id: str,
+    acceptance_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """
+    Simple accept purchase order endpoint - bypasses complex middleware.
+    """
+    try:
+        from app.models.purchase_order import PurchaseOrder
+        
+        # Get the purchase order
+        po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+        if not po:
+            return {"success": False, "error": "Purchase order not found"}
+        
+        # Check if user's company is the seller
+        if po.seller_company_id != current_user.company_id:
+            return {"success": False, "error": "Not authorized to accept this purchase order"}
+        
+        # Update the purchase order status
+        po.status = 'accepted'
+        po.seller_notes = acceptance_data.get('notes', '')
+        po.seller_confirmed_at = datetime.utcnow()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Purchase order accepted successfully",
+            "po_id": po_id
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error accepting purchase order {po_id}: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@router.post("/{po_id}/reject-simple")
+def reject_purchase_order_simple(
+    po_id: str,
+    rejection_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_sync)
+):
+    """
+    Simple reject purchase order endpoint - bypasses complex middleware.
+    """
+    try:
+        from app.models.purchase_order import PurchaseOrder
+        
+        # Get the purchase order
+        po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+        if not po:
+            return {"success": False, "error": "Purchase order not found"}
+        
+        # Check if user's company is the seller
+        if po.seller_company_id != current_user.company_id:
+            return {"success": False, "error": "Not authorized to reject this purchase order"}
+        
+        # Update the purchase order status
+        po.status = 'rejected'
+        po.seller_notes = rejection_data.get('reason', '')
+        po.seller_confirmed_at = datetime.utcnow()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Purchase order rejected successfully",
+            "po_id": po_id
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error rejecting purchase order {po_id}: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }

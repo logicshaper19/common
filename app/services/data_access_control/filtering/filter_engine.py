@@ -263,7 +263,7 @@ class DataFilterEngine:
         ]
         
         if field_name.lower() in personal_fields:
-            return field_sensitivity in [DataSensitivityLevel.PUBLIC, DataSensitivityLevel.INTERNAL]
+            return field_sensitivity in [DataSensitivityLevel.PUBLIC, DataSensitivityLevel.OPERATIONAL]
         
         # Default rule
         return True
