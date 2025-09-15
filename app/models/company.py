@@ -68,6 +68,7 @@ class Company(Base):
     brands = relationship("Brand", back_populates="company", cascade="all, delete-orphan")
     gap_actions = relationship("GapAction", foreign_keys="GapAction.company_id", back_populates="company")
     locations = relationship("Location", foreign_keys="Location.company_id", back_populates="company")
+    transformation_events = relationship("TransformationEvent", back_populates="company")
     
     # Amendment relationships
     proposed_amendments = relationship(
