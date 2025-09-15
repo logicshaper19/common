@@ -96,6 +96,9 @@ def simple_log_action(action: str, entity_type: str, entity_id: Optional[UUID] =
     Simple logging function to replace complex audit system.
     """
     def decorator(func):
+        import functools
+        
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             current_user = kwargs.get('current_user')
             
