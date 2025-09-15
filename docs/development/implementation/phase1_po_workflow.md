@@ -19,7 +19,7 @@ Implement complete PO confirmation workflow to enable sellers to confirm orders 
 
 ### Step 1: Backend Confirmation Endpoint (2 hours)
 
-**File:** `app/api/purchase_orders.py`
+**File:** `app/api/purchase-orders.py`
 **Add new endpoint:**
 
 ```python

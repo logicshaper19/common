@@ -151,7 +151,7 @@ class RelationshipChecker:
             func.count(PurchaseOrder.id).label('transaction_count'),
             func.max(PurchaseOrder.created_at).label('last_transaction')
         ).filter(
-            PurchaseOrder.supplier_company_id == supplier_id,
+            PurchaseOrder.seller_company_id == supplier_id,
             PurchaseOrder.buyer_company_id == buyer_id
         )
         
@@ -196,9 +196,9 @@ class RelationshipChecker:
         
         # Companies that company1 has relationships with
         company1_connections = self.db.query(PurchaseOrder.buyer_company_id).filter(
-            PurchaseOrder.supplier_company_id == company1_id
+            PurchaseOrder.seller_company_id == company1_id
         ).union(
-            self.db.query(PurchaseOrder.supplier_company_id).filter(
+            self.db.query(PurchaseOrder.seller_company_id).filter(
                 PurchaseOrder.buyer_company_id == company1_id
             )
         ).distinct().subquery()
@@ -209,12 +209,12 @@ class RelationshipChecker:
         ).filter(
             or_(
                 and_(
-                    PurchaseOrder.supplier_company_id == company2_id,
+                    PurchaseOrder.seller_company_id == company2_id,
                     PurchaseOrder.buyer_company_id.in_(company1_connections)
                 ),
                 and_(
                     PurchaseOrder.buyer_company_id == company2_id,
-                    PurchaseOrder.supplier_company_id.in_(company1_connections)
+                    PurchaseOrder.seller_company_id.in_(company1_connections)
                 )
             )
         ).first()

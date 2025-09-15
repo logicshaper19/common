@@ -54,11 +54,11 @@ class AccessLogger:
             access_result=access_decision.access_result,
             permission_id=existing_permission.id if existing_permission else None,
             denial_reason=access_decision.denial_reason,
-            request_ip=access_request.request_ip,
+            ip_address=access_request.request_ip,
             user_agent=access_request.user_agent,
             session_id=access_request.session_id,
             attempted_at=access_request.request_timestamp,
-            decision_factors=access_decision.decision_factors
+            access_metadata={"decision_factors": access_decision.decision_factors}
         )
         
         self.db.add(access_attempt)
@@ -93,13 +93,13 @@ class AccessLogger:
         """
         audit_entry = AccessAuditEntry(
             event_type="data_accessed",
-            user_id=access_request.requesting_user_id,
-            company_id=access_request.requesting_company_id,
+            actor_user_id=access_request.requesting_user_id,
+            actor_company_id=access_request.requesting_company_id,
             target_company_id=access_request.target_company_id,
             entity_type=access_request.entity_type,
             entity_id=access_request.entity_id,
             access_result=access_decision.access_result,
-            request_ip=access_request.request_ip,
+            ip_address=access_request.request_ip,
             user_agent=access_request.user_agent,
             session_id=access_request.session_id,
             metadata={
@@ -113,12 +113,14 @@ class AccessLogger:
         # Log to audit system
         self.audit_logger.log_event(
             event_type=AuditEventType.DATA_EXPORT,
-            severity=AuditEventSeverity.INFO,
-            user_id=access_request.requesting_user_id,
-            company_id=access_request.requesting_company_id,
             entity_type=access_request.entity_type,
-            entity_id=access_request.entity_id,
-            details={
+            entity_id=access_request.entity_id or UUID('00000000-0000-0000-0000-000000000000'),
+            action="data_export",
+            description=f"Data export for {access_request.entity_type}",
+            severity=AuditEventSeverity.LOW,
+            actor_user_id=access_request.requesting_user_id,
+            actor_company_id=access_request.requesting_company_id,
+            metadata={
                 'target_company_id': str(access_request.target_company_id) if access_request.target_company_id else None,
                 'data_category': access_request.data_category.value,
                 'access_type': access_request.access_type.value,
@@ -145,12 +147,14 @@ class AccessLogger:
         """
         self.audit_logger.log_event(
             event_type=AuditEventType.PERMISSION_GRANTED,
-            severity=AuditEventSeverity.INFO,
-            user_id=granted_by_user_id,
-            company_id=access_request.requesting_company_id,
             entity_type=access_request.entity_type,
-            entity_id=access_request.entity_id,
-            details={
+            entity_id=access_request.entity_id or UUID('00000000-0000-0000-0000-000000000000'),
+            action="permission_granted",
+            description=f"Permission granted for {access_request.entity_type}",
+            severity=AuditEventSeverity.LOW,
+            actor_user_id=granted_by_user_id,
+            actor_company_id=access_request.requesting_company_id,
+            metadata={
                 'permission_id': str(permission.id),
                 'requesting_user_id': str(access_request.requesting_user_id),
                 'target_company_id': str(access_request.target_company_id) if access_request.target_company_id else None,
@@ -179,9 +183,13 @@ class AccessLogger:
         """
         self.audit_logger.log_event(
             event_type=AuditEventType.PERMISSION_REVOKED,
+            entity_type="permission",
+            entity_id=UUID('00000000-0000-0000-0000-000000000000'),
+            action="permission_revoked",
+            description=f"Permission revoked: {permission_id}",
             severity=AuditEventSeverity.WARNING,
-            user_id=revoked_by_user_id,
-            details={
+            actor_user_id=revoked_by_user_id,
+            metadata={
                 'permission_id': str(permission_id),
                 'revocation_reason': reason
             }
@@ -236,12 +244,14 @@ class AccessLogger:
         """
         self.audit_logger.log_event(
             event_type=AuditEventType.UNAUTHORIZED_ACCESS_ATTEMPT,
-            severity=AuditEventSeverity.WARNING,
-            user_id=access_request.requesting_user_id,
-            company_id=access_request.requesting_company_id,
             entity_type=access_request.entity_type,
-            entity_id=access_request.entity_id,
-            details={
+            entity_id=access_request.entity_id or UUID('00000000-0000-0000-0000-000000000000'),
+            action="unauthorized_access",
+            description=f"Unauthorized access attempt for {access_request.entity_type}",
+            severity=AuditEventSeverity.WARNING,
+            actor_user_id=access_request.requesting_user_id,
+            actor_company_id=access_request.requesting_company_id,
+            metadata={
                 'target_company_id': str(access_request.target_company_id) if access_request.target_company_id else None,
                 'data_category': access_request.data_category.value,
                 'access_type': access_request.access_type.value,
@@ -333,17 +343,19 @@ class AccessLogger:
             severity = AuditEventSeverity.WARNING
             event_type = AuditEventType.UNAUTHORIZED_ACCESS_ATTEMPT
         else:
-            severity = AuditEventSeverity.INFO
+            severity = AuditEventSeverity.LOW
             event_type = AuditEventType.DATA_EXPORT
         
         self.audit_logger.log_event(
             event_type=event_type,
-            severity=severity,
-            user_id=access_request.requesting_user_id,
-            company_id=access_request.requesting_company_id,
             entity_type=access_request.entity_type,
-            entity_id=access_request.entity_id,
-            details={
+            entity_id=access_request.entity_id or UUID('00000000-0000-0000-0000-000000000000'),
+            action="custom_event",
+            description=f"Custom event: {event_type.value}",
+            severity=severity,
+            actor_user_id=access_request.requesting_user_id,
+            actor_company_id=access_request.requesting_company_id,
+            metadata={
                 'target_company_id': str(access_request.target_company_id) if access_request.target_company_id else None,
                 'data_category': access_request.data_category.value,
                 'access_type': access_request.access_type.value,

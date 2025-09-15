@@ -15,7 +15,7 @@ This plan addresses 9 remaining TODO items in order of business priority, with e
 #### 2. 🔴 PO Amendment/Confirmation Workflow (Day 1-2)
 **Files:** 
 - `frontend/src/pages/PurchaseOrderDetailPage.tsx:125,132`
-- Backend: `app/api/purchase_orders.py` (add confirmation endpoint)
+- Backend: `app/api/purchase-orders.py` (add confirmation endpoint)
 
 **Current Issue:** Frontend has amendment logic but missing confirmation submission
 **Implementation:**

@@ -53,7 +53,7 @@ The Purchase Orders API has been refactored from a monolithic 900+ line file int
 ## New Module Structure
 
 ```
-app/api/purchase_orders/
+app/api/purchase-orders/
 ├── __init__.py              # Module exports
 ├── crud.py                  # Core CRUD operations
 ├── approvals.py             # Approval workflows

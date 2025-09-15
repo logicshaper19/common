@@ -49,11 +49,12 @@ export const RealTimeUpdates: React.FC<RealTimeUpdatesProps> = ({
       const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
       const wsProtocol = apiBaseUrl.startsWith('https') ? 'wss' : 'ws';
       const wsHost = apiBaseUrl.replace(/^https?:\/\//, '');
-      const baseUrl = process.env.NODE_ENV === 'development' 
-        ? `${wsProtocol}://${wsHost}/ws/dashboard`
-        : `wss://${window.location.host}/ws/dashboard`;
-      
+
+      // Always use the development URL for now to avoid issues
+      const baseUrl = `${wsProtocol}://${wsHost}/ws/dashboard`;
       const wsUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+
+      console.log('WebSocket connecting to:', wsUrl);
       
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
