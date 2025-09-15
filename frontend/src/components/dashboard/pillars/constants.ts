@@ -28,3 +28,4 @@ export const STATUS_CONFIGS = {
     'PHYSICAL': { variant: 'success' as const, label: 'Physical' }
   }
 } as const;
+
