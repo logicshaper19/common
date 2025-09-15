@@ -104,7 +104,7 @@ class DataAccessControlService:
             )
             
         except Exception as e:
-            logger.error(f"Error checking access permission: {str(e)}")
+            logger.error(f"Error checking access permission: {str(e)}", exc_info=True)
             
             # Log failed attempt
             self.access_logger.log_error_attempt(
@@ -114,7 +114,7 @@ class DataAccessControlService:
                 str(e)
             )
             
-            return AccessResult.DENIED, None, "Internal error during permission check"
+            return AccessResult.DENIED, None, f"Internal error during permission check: {str(e)}"
     
     def filter_sensitive_data(
         self,

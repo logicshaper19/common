@@ -18,37 +18,74 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+@router.get("/ws/test")
+async def websocket_test():
+    """Test endpoint to verify WebSocket routes are accessible."""
+    return {
+        "status": "WebSocket endpoints are accessible",
+        "endpoints": [
+            "/ws/dashboard",
+            "/ws/notifications",
+            "/ws/transparency/{company_id}"
+        ]
+    }
+
+
 async def get_websocket_user(websocket: WebSocket, token: Optional[str] = None):
     """Extract user information from WebSocket connection."""
     if not token:
         return None, None
-        
+
     try:
-        payload = verify_token(token)
+        # Use jwt directly instead of verify_token to avoid HTTPException
+        from jose import jwt
+        from app.core.config import settings
+
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm]
+        )
+
+        # Check if token has expired
+        exp = payload.get("exp")
+        if exp:
+            from datetime import datetime, timezone
+            if datetime.now(timezone.utc) > datetime.fromtimestamp(exp, tz=timezone.utc):
+                logger.warning("Expired token in WebSocket connection")
+                return None, None
+
         user_id = payload.get("sub")
         if user_id:
             return str(user_id), payload.get("company_id")
     except Exception as e:
         logger.warning("Invalid token in WebSocket connection", error=str(e))
-    
+
     return None, None
 
 
 @router.websocket("/ws/dashboard")
 async def websocket_dashboard(websocket: WebSocket, token: Optional[str] = Query(None)):
     """WebSocket endpoint for dashboard real-time updates."""
+    user_id = None
+    company_id = None
+
     try:
         user_id, company_id = await get_websocket_user(websocket, token)
         logger.info("WebSocket dashboard connection attempt", user_id=user_id, company_id=company_id, has_token=bool(token))
-        
+
+        # Accept connection even if authentication fails (for anonymous usage)
         await manager.connect(websocket, user_id, company_id)
         # Send welcome message
         await manager.send_json_message({
             "type": "connection_established",
             "message": "Connected to dashboard updates",
             "user_id": user_id,
-            "company_id": company_id
+            "company_id": company_id,
+            "authenticated": bool(user_id)
         }, websocket)
+
+        logger.info("WebSocket dashboard connected successfully", user_id=user_id, company_id=company_id)
         
         while True:
             # Wait for messages from client

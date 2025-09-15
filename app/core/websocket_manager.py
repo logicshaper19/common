@@ -19,8 +19,12 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, user_id: str = None, company_id: str = None):
         """Accept a new WebSocket connection."""
-        await websocket.accept()
-        self.active_connections.append(websocket)
+        try:
+            await websocket.accept()
+            self.active_connections.append(websocket)
+        except Exception as e:
+            logger.error("Failed to accept WebSocket connection", error=str(e))
+            raise
         
         if user_id:
             if user_id not in self.user_connections:
