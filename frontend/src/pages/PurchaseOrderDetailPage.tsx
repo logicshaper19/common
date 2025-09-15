@@ -2,7 +2,7 @@
  * Purchase Order Detail Page
  * Comprehensive view for managing purchase orders, amendments, and confirmations
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   DocumentTextIcon,
@@ -10,13 +10,11 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  ExclamationTriangleIcon,
   ArrowLeftIcon,
   PrinterIcon,
-  ShareIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
-import { purchaseOrderApi, PurchaseOrderWithDetails, Amendment, ProposeChangesRequest, SellerConfirmation, PurchaseOrderConfirmation, ConfirmationResponse } from '../services/purchaseOrderApi';
+import { purchaseOrderApi, PurchaseOrderWithDetails, ProposeChangesRequest, PurchaseOrderConfirmation, ConfirmationResponse } from '../services/purchaseOrderApi';
 import { useToast } from '../contexts/ToastContext';
 import { useAmendments } from '../hooks/useAmendments';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
@@ -32,7 +30,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { proposeChanges, isLoading: amendmentLoading } = useAmendments();
+  const { proposeChanges } = useAmendments();
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,9 +43,9 @@ const PurchaseOrderDetailPage: React.FC = () => {
     if (id) {
       loadPurchaseOrder();
     }
-  }, [id]);
+  }, [id, loadPurchaseOrder]);
 
-  const loadPurchaseOrder = async () => {
+  const loadPurchaseOrder = useCallback(async () => {
     if (!id) return;
     
     try {
@@ -64,7 +62,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, showToast, navigate]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -247,46 +245,47 @@ const PurchaseOrderDetailPage: React.FC = () => {
             {purchaseOrder.status}
           </Badge>
           
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-3">
             <Button variant="outline" size="sm" leftIcon={<PrinterIcon className="h-4 w-4" />}>
               Print
             </Button>
-            <Button variant="outline" size="sm" leftIcon={<ShareIcon className="h-4 w-4" />}>
-              Share
-            </Button>
             
-            {canEditOrder() && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleEditOrder}
-                leftIcon={<PencilIcon className="h-4 w-4" />}
-              >
-                Edit Order
-              </Button>
-            )}
+            <div className="h-6 w-px bg-gray-300"></div>
             
-            {canConfirmOrder() && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleConfirmOrder}
-                leftIcon={<CheckCircleIcon className="h-4 w-4" />}
-              >
-                Confirm Order
-              </Button>
-            )}
-            
-            {canProposeAmendment() && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleProposeAmendment}
-                leftIcon={<PencilIcon className="h-4 w-4" />}
-              >
-                Propose Amendment
-              </Button>
-            )}
+            <div className="flex space-x-2">
+              {canEditOrder() && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEditOrder}
+                  leftIcon={<PencilIcon className="h-4 w-4" />}
+                >
+                  Edit Order
+                </Button>
+              )}
+              
+              {canConfirmOrder() && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleConfirmOrder}
+                  leftIcon={<CheckCircleIcon className="h-4 w-4" />}
+                >
+                  Confirm Order
+                </Button>
+              )}
+              
+              {canProposeAmendment() && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleProposeAmendment}
+                  leftIcon={<PencilIcon className="h-4 w-4" />}
+                >
+                  Propose Amendment
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
