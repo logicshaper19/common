@@ -313,3 +313,4 @@ class TemplateMetricsResponse(BaseModel):
     success_rate: Optional[float] = None
     common_customizations: List[Dict[str, Any]] = []
 
+

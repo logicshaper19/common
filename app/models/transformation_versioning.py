@@ -255,3 +255,4 @@ class RealTimeMonitoringEndpoint(Base):
         Index('idx_monitoring_endpoints_active', 'is_active'),
     )
 
+
