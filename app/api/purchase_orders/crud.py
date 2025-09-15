@@ -4,6 +4,7 @@ Handles basic create, read, update, delete operations
 """
 from typing import List, Optional
 from uuid import UUID
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, asc
@@ -35,9 +36,32 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders-crud"])
 
 
+def get_purchase_order_filters(
+    buyer_company_id: Optional[UUID] = None,
+    seller_company_id: Optional[UUID] = None,
+    product_id: Optional[UUID] = None,
+    status: Optional[str] = None,
+    delivery_date_from: Optional[date] = None,
+    delivery_date_to: Optional[date] = None,
+    page: int = 1,
+    per_page: int = 20
+) -> PurchaseOrderFilter:
+    """Create purchase order filters from query parameters."""
+    return PurchaseOrderFilter(
+        buyer_company_id=buyer_company_id,
+        seller_company_id=seller_company_id,
+        product_id=product_id,
+        status=status,
+        delivery_date_from=delivery_date_from,
+        delivery_date_to=delivery_date_to,
+        page=page,
+        per_page=per_page
+    )
+
+
 @router.get("/", response_model=PurchaseOrderListResponse)
 def get_purchase_orders(
-    filters: PurchaseOrderFilter = Depends(),
+    filters: PurchaseOrderFilter = Depends(get_purchase_order_filters),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user_sync)
 ):
@@ -97,8 +121,53 @@ def get_purchase_orders(
             per_page=per_page
         )
         
+        # Convert to response format
+        result = []
+        for po in purchase_orders:
+            # Get related data separately to avoid complex joins
+            buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
+            seller_company = db.query(Company).filter(Company.id == po.seller_company_id).first()
+            product = db.query(Product).filter(Product.id == po.product_id).first()
+            
+            po_dict = {
+                'id': po.id,
+                'po_number': po.po_number,
+                'status': po.status,
+                'buyer_company': {
+                    'id': str(buyer_company.id),
+                    'name': buyer_company.name,
+                    'company_type': buyer_company.company_type
+                } if buyer_company else None,
+                'seller_company': {
+                    'id': str(seller_company.id),
+                    'name': seller_company.name,
+                    'company_type': seller_company.company_type
+                } if seller_company else None,
+                'product': {
+                    'id': str(product.id),
+                    'name': product.name,
+                    'description': product.description,
+                    'default_unit': product.default_unit,
+                    'category': product.category
+                } if product else None,
+                'quantity': po.quantity,
+                'unit_price': po.unit_price,
+                'total_amount': po.total_amount,
+                'unit': po.unit,
+                'delivery_date': po.delivery_date,
+                'delivery_location': po.delivery_location,
+                'notes': po.notes,
+                'composition': None,  # Not implemented yet
+                'input_materials': None,  # Not implemented yet
+                'origin_data': None,  # Not implemented yet
+                'amendments': [],  # Not implemented yet
+                'created_at': po.created_at,
+                'updated_at': po.updated_at
+            }
+            result.append(po_dict)
+        
         return PurchaseOrderListResponse(
-            purchase_orders=purchase_orders,
+            purchase_orders=result,
             total=total,
             page=page,
             per_page=per_page,
