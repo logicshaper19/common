@@ -226,14 +226,14 @@ def get_incoming_purchase_orders_simple(
         return []
 
 
-@router.get("/{purchase_order_id}", response_model=PurchaseOrderResponse)
+@router.get("/{purchase_order_id}", response_model=PurchaseOrderWithDetails)
 @simple_log_action("view", "purchase_order")
 def get_purchase_order(
     purchase_order_id: str,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user_sync)
 ):
-    """Get a specific purchase order."""
+    """Get a specific purchase order with related data."""
     try:
         po_id = UUID(purchase_order_id)
         po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
@@ -251,7 +251,52 @@ def get_purchase_order(
                 detail="Access denied: You can only access purchase orders involving your company"
             )
         
-        return po
+        # Get related data
+        buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
+        seller_company = db.query(Company).filter(Company.id == po.seller_company_id).first()
+        product = db.query(Product).filter(Product.id == po.product_id).first()
+        
+        # Build response with related data
+        po_dict = {
+            'id': str(po.id),
+            'po_number': po.po_number,
+            'status': po.status,
+            'buyer_company_id': str(po.buyer_company_id),
+            'seller_company_id': str(po.seller_company_id),
+            'product_id': str(po.product_id),
+            'quantity': float(po.quantity),
+            'unit_price': float(po.unit_price),
+            'total_amount': float(po.total_amount),
+            'unit': po.unit,
+            'delivery_date': po.delivery_date.isoformat() if po.delivery_date else None,
+            'delivery_location': po.delivery_location,
+            'notes': po.notes,
+            'composition': None,
+            'input_materials': None,
+            'origin_data': None,
+            'amendments': [],
+            'created_at': po.created_at.isoformat(),
+            'updated_at': po.updated_at.isoformat(),
+            'buyer_company': {
+                'id': str(buyer_company.id),
+                'name': buyer_company.name,
+                'company_type': buyer_company.company_type
+            } if buyer_company else None,
+            'seller_company': {
+                'id': str(seller_company.id),
+                'name': seller_company.name,
+                'company_type': seller_company.company_type
+            } if seller_company else None,
+            'product': {
+                'id': str(product.id),
+                'name': product.name,
+                'description': product.description,
+                'default_unit': product.default_unit,
+                'category': product.category
+            } if product else None
+        }
+        
+        return po_dict
         
     except ValueError:
         raise HTTPException(
