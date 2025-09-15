@@ -46,7 +46,7 @@ export const RealTimeUpdates: React.FC<RealTimeUpdatesProps> = ({
       const token = localStorage.getItem('auth_token');
       
       // Build WebSocket URL with token as query parameter
-      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
       const wsProtocol = apiBaseUrl.startsWith('https') ? 'wss' : 'ws';
       const wsHost = apiBaseUrl.replace(/^https?:\/\//, '');
 
