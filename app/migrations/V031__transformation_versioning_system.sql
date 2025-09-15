@@ -327,3 +327,4 @@ BEGIN
     RETURN total_cost;
 END;
 $$ LANGUAGE plpgsql;
+

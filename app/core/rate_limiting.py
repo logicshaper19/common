@@ -80,7 +80,7 @@ class RateLimiter:
         return {
             "default": RateLimit(requests=100, window=60),  # 100 requests per minute
             "auth": RateLimit(requests=100, window=60),  # 100 auth requests per minute (increased for development)
-            "api": RateLimit(requests=1000, window=3600),  # 1000 API requests per hour
+            "api": RateLimit(requests=100000, window=3600),  # 100000 API requests per hour (increased for testing)
             "upload": RateLimit(requests=10, window=60),  # 10 uploads per minute
             "admin": RateLimit(requests=500, window=60),  # 500 admin requests per minute
         }
@@ -369,7 +369,7 @@ class AdvancedRateLimiter:
         results = []
         
         # Check global limit
-        global_limit = RateLimit(requests=1000, window=3600, scope=RateLimitScope.GLOBAL)
+        global_limit = RateLimit(requests=100000, window=3600, scope=RateLimitScope.GLOBAL)
         results.append(self.rate_limiter.check_rate_limit(request, global_limit, user_id, company_id))
         
         # Check IP limit

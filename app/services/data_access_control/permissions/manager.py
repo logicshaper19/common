@@ -145,8 +145,7 @@ class PermissionManager:
         logger.info(f"Revoking all permissions for user {user_id}")
         
         permissions = self.db.query(DataAccessPermission).filter(
-            DataAccessPermission.requesting_user_id == user_id,
-            DataAccessPermission.requesting_company_id == company_id,
+            DataAccessPermission.grantee_company_id == company_id,
             DataAccessPermission.is_active == True
         ).all()
         
@@ -182,8 +181,7 @@ class PermissionManager:
             List of permissions
         """
         query = self.db.query(DataAccessPermission).filter(
-            DataAccessPermission.requesting_user_id == user_id,
-            DataAccessPermission.requesting_company_id == company_id
+            DataAccessPermission.grantee_company_id == company_id
         )
         
         if not include_expired:

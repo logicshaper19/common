@@ -290,8 +290,8 @@ class BaseAuditor(ABC):
             old_values=event_data.old_values,
             new_values=event_data.new_values,
             metadata=metadata,
-            ip_address=context.ip_address,
-            user_agent=context.user_agent,
+            actor_ip_address=context.ip_address,
+            actor_user_agent=context.user_agent,
             created_at=datetime.utcnow()
         )
     

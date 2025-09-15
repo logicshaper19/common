@@ -471,3 +471,4 @@ class ProcessTemplateEngine:
         # Sort by score (highest first)
         recommendations.sort(key=lambda x: x['score'], reverse=True)
         return recommendations
+

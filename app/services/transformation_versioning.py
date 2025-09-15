@@ -570,3 +570,4 @@ class RealTimeMonitoringService:
             
             logger.error(f"Error ingesting monitoring data: {str(e)}")
             raise
+

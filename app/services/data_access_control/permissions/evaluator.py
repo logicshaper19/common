@@ -94,8 +94,7 @@ class PermissionEvaluator:
     def _find_active_permission(self, access_request: AccessRequest) -> Optional[DataAccessPermission]:
         """Find existing active permission for the request."""
         query = self.db.query(DataAccessPermission).filter(
-            DataAccessPermission.requesting_user_id == access_request.requesting_user_id,
-            DataAccessPermission.requesting_company_id == access_request.requesting_company_id,
+            DataAccessPermission.grantee_company_id == access_request.requesting_company_id,
             DataAccessPermission.is_active == True
         )
         

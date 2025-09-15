@@ -312,3 +312,4 @@ class TemplateMetricsResponse(BaseModel):
     average_efficiency: Optional[float] = None
     success_rate: Optional[float] = None
     common_customizations: List[Dict[str, Any]] = []
+

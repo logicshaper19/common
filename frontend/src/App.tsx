@@ -27,6 +27,7 @@ import InventoryRouter from './components/inventory/InventoryRouter';
 import OriginatorRouter from './components/origin/OriginatorRouter';
 import OriginatorFeaturesDemo from './pages/OriginatorFeaturesDemo';
 import HarvestManagement from './pages/HarvestManagement';
+import DebugAuth from './pages/DebugAuth';
 
 function App() {
   return (
@@ -183,6 +184,13 @@ function App() {
             <Route path="admin/support" element={
               <ProtectedRoute requiredRole="admin">
                 <SupportTicketSystem />
+              </ProtectedRoute>
+            } />
+
+            {/* Debug route */}
+            <Route path="debug-auth" element={
+              <ProtectedRoute>
+                <DebugAuth />
               </ProtectedRoute>
             } />
 

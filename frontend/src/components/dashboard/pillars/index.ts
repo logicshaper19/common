@@ -8,3 +8,4 @@ export { default as OutgoingOrdersCard } from './OutgoingOrdersCard';
 export { default as InventoryManagementCard } from './InventoryManagementCard';
 export { default as TraceabilityCard } from './TraceabilityCard';
 
+
