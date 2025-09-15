@@ -63,7 +63,7 @@ class SupplierInvitation(Base):
     accepted_at = Column(DateTime(timezone=True))
     declined_at = Column(DateTime(timezone=True))
     registered_company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"))
-    business_relationship_id = Column(UUID(as_uuid=True), ForeignKey("business_relationships.id"))
+    # business_relationship_id removed - using simple relationship checking instead
     
     # Analytics metadata
     invitation_source = Column(String(100))  # "dashboard", "api", "bulk_import", etc.
@@ -78,7 +78,7 @@ class SupplierInvitation(Base):
     inviting_company = relationship("Company", foreign_keys=[inviting_company_id])
     inviting_user = relationship("User")
     registered_company = relationship("Company", foreign_keys=[registered_company_id])
-    business_relationship = relationship("BusinessRelationship")
+    # business_relationship relationship removed - using simple relationship checking instead
     parent_invitation = relationship("SupplierInvitation", remote_side=[id])
     root_inviter_company = relationship("Company", foreign_keys=[root_inviter_company_id])
     
