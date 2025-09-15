@@ -11,7 +11,7 @@ from sqlalchemy.sql import Select
 from app.models.purchase_order import PurchaseOrder
 from app.models.company import Company
 from app.models.product import Product
-from app.models.business_relationship import BusinessRelationship
+# BusinessRelationship model removed - using simple relationship checking instead
 from app.core.logging import get_logger
 from app.core.input_validation import safe_execute_query, validate_sql_query_params
 

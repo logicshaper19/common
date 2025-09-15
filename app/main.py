@@ -45,11 +45,11 @@ from app.api.traceability import router as traceability_router
 from app.api.transparency_jobs import router as transparency_jobs_router
 from app.api.notifications import router as notifications_router
 from app.api.audit import router as audit_router
-from app.api.data_access import router as data_access_router
+# Data access router removed - using simplified authentication instead
 from app.api.transparency_visualization import router as transparency_visualization_router
 from app.api.transparency import router as transparency_router
 from app.api.origin_data import router as origin_data_router
-from app.api.business_relationships import router as business_relationships_router
+# Business relationships router removed - using simplified relationships instead
 from app.api.batches import router as batches_router
 from app.api.performance import router as performance_router
 from app.api.v1.sectors import router as sectors_router
@@ -301,11 +301,11 @@ app.include_router(traceability_router, prefix="/api/v1", tags=["Traceability"])
 app.include_router(transparency_jobs_router, prefix="/api/v1", tags=["Transparency Jobs"])
 app.include_router(notifications_router, prefix="/api/v1", tags=["Notifications"])
 app.include_router(audit_router, prefix="/api/v1", tags=["Audit"])
-app.include_router(data_access_router, prefix="/api/v1", tags=["Data Access"])
+# Data access router removed - using simplified authentication instead
 app.include_router(transparency_visualization_router, prefix="/api/v1", tags=["Transparency Visualization"])
 app.include_router(transparency_router, prefix="/api/v1", tags=["Transparency"])
 app.include_router(origin_data_router, prefix="/api/v1", tags=["Origin Data"])
-app.include_router(business_relationships_router, prefix="/api/v1", tags=["Business Relationships"])
+# Business relationships router removed - using simplified relationships instead
 app.include_router(batches_router, prefix="/api/v1", tags=["Batch Tracking"])
 app.include_router(performance_router, prefix="/api/v1", tags=["Performance"])
 app.include_router(sectors_router, prefix="/api/v1", tags=["Sectors"])

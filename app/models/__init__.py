@@ -9,7 +9,7 @@ from .gap_action import GapAction
 from .purchase_order import PurchaseOrder
 from .amendment import Amendment
 from .product import Product
-from .business_relationship import BusinessRelationship
+# BusinessRelationship model removed - using simple relationship checking instead
 from .batch import Batch
 from .notification import Notification
 from .audit_event import AuditEvent
@@ -35,7 +35,7 @@ __all__ = [
     "PurchaseOrder",
     "Amendment",
     "Product",
-    "BusinessRelationship",
+    # "BusinessRelationship",  # Removed - using simple relationship checking
     "Batch",
     "Notification",
     "AuditEvent",
