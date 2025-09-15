@@ -85,33 +85,34 @@ export const companiesApi = {
         return allCompanies;
       } catch (fallbackError) {
         console.error('❌ Error fetching fallback companies:', fallbackError);
-      console.error('❌ Error details:', error.response?.data || error.message);
-      
-      // Fallback to mock data for now
-      return [
-        {
-          id: 'a5287fd6-15cf-4a93-9237-a9d52e1a1428',
-          name: 'Sustainable Mill Co',
-          email: 'operations@sustainablemill.com',
-          company_type: 'mill_processor',
-          address: '',
-          industry_sector: '',
-          industry_subcategory: '',
-          created_at: '',
-          updated_at: ''
-        },
-        {
-          id: '9ab08879-3f9b-487f-97ca-f89309c5e665',
-          name: "L'Oréal Group",
-          email: 'contact@loreal.com',
-          company_type: 'manufacturer',
-          address: '',
-          industry_sector: '',
-          industry_subcategory: '',
-          created_at: '',
-          updated_at: ''
-        }
-      ];
+        console.error('❌ Error details:', error.response?.data || error.message);
+        
+        // Fallback to mock data for now
+        return [
+          {
+            id: 'a5287fd6-15cf-4a93-9237-a9d52e1a1428',
+            name: 'Sustainable Mill Co',
+            email: 'operations@sustainablemill.com',
+            company_type: 'mill_processor',
+            address: '',
+            industry_sector: '',
+            industry_subcategory: '',
+            created_at: '',
+            updated_at: ''
+          },
+          {
+            id: '9ab08879-3f9b-487f-97ca-f89309c5e665',
+            name: "L'Oréal Group",
+            email: 'contact@loreal.com',
+            company_type: 'manufacturer',
+            address: '',
+            industry_sector: '',
+            industry_subcategory: '',
+            created_at: '',
+            updated_at: ''
+          }
+        ];
+      }
     }
   }
 };
