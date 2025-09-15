@@ -39,12 +39,6 @@ const PurchaseOrderDetailPage: React.FC = () => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadPurchaseOrder();
-    }
-  }, [id, loadPurchaseOrder]);
-
   const loadPurchaseOrder = useCallback(async () => {
     if (!id) return;
     
@@ -63,6 +57,12 @@ const PurchaseOrderDetailPage: React.FC = () => {
       setLoading(false);
     }
   }, [id, showToast, navigate]);
+
+  useEffect(() => {
+    if (id) {
+      loadPurchaseOrder();
+    }
+  }, [id, loadPurchaseOrder]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
