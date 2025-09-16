@@ -152,7 +152,7 @@ setup_api_versioning(app)
 # Add trusted host middleware (first to process requests)
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1"]
+    allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1", "testserver"]
 )
 
 # Add security headers middleware (second to process requests)

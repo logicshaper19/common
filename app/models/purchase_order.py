@@ -143,8 +143,9 @@ class PurchaseOrder(Base):
         Index('idx_po_status_created', 'status', 'created_at'),
 
         # Indexes for transparency graph traversal
-        Index('idx_po_input_materials', 'input_materials'),  # For JSON queries
-        Index('idx_po_origin_data', 'origin_data'),  # For JSON queries
+        # JSONB indexes with proper operator classes for PostgreSQL
+        Index('idx_po_input_materials_gin', 'input_materials', postgresql_using='gin'),
+        Index('idx_po_origin_data_gin', 'origin_data', postgresql_using='gin'),
         
         # Indexes for commercial chaining
         Index('idx_po_parent_po_id', 'parent_po_id'),
