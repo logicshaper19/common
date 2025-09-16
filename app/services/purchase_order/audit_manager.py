@@ -24,7 +24,6 @@ class PurchaseOrderAuditManager:
     
     def __init__(self, db: Session):
         self.db = db
-        self.audit_logger = AuditLogger(db)
     
     def log_creation(
         self, 

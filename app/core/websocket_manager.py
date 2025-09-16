@@ -16,14 +16,22 @@ class ConnectionManager:
         self.active_connections: List[WebSocket] = []
         self.user_connections: Dict[str, List[WebSocket]] = {}
         self.company_connections: Dict[str, List[WebSocket]] = {}
+        self.max_connections_per_user = 3  # Limit connections per user
 
     async def connect(self, websocket: WebSocket, user_id: str = None, company_id: str = None):
-        """Accept a new WebSocket connection."""
+        """Add a WebSocket connection to the manager."""
         try:
-            await websocket.accept()
+            # Check connection limit for user
+            if user_id and user_id in self.user_connections:
+                if len(self.user_connections[user_id]) >= self.max_connections_per_user:
+                    # Close oldest connection for this user
+                    oldest_connection = self.user_connections[user_id][0]
+                    await self.disconnect_websocket(oldest_connection, user_id, company_id)
+                    logger.info("Closed oldest connection due to limit", user_id=user_id)
+            
             self.active_connections.append(websocket)
         except Exception as e:
-            logger.error("Failed to accept WebSocket connection", error=str(e))
+            logger.error("Failed to add WebSocket connection", error=str(e))
             raise
         
         if user_id:
@@ -40,6 +48,16 @@ class ConnectionManager:
                    user_id=user_id, 
                    company_id=company_id,
                    total_connections=len(self.active_connections))
+
+    async def disconnect_websocket(self, websocket: WebSocket, user_id: str = None, company_id: str = None):
+        """Close and remove a WebSocket connection."""
+        try:
+            if websocket.client_state.name == "CONNECTED":
+                await websocket.close()
+        except Exception as e:
+            logger.error("Error closing WebSocket", error=str(e))
+        finally:
+            self.disconnect(websocket, user_id, company_id)
 
     def disconnect(self, websocket: WebSocket, user_id: str = None, company_id: str = None):
         """Remove a WebSocket connection."""
@@ -73,9 +91,15 @@ class ConnectionManager:
     async def send_json_message(self, data: Dict[str, Any], websocket: WebSocket):
         """Send a JSON message to a specific WebSocket connection."""
         try:
+            # Check if the WebSocket is still connected
+            if websocket.client_state.name != "CONNECTED":
+                logger.warning("Attempted to send message to disconnected WebSocket")
+                return False
             await websocket.send_text(json.dumps(data))
+            return True
         except Exception as e:
             logger.error("Failed to send JSON message", error=str(e))
+            return False
 
     async def broadcast(self, message: str):
         """Broadcast a message to all active connections."""

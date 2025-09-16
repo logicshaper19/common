@@ -26,36 +26,11 @@ from app.models.company import Company
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_confirmation.db"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Use PostgreSQL test configuration from conftest.py
+# No need for custom database setup
 
 
-@pytest.fixture(autouse=True)
-def clean_db():
-    """Clean database before each test."""
-    # Drop all tables and recreate them
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    yield
-
-
-@pytest.fixture
-def db_session():
-    """Get database session for testing."""
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Use db_session fixture from PostgreSQL conftest.py
 
 
 @pytest.fixture

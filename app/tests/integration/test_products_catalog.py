@@ -20,45 +20,26 @@ from app.models.product import Product
 from app.models.sector import Sector, SectorTier, SectorProduct
 from app.core.security import hash_password, create_access_token
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_products.db"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-
-def override_get_db():
-    """Override database dependency for testing."""
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
+# Use PostgreSQL test configuration from conftest.py
+# No need for custom database setup
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def clean_db():
+def clean_db(db_session):
     """Clean database before each test."""
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
+    db_session.query(SectorProduct).delete()
+    db_session.query(SectorTier).delete()
+    db_session.query(Sector).delete()
+    db_session.query(Product).delete()
+    db_session.query(Company).delete()
+    db_session.query(User).delete()
+    db_session.commit()
 
 
 @pytest.fixture
-def test_sectors():
+def test_sectors(db_session):
     """Create test sectors."""
-    db = TestingSessionLocal()
     
     sectors = {
         "palm_oil": Sector(
@@ -88,17 +69,15 @@ def test_sectors():
     }
     
     for sector in sectors.values():
-        db.add(sector)
+        db_session.add(sector)
     
-    db.commit()
-    db.close()
+    db_session.commit()
     return sectors
 
 
 @pytest.fixture
-def test_sector_tiers(test_sectors):
+def test_sector_tiers(test_sectors, db_session):
     """Create test sector tiers."""
-    db = TestingSessionLocal()
     
     # Palm Oil tiers
     palm_tiers = [
@@ -226,17 +205,15 @@ def test_products():
     }
     
     for product in products.values():
-        db.add(product)
+        db_session.add(product)
     
-    db.commit()
-    db.close()
+    db_session.commit()
     return products
 
 
 @pytest.fixture
-def test_users(test_sectors):
+def test_users(test_sectors, db_session):
     """Create test users."""
-    db = TestingSessionLocal()
     
     # Create test company
     company = Company(
@@ -246,8 +223,8 @@ def test_users(test_sectors):
         email="test@company.com",
         sector_id="palm_oil"
     )
-    db.add(company)
-    db.commit()
+    db_session.add(company)
+    db_session.commit()
     
     user = User(
         id=uuid4(),
@@ -260,9 +237,8 @@ def test_users(test_sectors):
         tier_level=1,
         is_active=True
     )
-    db.add(user)
-    db.commit()
-    db.close()
+    db_session.add(user)
+    db_session.commit()
     
     return user
 

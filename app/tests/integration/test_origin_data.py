@@ -22,35 +22,8 @@ from app.schemas.origin_data import (
     ComplianceStatus
 )
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_origin_data.db"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-
-@pytest.fixture(autouse=True)
-def clean_db():
-    """Clean database before each test."""
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    yield
-
-
-@pytest.fixture
-def db_session():
-    """Get database session for testing."""
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Use PostgreSQL test configuration from conftest.py
+# No need for custom database setup
 
 
 @pytest.fixture

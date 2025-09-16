@@ -19,46 +19,24 @@ from app.models.user import User
 from app.models.company import Company
 from app.core.security import hash_password, create_access_token
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_api_versioning.db"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-
-def override_get_db():
-    """Override database dependency for testing."""
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
+# Use PostgreSQL test configuration from conftest.py
+# No need for custom database setup
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def clean_db():
+def clean_db(db_session):
     """Clean database before each test."""
-    db = TestingSessionLocal()
-    try:
-        db.query(Company).delete()
-        db.query(User).delete()
-        db.commit()
-    finally:
-        db.close()
+    db_session.query(Company).delete()
+    db_session.query(User).delete()
+    db_session.commit()
 
 
-def get_auth_headers(email: str):
-    """Get authentication headers for a user."""
+@pytest.fixture
+def auth_headers(db_session):
+    """Get authentication headers for a test user."""
+    email = f"test_{uuid4()}@example.com"
+    
     # Create user
     user = User(
         id=uuid4(),
@@ -66,7 +44,7 @@ def get_auth_headers(email: str):
         hashed_password=hash_password("testpassword"),
         full_name="Test User",
         is_active=True,
-        is_admin=False
+        role="user"
     )
     
     # Create company
@@ -78,24 +56,20 @@ def get_auth_headers(email: str):
     )
     user.company_id = company.id
     
-    db = TestingSessionLocal()
-    try:
-        db.add(company)
-        db.add(user)
-        db.commit()
-        
-        token = create_access_token(data={"sub": str(user.id)})
-        return {"Authorization": f"Bearer {token}"}
-    finally:
-        db.close()
+    db_session.add(company)
+    db_session.add(user)
+    db_session.commit()
+    
+    token = create_access_token(data={"sub": str(user.id)})
+    return {"Authorization": f"Bearer {token}"}
 
 
 class TestAPIVersioning:
     """Test API versioning functionality."""
     
-    def test_version_header_handling(self, test_users):
+    def test_version_header_handling(self, auth_headers):
         """Test handling of version headers."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with different version headers
         version_headers = [
@@ -113,9 +87,9 @@ class TestAPIVersioning:
             # Should handle version headers gracefully
             assert response.status_code in [200, 400, 406]
     
-    def test_version_parameter_handling(self, test_users):
+    def test_version_parameter_handling(self, auth_headers):
         """Test handling of version parameters."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with version in URL
         version_urls = [
@@ -130,9 +104,9 @@ class TestAPIVersioning:
             # Should handle version parameters gracefully
             assert response.status_code in [200, 404, 400]
     
-    def test_deprecated_endpoint_handling(self, test_users):
+    def test_deprecated_endpoint_handling(self, auth_headers):
         """Test handling of deprecated endpoints."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test deprecated endpoints
         deprecated_endpoints = [
@@ -150,9 +124,9 @@ class TestAPIVersioning:
                 # Check for deprecation warnings in headers
                 assert "Deprecation" in response.headers or "Sunset" in response.headers
     
-    def test_version_negotiation(self, test_users):
+    def test_version_negotiation(self, auth_headers):
         """Test version negotiation based on client capabilities."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with different Accept headers
         accept_headers = [
@@ -169,9 +143,9 @@ class TestAPIVersioning:
             # Should negotiate version appropriately
             assert response.status_code in [200, 400, 406]
     
-    def test_backward_compatibility(self, test_users):
+    def test_backward_compatibility(self, auth_headers):
         """Test backward compatibility of API responses."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Create a company
         company_data = {
@@ -195,9 +169,9 @@ class TestAPIVersioning:
                 assert "name" in data
                 assert "company_type" in data
     
-    def test_forward_compatibility(self, test_users):
+    def test_forward_compatibility(self, auth_headers):
         """Test forward compatibility of API requests."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with future API version
         future_headers = {
@@ -210,9 +184,9 @@ class TestAPIVersioning:
         # Should handle future versions gracefully
         assert response.status_code in [200, 400, 406, 426]
     
-    def test_version_specific_validation(self, test_users):
+    def test_version_specific_validation(self, auth_headers):
         """Test version-specific validation rules."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with different validation rules per version
         company_data_v1 = {
@@ -238,9 +212,9 @@ class TestAPIVersioning:
         response2 = client.post("/api/v2/companies", json=company_data_v2, headers=v2_headers)
         assert response2.status_code in [200, 201, 400, 422, 404]
     
-    def test_version_migration_guidance(self, test_users):
+    def test_version_migration_guidance(self, auth_headers):
         """Test version migration guidance."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test deprecated endpoint with migration guidance
         response = client.get("/api/v0/companies", headers=headers)
@@ -257,9 +231,9 @@ class TestAPIVersioning:
 class TestSchemaEvolution:
     """Test schema evolution and compatibility."""
     
-    def test_field_addition_compatibility(self, test_users):
+    def test_field_addition_compatibility(self, auth_headers):
         """Test compatibility when new fields are added."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with additional fields (should be ignored by older clients)
         company_data = {
@@ -274,9 +248,9 @@ class TestSchemaEvolution:
         # Should accept the request and ignore unknown fields
         assert response.status_code in [200, 201, 400, 422]
     
-    def test_field_removal_compatibility(self, test_users):
+    def test_field_removal_compatibility(self, auth_headers):
         """Test compatibility when fields are removed."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with missing required fields (simulating field removal)
         company_data = {
@@ -288,9 +262,9 @@ class TestSchemaEvolution:
         # Should handle missing fields appropriately
         assert response.status_code in [400, 422]
     
-    def test_field_type_changes(self, test_users):
+    def test_field_type_changes(self, auth_headers):
         """Test compatibility when field types change."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with different field types
         company_data = {
@@ -304,9 +278,9 @@ class TestSchemaEvolution:
         # Should handle type changes appropriately
         assert response.status_code in [200, 201, 400, 422]
     
-    def test_enum_value_changes(self, test_users):
+    def test_enum_value_changes(self, auth_headers):
         """Test compatibility when enum values change."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with new enum values
         company_data = {
@@ -323,9 +297,9 @@ class TestSchemaEvolution:
 class TestVersioningStrategies:
     """Test different versioning strategies."""
     
-    def test_url_versioning(self, test_users):
+    def test_url_versioning(self, auth_headers):
         """Test URL-based versioning."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test different URL versions
         url_versions = [
@@ -340,9 +314,9 @@ class TestVersioningStrategies:
             # Should handle URL versioning appropriately
             assert response.status_code in [200, 404]
     
-    def test_header_versioning(self, test_users):
+    def test_header_versioning(self, auth_headers):
         """Test header-based versioning."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test different header versions
         header_versions = [
@@ -360,9 +334,9 @@ class TestVersioningStrategies:
             # Should handle header versioning appropriately
             assert response.status_code in [200, 400, 406]
     
-    def test_parameter_versioning(self, test_users):
+    def test_parameter_versioning(self, auth_headers):
         """Test parameter-based versioning."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test different parameter versions
         param_versions = [
@@ -377,9 +351,9 @@ class TestVersioningStrategies:
             # Should handle parameter versioning appropriately
             assert response.status_code in [200, 400, 404]
     
-    def test_content_negotiation_versioning(self, test_users):
+    def test_content_negotiation_versioning(self, auth_headers):
         """Test content negotiation-based versioning."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test different content types
         content_types = [
@@ -401,7 +375,7 @@ class TestVersioningStrategies:
 class TestVersioningDocumentation:
     """Test versioning documentation and metadata."""
     
-    def test_version_info_endpoint(self, test_users):
+    def test_version_info_endpoint(self, auth_headers):
         """Test version information endpoint."""
         response = client.get("/api/version")
         # Should provide version information
@@ -412,7 +386,7 @@ class TestVersioningDocumentation:
             assert "version" in data
             assert "supported_versions" in data
     
-    def test_api_documentation_versioning(self, test_users):
+    def test_api_documentation_versioning(self, auth_headers):
         """Test API documentation versioning."""
         # Test different documentation versions
         doc_versions = [
@@ -429,7 +403,7 @@ class TestVersioningDocumentation:
             # Should provide appropriate documentation
             assert response.status_code in [200, 404]
     
-    def test_openapi_schema_versioning(self, test_users):
+    def test_openapi_schema_versioning(self, auth_headers):
         """Test OpenAPI schema versioning."""
         # Test different schema versions
         schema_versions = [

@@ -20,45 +20,24 @@ from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
 from app.core.security import hash_password, create_access_token
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_security.db"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-
-def override_get_db():
-    """Override database dependency for testing."""
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
+# Use PostgreSQL test configuration from conftest.py
+# No need for custom database setup
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def clean_db():
+def clean_db(db_session):
     """Clean database before each test."""
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
+    db_session.query(PurchaseOrder).delete()
+    db_session.query(Product).delete()
+    db_session.query(Company).delete()
+    db_session.query(User).delete()
+    db_session.commit()
 
 
 @pytest.fixture
-def test_companies():
+def test_companies(db_session):
     """Create test companies."""
-    db = TestingSessionLocal()
     
     companies = {
         "company_a": Company(
@@ -76,17 +55,15 @@ def test_companies():
     }
     
     for company in companies.values():
-        db.add(company)
+        db_session.add(company)
     
-    db.commit()
-    db.close()
+    db_session.commit()
     return companies
 
 
 @pytest.fixture
-def test_users(test_companies):
+def test_users(test_companies, db_session):
     """Create test users with different roles."""
-    db = TestingSessionLocal()
     
     users = {
         "admin_a": User(
@@ -128,17 +105,15 @@ def test_users(test_companies):
     }
     
     for user in users.values():
-        db.add(user)
+        db_session.add(user)
     
-    db.commit()
-    db.close()
+    db_session.commit()
     return users
 
 
 @pytest.fixture
-def test_products():
+def test_products(db_session):
     """Create test products."""
-    db = TestingSessionLocal()
     
     products = {
         "product_1": Product(
@@ -160,10 +135,9 @@ def test_products():
     }
     
     for product in products.values():
-        db.add(product)
+        db_session.add(product)
     
-    db.commit()
-    db.close()
+    db_session.commit()
     return products
 
 
