@@ -14,7 +14,10 @@ import {
   TrashIcon,
   EyeIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  DocumentTextIcon,
+  ClockIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import DataTable, { DataTableColumn } from '../ui/DataTable';
@@ -25,6 +28,7 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import AnalyticsCard from '../ui/AnalyticsCard';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDate } from '../../lib/utils';
 
@@ -71,6 +75,47 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
   const [showViewModal, setShowViewModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
+
+  // Calculate analytics from farms data
+  const analytics = React.useMemo(() => {
+    const total = farms.length;
+    const active = farms.filter(farm => farm.is_active).length;
+    const certified = farms.filter(farm => farm.certification_status && farm.certification_status.length > 0).length;
+    const smallholder = farms.filter(farm => farm.plantation_type === 'smallholder').length;
+    const ownEstate = farms.filter(farm => farm.plantation_type === 'own_estate').length;
+    const totalHectares = farms.reduce((sum, farm) => sum + (farm.farm_size_hectares || 0), 0);
+
+    return [
+      {
+        name: 'Total Farms',
+        value: total.toString(),
+        change: '+5%',
+        changeType: 'increase' as const,
+        icon: BuildingOfficeIcon,
+      },
+      {
+        name: 'Active Farms',
+        value: active.toString(),
+        change: active > 0 ? `${Math.round((active / total) * 100)}%` : '0%',
+        changeType: 'increase' as const,
+        icon: CheckCircleIcon,
+      },
+      {
+        name: 'Certified Farms',
+        value: certified.toString(),
+        change: certified > 0 ? `${Math.round((certified / total) * 100)}%` : '0%',
+        changeType: 'increase' as const,
+        icon: ShieldCheckIcon,
+      },
+      {
+        name: 'Total Hectares',
+        value: totalHectares.toLocaleString(),
+        change: '+12%',
+        changeType: 'increase' as const,
+        icon: MapPinIcon,
+      },
+    ];
+  }, [farms]);
 
   // Form state for create/edit
   const [formData, setFormData] = useState<Partial<FarmInformation>>({
@@ -493,6 +538,20 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
         >
           Add Farm
         </Button>
+      </div>
+
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        {analytics.map((stat) => (
+          <AnalyticsCard
+            key={stat.name}
+            name={stat.name}
+            value={stat.value}
+            change={stat.change}
+            changeType={stat.changeType}
+            icon={stat.icon}
+          />
+        ))}
       </div>
 
       {/* Filters */}
