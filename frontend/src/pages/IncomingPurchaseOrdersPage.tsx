@@ -1,16 +1,70 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import AnalyticsCard from '../components/ui/AnalyticsCard';
 import PurchaseOrderTable from '../components/purchase-orders/PurchaseOrderTable';
 import { PurchaseOrderWithRelations, purchaseOrderApi } from '../services/purchaseOrderApi';
 import { useToast } from '../contexts/ToastContext';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { 
+  ArrowPathIcon, 
+  DocumentTextIcon, 
+  ClockIcon, 
+  CheckCircleIcon, 
+  XCircleIcon,
+  ExclamationTriangleIcon
+} from '@heroicons/react/24/outline';
 
 const IncomingPurchaseOrdersPage: React.FC = () => {
   const { showToast } = useToast();
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   // const [actionLoading, setActionLoading] = useState<string | null>(null); // Not currently used
+
+  // Calculate analytics from purchase orders
+  const analytics = React.useMemo(() => {
+    const total = purchaseOrders.length;
+    const pending = purchaseOrders.filter(po => po.status === 'PENDING' || po.status === 'pending').length;
+    const confirmed = purchaseOrders.filter(po => po.status === 'CONFIRMED' || po.status === 'confirmed').length;
+    const rejected = purchaseOrders.filter(po => po.status === 'REJECTED' || po.status === 'rejected').length;
+    const urgent = purchaseOrders.filter(po => {
+      if (!po.delivery_date) return false;
+      const deliveryDate = new Date(po.delivery_date);
+      const today = new Date();
+      const daysUntilDelivery = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntilDelivery <= 7 && daysUntilDelivery >= 0; // Within 7 days
+    }).length;
+
+    return [
+      {
+        name: 'Total Orders',
+        value: total.toString(),
+        change: '+12%',
+        changeType: 'increase' as const,
+        icon: DocumentTextIcon,
+      },
+      {
+        name: 'Pending Review',
+        value: pending.toString(),
+        change: pending > 0 ? `${Math.round((pending / total) * 100)}%` : '0%',
+        changeType: pending > total * 0.3 ? 'increase' as const : 'neutral' as const,
+        icon: ClockIcon,
+      },
+      {
+        name: 'Confirmed',
+        value: confirmed.toString(),
+        change: confirmed > 0 ? `${Math.round((confirmed / total) * 100)}%` : '0%',
+        changeType: 'increase' as const,
+        icon: CheckCircleIcon,
+      },
+      {
+        name: 'Urgent (≤7 days)',
+        value: urgent.toString(),
+        change: urgent > 0 ? `${Math.round((urgent / total) * 100)}%` : '0%',
+        changeType: urgent > 0 ? 'increase' as const : 'neutral' as const,
+        icon: ExclamationTriangleIcon,
+      },
+    ];
+  }, [purchaseOrders]);
 
   const loadIncomingPOs = useCallback(async () => {
     try {
@@ -112,6 +166,37 @@ const IncomingPurchaseOrdersPage: React.FC = () => {
           Refresh
               </Button>
             </div>
+
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {analytics.map((stat) => (
+          <AnalyticsCard
+            key={stat.name}
+            name={stat.name}
+            value={stat.value}
+            change={stat.change}
+            changeType={stat.changeType}
+            icon={stat.icon}
+          />
+        ))}
+      </div>
+
+      {/* Urgent Orders Alert */}
+      {analytics.find(stat => stat.name === 'Urgent (≤7 days)')?.value !== '0' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 mr-2" />
+            <div>
+              <h3 className="text-sm font-medium text-amber-800">
+                {analytics.find(stat => stat.name === 'Urgent (≤7 days)')?.value} Urgent Order{analytics.find(stat => stat.name === 'Urgent (≤7 days)')?.value !== '1' ? 's' : ''} Require{analytics.find(stat => stat.name === 'Urgent (≤7 days)')?.value === '1' ? 's' : ''} Immediate Attention
+              </h3>
+              <p className="text-sm text-amber-700 mt-1">
+                These orders have delivery dates within 7 days and need your review.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader
