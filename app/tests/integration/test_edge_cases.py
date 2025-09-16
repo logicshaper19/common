@@ -23,48 +23,26 @@ from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
 from app.core.security import hash_password, create_access_token
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_edge_cases.db"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-
-def override_get_db():
-    """Override database dependency for testing."""
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
+# Use PostgreSQL test configuration from conftest.py
+# No need for custom database setup
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def clean_db():
+def clean_db(db_session):
     """Clean database before each test."""
-    db = TestingSessionLocal()
-    try:
-        db.query(PurchaseOrder).delete()
-        db.query(Product).delete()
-        db.query(Company).delete()
-        db.query(User).delete()
-        db.commit()
-    finally:
-        db.close()
+    db_session.query(PurchaseOrder).delete()
+    db_session.query(Product).delete()
+    db_session.query(Company).delete()
+    db_session.query(User).delete()
+    db_session.commit()
 
 
-def get_auth_headers(email: str):
-    """Get authentication headers for a user."""
+@pytest.fixture
+def auth_headers(db_session):
+    """Get authentication headers for a test user."""
+    email = f"test_{uuid4()}@example.com"
+    
     # Create user
     user = User(
         id=uuid4(),
@@ -72,7 +50,7 @@ def get_auth_headers(email: str):
         hashed_password=hash_password("testpassword"),
         full_name="Test User",
         is_active=True,
-        is_admin=False
+        role="user"
     )
     
     # Create company
@@ -84,24 +62,20 @@ def get_auth_headers(email: str):
     )
     user.company_id = company.id
     
-    db = TestingSessionLocal()
-    try:
-        db.add(company)
-        db.add(user)
-        db.commit()
-        
-        token = create_access_token(data={"sub": str(user.id)})
-        return {"Authorization": f"Bearer {token}"}
-    finally:
-        db.close()
+    db_session.add(company)
+    db_session.add(user)
+    db_session.commit()
+    
+    token = create_access_token(data={"sub": str(user.id)})
+    return {"Authorization": f"Bearer {token}"}
 
 
 class TestBoundaryConditions:
     """Test boundary conditions and edge cases."""
     
-    def test_maximum_string_lengths(self, test_users):
+    def test_maximum_string_lengths(self, auth_headers):
         """Test maximum string length handling."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test very long company name
         long_name = "A" * 1000
@@ -115,9 +89,9 @@ class TestBoundaryConditions:
         # Should either accept or reject with appropriate error
         assert response.status_code in [200, 201, 400, 422]
     
-    def test_minimum_required_fields(self, test_users):
+    def test_minimum_required_fields(self, auth_headers):
         """Test minimum required field validation."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test with empty required fields
         empty_data = {}
@@ -133,9 +107,9 @@ class TestBoundaryConditions:
         response = client.post("/api/v1/companies", json=none_data, headers=headers)
         assert response.status_code == 422
     
-    def test_numeric_boundaries(self, test_users):
+    def test_numeric_boundaries(self, auth_headers):
         """Test numeric boundary conditions."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test very large numbers
         large_quantity = 999999999999
@@ -157,9 +131,9 @@ class TestBoundaryConditions:
         response = client.post("/api/v1/purchase-orders", json=po_data, headers=headers)
         assert response.status_code in [200, 201, 400, 422]
     
-    def test_date_boundaries(self, test_users):
+    def test_date_boundaries(self, auth_headers):
         """Test date boundary conditions."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test very old date
         old_date = (date.today() - timedelta(days=36500)).isoformat()  # 100 years ago
@@ -180,9 +154,9 @@ class TestBoundaryConditions:
         response = client.post("/api/v1/purchase-orders", json=po_data, headers=headers)
         assert response.status_code in [200, 201, 400, 422]
     
-    def test_unicode_handling(self, test_users):
+    def test_unicode_handling(self, auth_headers):
         """Test Unicode character handling."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test various Unicode characters
         unicode_strings = [
@@ -210,11 +184,11 @@ class TestBoundaryConditions:
 class TestConcurrencyEdgeCases:
     """Test concurrency-related edge cases."""
     
-    def test_race_condition_creation(self, test_users):
+    def test_race_condition_creation(self, auth_headers):
         """Test race conditions in resource creation."""
         import threading
         
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         results = []
         
         def create_company():
@@ -236,12 +210,12 @@ class TestConcurrencyEdgeCases:
         # At least one should succeed, others might fail due to constraints
         assert any(status == 201 for status in results)
     
-    def test_concurrent_updates(self, test_users):
+    def test_concurrent_updates(self, auth_headers):
         """Test concurrent updates to the same resource."""
         import threading
         
         # Create a company first
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         company_data = {
             "name": "Concurrent Update Company",
             "company_type": "brand",
@@ -271,11 +245,11 @@ class TestConcurrencyEdgeCases:
         # All updates should succeed or fail gracefully
         assert all(status in [200, 400, 409, 422] for status in results)
     
-    def test_deadlock_prevention(self, test_users):
+    def test_deadlock_prevention(self, auth_headers):
         """Test deadlock prevention in database operations."""
         import threading
         
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         results = []
         
         def create_resource(resource_type, delay=0):
@@ -319,9 +293,9 @@ class TestConcurrencyEdgeCases:
 class TestErrorRecovery:
     """Test error recovery and resilience."""
     
-    def test_database_connection_loss(self, test_users):
+    def test_database_connection_loss(self, auth_headers):
         """Test behavior when database connection is lost."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Mock database connection failure
         with patch('app.core.database.get_db') as mock_get_db:
@@ -330,9 +304,9 @@ class TestErrorRecovery:
             response = client.get("/api/v1/companies", headers=headers)
             assert response.status_code == 500
     
-    def test_memory_pressure(self, test_users):
+    def test_memory_pressure(self, auth_headers):
         """Test behavior under memory pressure."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Create many large resources
         large_data = {
@@ -355,9 +329,9 @@ class TestErrorRecovery:
         # Should handle memory pressure gracefully
         assert all(status in [200, 201, 400, 422, 500] for status in responses)
     
-    def test_network_timeout_simulation(self, test_users):
+    def test_network_timeout_simulation(self, auth_headers):
         """Test behavior with simulated network timeouts."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Mock slow database operation
         with patch('app.core.database.get_db') as mock_get_db:
@@ -375,9 +349,9 @@ class TestErrorRecovery:
 class TestDataIntegrity:
     """Test data integrity and consistency."""
     
-    def test_orphaned_records_prevention(self, test_users):
+    def test_orphaned_records_prevention(self, auth_headers):
         """Test prevention of orphaned records."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Create company
         company_data = {
@@ -405,9 +379,9 @@ class TestDataIntegrity:
         # Should either succeed (with cascade) or fail (with constraint)
         assert delete_response.status_code in [200, 400, 409, 422]
     
-    def test_circular_references(self, test_users):
+    def test_circular_references(self, auth_headers):
         """Test prevention of circular references."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Create parent PO
         parent_po_data = {
@@ -450,9 +424,9 @@ class TestDataIntegrity:
         # Should prevent circular reference
         assert response.status_code in [400, 409, 422]
     
-    def test_data_consistency_after_failure(self, test_users):
+    def test_data_consistency_after_failure(self, auth_headers):
         """Test data consistency after partial failures."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Mock partial database failure
         with patch('app.core.database.get_db') as mock_get_db:
@@ -492,9 +466,9 @@ class TestDataIntegrity:
 class TestPerformanceEdgeCases:
     """Test performance-related edge cases."""
     
-    def test_large_dataset_handling(self, test_users):
+    def test_large_dataset_handling(self, auth_headers):
         """Test handling of large datasets."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Create many companies
         companies = []
@@ -516,9 +490,9 @@ class TestPerformanceEdgeCases:
         assert response.status_code == 200
         assert (end_time - start_time) < 5.0  # Should complete within 5 seconds
     
-    def test_deep_nesting_limits(self, test_users):
+    def test_deep_nesting_limits(self, auth_headers):
         """Test limits on deep nesting."""
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         
         # Test very deep JSON nesting
         deep_data = {"level": 0}
@@ -540,11 +514,11 @@ class TestPerformanceEdgeCases:
         # Should either accept or reject with appropriate error
         assert response.status_code in [200, 201, 400, 413, 422]
     
-    def test_concurrent_large_operations(self, test_users):
+    def test_concurrent_large_operations(self, auth_headers):
         """Test concurrent large operations."""
         import threading
         
-        headers = get_auth_headers("brand@test.com")
+        headers = auth_headers
         results = []
         
         def create_large_dataset(thread_id):

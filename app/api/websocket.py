@@ -71,19 +71,29 @@ async def websocket_dashboard(websocket: WebSocket, token: Optional[str] = Query
     company_id = None
 
     try:
+        # Accept the connection first
+        await websocket.accept()
+        logger.info("WebSocket connection accepted")
+        
         user_id, company_id = await get_websocket_user(websocket, token)
         logger.info("WebSocket dashboard connection attempt", user_id=user_id, company_id=company_id, has_token=bool(token))
 
-        # Accept connection even if authentication fails (for anonymous usage)
+        # Connect to manager
         await manager.connect(websocket, user_id, company_id)
+        
         # Send welcome message
-        await manager.send_json_message({
-            "type": "connection_established",
-            "message": "Connected to dashboard updates",
-            "user_id": user_id,
-            "company_id": company_id,
-            "authenticated": bool(user_id)
-        }, websocket)
+        try:
+            await manager.send_json_message({
+                "type": "connection_established",
+                "message": "Connected to dashboard updates",
+                "user_id": user_id,
+                "company_id": company_id,
+                "authenticated": bool(user_id)
+            }, websocket)
+        except Exception as e:
+            logger.error("Failed to send welcome message", error=str(e))
+            # If we can't send the welcome message, the connection is likely closed
+            return
 
         logger.info("WebSocket dashboard connected successfully", user_id=user_id, company_id=company_id)
         
