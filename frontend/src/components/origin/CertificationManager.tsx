@@ -13,7 +13,9 @@ import {
   PlusIcon,
   PencilIcon,
   EyeIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ChartBarIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import DataTable, { DataTableColumn } from '../ui/DataTable';
@@ -24,6 +26,7 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import AnalyticsCard from '../ui/AnalyticsCard';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDate } from '../../lib/utils';
 
@@ -65,6 +68,52 @@ const CertificationManager: React.FC<CertificationManagerProps> = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
+
+  // Calculate analytics from certifications data
+  const analytics = React.useMemo(() => {
+    const total = certifications.length;
+    const active = certifications.filter(cert => cert.status === 'active').length;
+    const expiring = certifications.filter(cert => {
+      if (cert.status !== 'active' || !cert.expiry_date) return false;
+      const expiryDate = new Date(cert.expiry_date);
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      return expiryDate <= thirtyDaysFromNow;
+    }).length;
+    const expired = certifications.filter(cert => cert.status === 'expired').length;
+    const totalCoverage = certifications.reduce((sum, cert) => sum + (cert.coverage_percentage || 0), 0);
+
+    return [
+      {
+        name: 'Total Certifications',
+        value: total.toString(),
+        change: '+3%',
+        changeType: 'increase' as const,
+        icon: ShieldCheckIcon,
+      },
+      {
+        name: 'Active Certifications',
+        value: active.toString(),
+        change: active > 0 ? `${Math.round((active / total) * 100)}%` : '0%',
+        changeType: 'increase' as const,
+        icon: CheckCircleIcon,
+      },
+      {
+        name: 'Expiring Soon',
+        value: expiring.toString(),
+        change: expiring > 0 ? `${Math.round((expiring / total) * 100)}%` : '0%',
+        changeType: expiring > 0 ? 'increase' as const : 'neutral' as const,
+        icon: ClockIcon,
+      },
+      {
+        name: 'Total Coverage',
+        value: `${Math.round(totalCoverage)}%`,
+        change: '+5%',
+        changeType: 'increase' as const,
+        icon: ChartBarIcon,
+      },
+    ];
+  }, [certifications]);
 
   // Form state
   const [formData, setFormData] = useState<Partial<Certification>>({
@@ -488,6 +537,20 @@ const CertificationManager: React.FC<CertificationManagerProps> = ({
         >
           Add Certification
         </Button>
+      </div>
+
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        {analytics.map((stat) => (
+          <AnalyticsCard
+            key={stat.name}
+            name={stat.name}
+            value={stat.value}
+            change={stat.change}
+            changeType={stat.changeType}
+            icon={stat.icon}
+          />
+        ))}
       </div>
 
       {/* Alerts for expiring certifications */}

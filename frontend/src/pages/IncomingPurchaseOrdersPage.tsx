@@ -10,7 +10,6 @@ import {
   DocumentTextIcon, 
   ClockIcon, 
   CheckCircleIcon, 
-  XCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
@@ -25,7 +24,7 @@ const IncomingPurchaseOrdersPage: React.FC = () => {
     const total = purchaseOrders.length;
     const pending = purchaseOrders.filter(po => po.status === 'PENDING' || po.status === 'pending').length;
     const confirmed = purchaseOrders.filter(po => po.status === 'CONFIRMED' || po.status === 'confirmed').length;
-    const rejected = purchaseOrders.filter(po => po.status === 'REJECTED' || po.status === 'rejected').length;
+    // const rejected = purchaseOrders.filter(po => po.status === 'REJECTED' || po.status === 'rejected').length;
     const urgent = purchaseOrders.filter(po => {
       if (!po.delivery_date) return false;
       const deliveryDate = new Date(po.delivery_date);
