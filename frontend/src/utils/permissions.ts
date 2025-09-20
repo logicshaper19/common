@@ -33,6 +33,7 @@ export interface DashboardConfig {
 // Company Types
 export const CompanyType = {
   BRAND: 'brand',
+  MANUFACTURER: 'manufacturer',  // Manufacturer is equivalent to brand for permissions
   PROCESSOR: 'processor',
   ORIGINATOR: 'originator',
   TRADER: 'trader',
@@ -96,7 +97,7 @@ export const canCreatePO = (user: User): boolean => {
   ];
   
   return (
-    (user.company.company_type === CompanyType.BRAND && brandRoles.includes(user.role as any)) ||
+    ((user.company.company_type === CompanyType.BRAND || user.company.company_type === CompanyType.MANUFACTURER) && brandRoles.includes(user.role as any)) ||
     (user.company.company_type === CompanyType.TRADER && traderRoles.includes(user.role as any)) ||
     (user.company.company_type === CompanyType.PROCESSOR && processorRoles.includes(user.role as any))
   );

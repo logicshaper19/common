@@ -25,7 +25,7 @@ class TestJsonbModel(TestBase):
 def test_postgresql_jsonb_basic():
     """Test basic JSONB functionality with PostgreSQL."""
     # Connect to PostgreSQL
-    engine = create_engine("postgresql://postgres:test@localhost:5433/common_test")
+    engine = create_engine("postgresql://elisha@localhost:5432/common_test")
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     
     # Create tables

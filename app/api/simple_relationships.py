@@ -22,6 +22,8 @@ from app.core.simple_relationships import (
 from app.schemas.simple_relationships import (
     RelationshipCheckResponse,
     RelationshipSummaryResponse,
+    SupplierInfo,
+    BuyerInfo,
     SupplierListResponse,
     BuyerListResponse,
     PartnerListResponse,

@@ -12,9 +12,8 @@ from datetime import datetime, timedelta
 from app.main import app
 from app.models.user import User
 from app.models.company import Company
-from app.models.business_relationship import BusinessRelationship
 from app.core.database import get_db
-from app.tests.fixtures.factories import UserFactory, CompanyFactory, BusinessRelationshipFactory
+from app.tests.fixtures.factories import UserFactory, CompanyFactoryFactory
 from app.core.auth import get_password_hash, create_access_token
 
 

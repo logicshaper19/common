@@ -441,3 +441,4 @@ CREATE INDEX IF NOT EXISTS idx_transformation_cost_rates_type ON transformation_
 CREATE INDEX IF NOT EXISTS idx_transformation_cost_rates_active ON transformation_cost_rates(is_active);
 
 
+

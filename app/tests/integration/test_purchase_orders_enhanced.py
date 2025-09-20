@@ -12,7 +12,6 @@ from app.models.user import User
 from app.models.company import Company
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
-from app.models.business_relationship import BusinessRelationship
 from app.schemas.purchase_order import PurchaseOrderStatus, PurchaseOrderCreate
 from app.core.security import hash_password
 
@@ -288,8 +287,7 @@ def test_purchase_order_creation_with_business_rules(
     
     # Validate business relationship exists
     relationship = db_session.query(BusinessRelationship).filter(
-        BusinessRelationship.buyer_company_id == companies["brand"].id,
-        BusinessRelationship.seller_company_id == companies["processor"].id
+        BusinessRelationship.buyer_company_id == companies["brand"].id.seller_company_id == companies["processor"].id
     ).first()
     assert relationship is not None
     assert relationship.status == "active"

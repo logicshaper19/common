@@ -48,3 +48,4 @@ def setup_test_database():
             table.create(engine, checkfirst=True)
     
     return engine
+
