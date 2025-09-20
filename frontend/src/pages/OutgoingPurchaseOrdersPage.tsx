@@ -122,8 +122,8 @@ export const OutgoingPurchaseOrdersPage: React.FC<OutgoingPurchaseOrdersPageProp
     try {
       // Load outgoing POs (where current user's company is the buyer)
       const response = await purchaseOrderApi.getPurchaseOrders({
-        buyer_company_id: user?.company?.id,
-        status: 'confirmed'
+        buyer_company_id: user?.company?.id
+        // Remove status filter to show all outgoing POs (draft, confirmed, etc.)
       });
       setPurchaseOrders(response.purchase_orders || []);
     } catch (err: any) {

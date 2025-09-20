@@ -24,8 +24,7 @@ from app.core.security import create_access_token
 SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost:5432/test_farm_api"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    pool_pre_ping=True,
-)
+    pool_pre_ping=True)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Create tables

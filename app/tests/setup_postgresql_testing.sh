@@ -41,3 +41,4 @@ else
     echo "❌ Failed to start PostgreSQL container"
     exit 1
 fi
+

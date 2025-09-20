@@ -15,15 +15,13 @@ from app.models.company import Company
 from app.models.user import User
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
-from app.models.business_relationship import BusinessRelationship
 from app.schemas.purchase_order import PurchaseOrderCreate, PurchaseOrderConfirmation
 
 # Create test database
 SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost:5432/test_po_chaining"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    pool_pre_ping=True,
-)
+    pool_pre_ping=True)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Create tables

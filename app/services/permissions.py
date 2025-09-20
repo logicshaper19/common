@@ -206,9 +206,27 @@ class PermissionService:
         Get dashboard configuration based on user's role and company type
         Returns which sections/features the user should see
         """
+        # Determine PO permissions based on company type
+        company_type = user.company.company_type
+        
+        # BRAND: Only outgoing POs (they buy from suppliers)
+        if company_type in ["brand", "manufacturer"]:
+            can_create_po = self.can_user_create_po(user)
+            can_confirm_po = False  # Brands don't receive POs
+        # ALL OTHER ROLES: Both incoming and outgoing POs
+        else:
+            can_create_po = self.can_user_create_po(user)
+            can_confirm_po = self.can_user_confirm_po(user)
+        
+        # Override for admin users - they should have full permissions for their company type
+        if user.role == "admin":
+            # Admin users get full permissions based on their company type
+            if company_type not in ["brand", "manufacturer"]:
+                can_confirm_po = True  # Non-brand admins can confirm POs
+        
         config = {
-            "can_create_po": self.can_user_create_po(user),
-            "can_confirm_po": self.can_user_confirm_po(user),
+            "can_create_po": can_create_po,
+            "can_confirm_po": can_confirm_po,
             "can_manage_team": self.can_user_invite_team_members(user),
             "can_view_analytics": True,  # Most users can view analytics
             "can_manage_settings": user.role == UserRole.ADMIN,

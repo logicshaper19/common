@@ -19,7 +19,6 @@ from app.models.user import User
 from app.models.company import Company
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
-from app.models.business_relationship import BusinessRelationship
 from app.models.batch import Batch
 from app.models.sector import Sector, SectorTier
 from app.core.security import hash_password, create_access_token
@@ -29,8 +28,7 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./test_integration.db"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+    poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Create tables
@@ -207,8 +205,7 @@ def complete_supply_chain():
             seller_company_id=companies["refinery"].id,
             relationship_type="supplier",
             status="active"
-        ),
-        BusinessRelationship(
+        )(
             id=uuid4(),
             buyer_company_id=companies["refinery"].id,
             seller_company_id=companies["mill"].id,
@@ -659,7 +656,7 @@ class TestErrorHandlingAndRecovery:
         # Start concurrent updates
         threads = []
         for i in range(3):
-            thread = threading.Thread(target=update_po, args=(1000 + i * 100,))
+            thread = threading.Thread(target=update_po, args=(1000 + i * 100))
             threads.append(thread)
             thread.start()
         

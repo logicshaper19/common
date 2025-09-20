@@ -20,7 +20,7 @@ from app.core.config import settings
 from app.core.security import create_access_token
 
 # PostgreSQL test database configuration
-POSTGRES_TEST_DATABASE_URL = "postgresql://postgres:test@localhost:5433/common_test"
+POSTGRES_TEST_DATABASE_URL = "postgresql://elisha@localhost:5432/common_test"
 
 @pytest.fixture(scope="session")
 def test_engine():
@@ -110,3 +110,4 @@ pytestmark = [
     pytest.mark.unit,
     pytest.mark.postgresql
 ]
+

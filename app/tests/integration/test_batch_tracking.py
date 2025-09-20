@@ -16,7 +16,6 @@ from app.models.user import User
 from app.models.product import Product
 from app.models.batch import Batch, BatchTransaction, BatchRelationship
 from app.models.purchase_order import PurchaseOrder
-from app.models.business_relationship import BusinessRelationship
 from app.schemas.batch import (
     BatchCreate,
     BatchUpdate,
@@ -35,8 +34,7 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./test_batch_tracking.db"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+    poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Create tables

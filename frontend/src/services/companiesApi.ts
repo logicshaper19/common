@@ -35,8 +35,8 @@ export const companiesApi = {
   getBusinessPartners: async (): Promise<Company[]> => {
     try {
       console.log('🏢 Fetching business partners...');
-      // Try to get suppliers from business relationships
-      const response = await apiClient.get('/business-relationships/suppliers');
+      // Try to get suppliers from simple relationships
+      const response = await apiClient.get('/simple/relationships/suppliers');
       console.log('🏢 Raw response:', response);
       
       // Transform the supplier response to company format
@@ -46,13 +46,13 @@ export const companiesApi = {
       const companies = suppliers.map((supplier: any) => ({
         id: supplier.company_id,
         name: supplier.company_name,
-        email: supplier.company_email || '',
+        email: supplier.email || '',
         company_type: supplier.company_type || 'unknown',
-        address: supplier.address || '',
-        industry_sector: supplier.industry_sector || '',
-        industry_subcategory: supplier.industry_subcategory || '',
-        created_at: supplier.created_at || '',
-        updated_at: supplier.updated_at || ''
+        address: '',
+        industry_sector: '',
+        industry_subcategory: '',
+        created_at: supplier.first_transaction_date || '',
+        updated_at: supplier.last_transaction_date || supplier.first_transaction_date || ''
       }));
       
       console.log('🏢 Transformed companies:', companies);
@@ -62,7 +62,7 @@ export const companiesApi = {
         console.log('⚠️ No business relationships found, falling back to all companies...');
         try {
           const fallbackResponse = await apiClient.get('/companies');
-          const allCompanies = fallbackResponse.data.companies || [];
+          const allCompanies = fallbackResponse.data.data || [];
           console.log('🏢 Fallback companies:', allCompanies.length);
           return allCompanies;
         } catch (fallbackError) {

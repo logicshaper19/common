@@ -285,8 +285,13 @@ export const purchaseOrderApi = {
 
   // Simple confirmation API function
   confirmPurchaseOrder: async (id: string, confirmation: PurchaseOrderConfirmation): Promise<ConfirmationResponse> => {
-    // TODO: Implement in simplified API
-    throw new Error('Buyer confirmation not yet available in simplified API');
+    const response = await apiClient.put(`/simple/purchase-orders/${id}/confirm`, {});
+    return {
+      success: true,
+      message: "Purchase order confirmed successfully",
+      purchase_order_id: id,
+      status: "confirmed"
+    };
   },
 
   // New acceptance and editing API functions

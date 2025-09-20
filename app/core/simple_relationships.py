@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 
 from app.models.purchase_order import PurchaseOrder
+from app.models.company import Company
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -169,22 +170,38 @@ def get_company_suppliers(db: Session, company_id: UUID) -> List[Dict[str, Any]]
         List of supplier information
     """
     try:
-        # Get suppliers (companies that sold to this company)
+        # Get suppliers (companies that sold to this company) with company details
         suppliers = db.query(
             PurchaseOrder.seller_company_id,
+            Company.name.label('company_name'),
+            Company.company_type.label('company_type'),
+            Company.email.label('email'),
             func.count(PurchaseOrder.id).label('transaction_count'),
-            func.max(PurchaseOrder.created_at).label('last_transaction')
+            func.min(PurchaseOrder.created_at).label('first_transaction'),
+            func.max(PurchaseOrder.created_at).label('last_transaction'),
+            func.sum(PurchaseOrder.total_amount).label('total_value')
+        ).join(
+            Company, PurchaseOrder.seller_company_id == Company.id
         ).filter(
             PurchaseOrder.buyer_company_id == company_id
         ).group_by(
-            PurchaseOrder.seller_company_id
+            PurchaseOrder.seller_company_id,
+            Company.name,
+            Company.company_type,
+            Company.email
         ).all()
         
         return [
             {
                 "company_id": supplier.seller_company_id,
+                "company_name": supplier.company_name,
+                "company_type": supplier.company_type,
+                "email": supplier.email,
                 "transaction_count": supplier.transaction_count,
-                "last_transaction": supplier.last_transaction.isoformat() if supplier.last_transaction else None
+                "first_transaction_date": supplier.first_transaction,
+                "last_transaction_date": supplier.last_transaction,
+                "total_purchase_orders": supplier.transaction_count,
+                "total_value": float(supplier.total_value) if supplier.total_value else None
             }
             for supplier in suppliers
         ]
@@ -206,22 +223,38 @@ def get_company_buyers(db: Session, company_id: UUID) -> List[Dict[str, Any]]:
         List of buyer information
     """
     try:
-        # Get buyers (companies that bought from this company)
+        # Get buyers (companies that bought from this company) with company details
         buyers = db.query(
             PurchaseOrder.buyer_company_id,
+            Company.name.label('company_name'),
+            Company.company_type.label('company_type'),
+            Company.email.label('email'),
             func.count(PurchaseOrder.id).label('transaction_count'),
-            func.max(PurchaseOrder.created_at).label('last_transaction')
+            func.min(PurchaseOrder.created_at).label('first_transaction'),
+            func.max(PurchaseOrder.created_at).label('last_transaction'),
+            func.sum(PurchaseOrder.total_amount).label('total_value')
+        ).join(
+            Company, PurchaseOrder.buyer_company_id == Company.id
         ).filter(
             PurchaseOrder.seller_company_id == company_id
         ).group_by(
-            PurchaseOrder.buyer_company_id
+            PurchaseOrder.buyer_company_id,
+            Company.name,
+            Company.company_type,
+            Company.email
         ).all()
         
         return [
             {
                 "company_id": buyer.buyer_company_id,
+                "company_name": buyer.company_name,
+                "company_type": buyer.company_type,
+                "email": buyer.email,
                 "transaction_count": buyer.transaction_count,
-                "last_transaction": buyer.last_transaction.isoformat() if buyer.last_transaction else None
+                "first_transaction_date": buyer.first_transaction,
+                "last_transaction_date": buyer.last_transaction,
+                "total_purchase_orders": buyer.transaction_count,
+                "total_value": float(buyer.total_value) if buyer.total_value else None
             }
             for buyer in buyers
         ]

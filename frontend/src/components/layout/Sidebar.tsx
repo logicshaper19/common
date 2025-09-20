@@ -28,6 +28,7 @@ import { cn } from '../../lib/utils';
 import Button from '../ui/Button';
 import { shouldShowNavigationItem, getDashboardConfig } from '../../utils/permissions';
 import { usePurchaseOrderCount } from '../../hooks/usePurchaseOrderCount';
+import { useDashboardConfig } from '../../hooks/useDashboardConfig';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -45,10 +46,12 @@ interface NavigationItem {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const { pendingCount } = usePurchaseOrderCount();
+  const { config: backendConfig } = useDashboardConfig();
   
   if (!user) return null;
   
-  const dashboardConfig = getDashboardConfig(user);
+  // Use backend config if available, otherwise fallback to local permissions
+  const dashboardConfig = backendConfig || getDashboardConfig(user);
 
   // Navigation items with permission-based visibility
   const navigation: NavigationItem[] = [
@@ -57,26 +60,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       href: '/dashboard',
       icon: HomeIcon,
     },
-    // Incoming Purchase Orders - visible to users who can create or confirm POs
-    ...(dashboardConfig.can_create_po || dashboardConfig.can_confirm_po ? [{
+    // Incoming Purchase Orders - only for users who can confirm POs (sellers)
+    ...(dashboardConfig.can_confirm_po ? [{
       name: 'Incoming Purchase Orders',
       href: '/purchase-orders',
       icon: DocumentTextIcon,
       badge: pendingCount > 0 ? pendingCount : undefined, // Show count only if there are pending orders
     }] : []),
-    // Outgoing Purchase Orders - visible to users who can create or confirm POs
-    ...(dashboardConfig.can_create_po || dashboardConfig.can_confirm_po ? [{
+    // Outgoing Purchase Orders - only for users who can create POs (buyers)
+    ...(dashboardConfig.can_create_po ? [{
       name: 'Outgoing Purchase Orders',
       href: '/purchase-orders/outgoing',
       icon: ArrowRightIcon,
     }] : []),
-    // Products - only for brands and processors (not originators)
+    // Products - only for brands, manufacturers and processors (not originators)
     ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
       name: 'Products',
       href: '/products',
       icon: CubeIcon,
     }] : []),
-    // Inventory - only for processors and brands (not originators)
+    // Inventory - only for processors, brands and manufacturers (not originators)
     ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
       name: 'Inventory',
       href: '/inventory',

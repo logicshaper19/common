@@ -19,7 +19,7 @@ from app.core.database import get_db, Base
 from app.core.config import settings
 
 # PostgreSQL test database URL
-POSTGRESQL_DATABASE_URL = "postgresql://postgres:test@localhost:5433/common_test"
+POSTGRESQL_DATABASE_URL = "postgresql://elisha@localhost:5432/common_test"
 
 # Create PostgreSQL engine
 engine = create_engine(

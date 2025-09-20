@@ -236,7 +236,7 @@ class TestConcurrencyEdgeCases:
             results.append(response.status_code)
         
         # Update the same resource concurrently
-        threads = [threading.Thread(target=update_company, args=(i,)) for i in range(3)]
+        threads = [threading.Thread(target=update_company, args=(i)) for i in range(3)]
         for thread in threads:
             thread.start()
         for thread in threads:
@@ -534,7 +534,7 @@ class TestPerformanceEdgeCases:
             results.extend(thread_results)
         
         # Run multiple threads creating large datasets
-        threads = [threading.Thread(target=create_large_dataset, args=(i,)) for i in range(5)]
+        threads = [threading.Thread(target=create_large_dataset, args=(i)) for i in range(5)]
         for thread in threads:
             thread.start()
         for thread in threads:

@@ -21,7 +21,6 @@ from app.models.viral_analytics import (
 )
 from app.models.user import User
 from app.models.company import Company
-from app.models.business_relationship import BusinessRelationship
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
 from app.models.batch import Batch
@@ -31,8 +30,7 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./test_viral_analytics.db"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+    poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Create tables
