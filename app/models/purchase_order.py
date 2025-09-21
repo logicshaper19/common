@@ -44,7 +44,10 @@ class PurchaseOrder(Base):
     
     # Commercial Chaining (NEW)
     parent_po_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=True)  # Links to parent PO
-    supply_chain_level = Column(Integer, default=1)  # 1=Brand, 2=Trader, 3=Processor, 4=Originator
+    supply_chain_level = Column(Integer, default=1)
+    
+    # Unified PO Model - Batch Integration
+    batch_id = Column(UUID(as_uuid=True), ForeignKey("batches.id"), nullable=True)  # Batch created on PO confirmation  # 1=Brand, 2=Trader, 3=Processor, 4=Originator
     is_chain_initiated = Column(Boolean, default=False)  # TRUE if this PO initiated a new chain
     fulfillment_status = Column(String(20), default='pending')  # 'pending', 'partial', 'fulfilled'
     fulfillment_percentage = Column(Integer, default=0)  # 0-100 percentage fulfilled
@@ -111,6 +114,7 @@ class PurchaseOrder(Base):
     seller_company = relationship("Company", foreign_keys=[seller_company_id], back_populates="purchase_orders_as_seller")
     product = relationship("Product")
     amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
+    batch = relationship("Batch", foreign_keys=[batch_id])  # Batch created on PO confirmation
     # confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])  # TODO: Add when column exists
     
     # Commercial Chaining Relationships

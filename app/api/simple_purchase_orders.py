@@ -385,7 +385,9 @@ def confirm_purchase_order(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user_sync)
 ):
-    """Confirm a purchase order (seller action)."""
+    """Confirm a purchase order (seller action) with automatic batch creation."""
+    from app.services.po_batch_integration import POBatchIntegrationService
+    
     try:
         po_id = UUID(purchase_order_id)
         po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
@@ -410,7 +412,36 @@ def confirm_purchase_order(
         # Log audit event
         log_po_confirmed(db, po.id, current_user.id, current_user.company_id)
         
-        return {"message": "Purchase order confirmed successfully"}
+        # NEW: Create batch automatically after PO confirmation
+        integration_service = POBatchIntegrationService(db)
+        created_batch = integration_service.create_batch_from_po_confirmation(
+            po_id=po_id,
+            confirming_user_id=current_user.id
+        )
+        
+        response_data = {
+            "message": "Purchase order confirmed successfully",
+            "batch_created": created_batch is not None
+        }
+        
+        if created_batch:
+            response_data["batch_id"] = str(created_batch.id)
+            response_data["batch_name"] = created_batch.batch_id
+            
+            # Check if transformation should be triggered
+            if integration_service.should_trigger_transformation(po.buyer_company_id):
+                transformation_suggestion = integration_service.create_transformation_suggestion(
+                    po_id=po_id,
+                    batch_id=created_batch.id,
+                    company_id=po.buyer_company_id,
+                    user_id=current_user.id
+                )
+                
+                if transformation_suggestion:
+                    response_data["transformation_suggestion"] = transformation_suggestion
+                    response_data["transformation_required"] = True
+        
+        return response_data
         
     except ValueError:
         raise HTTPException(
