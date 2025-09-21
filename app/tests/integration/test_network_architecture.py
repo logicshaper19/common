@@ -18,7 +18,7 @@ from app.models.purchase_order import PurchaseOrder
 from app.models.po_fulfillment_allocation import POFulfillmentAllocation
 from app.models.batch import Batch
 from app.models.po_batch_linkage import POBatchLinkage
-from app.schemas.purchase_order import PurchaseOrderCreate, PurchaseOrderConfirmationation
+from app.schemas.purchase_order import PurchaseOrderCreate, PurchaseOrderConfirmation
 
 # Create test database
 SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost:5432/test_network_architecture"

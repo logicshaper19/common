@@ -1,0 +1,26 @@
+{
+  "execution_time": {
+    "start": 1758459712.9198668,
+    "end": 1758459720.6727018,
+    "duration": 7.752835035324097
+  },
+  "summary": {
+    "total_tests": 0,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0
+  },
+  "categories": {
+    "unit": {
+      "category": "unit",
+      "total_tests": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "duration": 7.752753019332886,
+      "coverage": 85.0,
+      "performance_metrics": null
+    }
+  }
+}

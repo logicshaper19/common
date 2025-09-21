@@ -13,7 +13,7 @@ import time
 import random
 
 from app.core.logging import get_logger
-from ..exceptions import TransactionError, DataIntegrityError
+from .exceptions import TransactionError, DataIntegrityError
 
 logger = get_logger(__name__)
 

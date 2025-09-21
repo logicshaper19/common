@@ -6,11 +6,10 @@ from unittest.mock import Mock, patch, AsyncMock
 from uuid import uuid4
 from datetime import datetime, timedelta
 from decimal import Decimal
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
+from app.tests.database_config import create_integration_test_engine
 from app.services.transparency_jobs import (
     calculate_transparency_async,
     bulk_recalculate_transparency,
@@ -26,11 +25,8 @@ from app.models.product import Product
 from app.models.user import User
 
 # Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_transparency_jobs.db"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool)
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost:5432/test_transparency_jobs"
+engine = create_integration_test_engine(SQLALCHEMY_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Create tables

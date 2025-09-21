@@ -1,22 +1,21 @@
 """
-Test database configuration that works with SQLite.
+Test database configuration using PostgreSQL.
 """
 import os
-import tempfile
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Use SQLite for tests
-TEST_DATABASE_URL = f"sqlite:///{tempfile.mktemp(suffix='.db')}"
+# Use PostgreSQL for tests
+TEST_DATABASE_URL = "postgresql://postgres:password@localhost:5432/test_common_platform"
 
 def create_test_engine():
-    """Create a test engine that works with SQLite."""
+    """Create a test engine that works with PostgreSQL."""
     engine = create_engine(
         TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False},
         poolclass=StaticPool,
-        echo=False
+        echo=False,
+        pool_pre_ping=True
     )
     return engine
 

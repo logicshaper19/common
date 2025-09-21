@@ -15,7 +15,7 @@ from app.models.company import Company
 from app.models.user import User
 from app.models.product import Product
 from app.models.purchase_order import PurchaseOrder
-from app.schemas.purchase_order import PurchaseOrderCreate, PurchaseOrderConfirmationation
+from app.schemas.purchase_order import PurchaseOrderCreate, PurchaseOrderConfirmation
 
 # Create test database
 SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost:5432/test_fulfillment"
