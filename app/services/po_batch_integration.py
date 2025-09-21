@@ -23,6 +23,7 @@ from app.services.batch import BatchTrackingService
 from app.services.transformation import TransformationService
 from app.core.logging import get_logger
 from app.core.unified_po_config import get_config, format_batch_id, format_event_id, format_facility_id, get_transformation_type, is_processor_type
+from app.services.transformation_templates import TransformationTemplateEngine
 
 logger = get_logger(__name__)
 
@@ -35,6 +36,7 @@ class POBatchIntegrationService:
         self.batch_service = BatchTrackingService(db)
         self.transformation_service = TransformationService(db)
         self.config = get_config()
+        self.template_engine = TransformationTemplateEngine()
     
     def create_batch_from_po_confirmation(
         self,
@@ -141,7 +143,7 @@ class POBatchIntegrationService:
         user_id: UUID
     ) -> Optional[Dict[str, Any]]:
         """
-        Create a transformation suggestion for processors.
+        Create a comprehensive transformation suggestion with role-specific data.
         
         Args:
             po_id: ID of the confirmed PO
@@ -150,7 +152,7 @@ class POBatchIntegrationService:
             user_id: ID of the user
             
         Returns:
-            Transformation suggestion data or None
+            Comprehensive transformation suggestion with role-specific data
         """
         try:
             # Get company to determine transformation type
@@ -170,43 +172,183 @@ class POBatchIntegrationService:
             if not po or not batch:
                 return None
             
-            # Create transformation suggestion using configuration
+            # Prepare input batch data for template
+            input_batch_data = {
+                "batch_id": str(batch_id),
+                "quantity": float(batch.quantity),
+                "unit": batch.unit,
+                "product_name": batch.product.name,
+                "quality_grade": batch.quality_grade or "A"
+            }
+            
+            # Create comprehensive transformation template
+            template = self.template_engine.get_transformation_template(
+                transformation_type=transformation_type,
+                company_type=company.company_type,
+                input_batch_data=input_batch_data,
+                facility_id=format_facility_id(company.company_type)
+            )
+            
+            # Create event ID using configuration
             event_date = datetime.utcnow().strftime(self.config.DATE_FORMAT)
             event_id = format_event_id(
                 transformation_type.value.upper(),
                 event_date,
                 str(po_id)
             )
-            facility_id = format_facility_id(company.company_type)
             
+            # Create output batch suggestion
+            output_batch_suggestion = self.template_engine.create_output_batch_suggestion(
+                transformation_type=transformation_type,
+                input_batch_data=input_batch_data
+            )
+            
+            # Create actual output batch if suggestion is valid
+            output_batch_id = None
+            if output_batch_suggestion and output_batch_suggestion.get("batch_id"):
+                output_batch_id = self._create_output_batch_from_suggestion(
+                    output_batch_suggestion=output_batch_suggestion,
+                    company_id=company_id,
+                    user_id=user_id,
+                    po_id=po_id
+                )
+            
+            # Build comprehensive suggestion
             suggestion = {
+                # Basic transformation event data
                 "event_id": event_id,
                 "transformation_type": transformation_type,
                 "company_id": company_id,
-                "facility_id": facility_id,
+                "facility_id": template["facility_id"],
                 "input_batches": [BatchReference(
                     batch_id=str(batch_id),
                     quantity=float(batch.quantity),
                     unit=batch.unit
                 )],
-                "process_description": f"Process {batch.product.name} from {po.seller_company.name}",
-                "start_time": datetime.utcnow(),
+                "output_batches": [BatchReference(
+                    batch_id=str(output_batch_id) if output_batch_id else output_batch_suggestion["batch_id"],
+                    quantity=output_batch_suggestion["quantity"],
+                    unit=output_batch_suggestion["unit"]
+                )] if output_batch_suggestion else [],
+                "process_description": template["process_description"],
+                "start_time": template["start_time"],
                 "location_name": company.name,
+                "location_coordinates": template["location_coordinates"],
+                "weather_conditions": template["weather_conditions"],
+                
+                # Quality and process data
+                "quality_metrics": template["quality_metrics"],
+                "process_parameters": template["process_parameters"],
+                "efficiency_metrics": template["efficiency_metrics"],
+                
+                # Compliance and certifications
+                "certifications": template["certifications"],
+                "compliance_data": template["compliance_data"],
+                
+                # Status and metadata
+                "status": template["status"],
+                "validation_status": template["validation_status"],
                 "suggested": True,
-                "source_po_id": str(po_id)
+                "source_po_id": str(po_id),
+                
+                # Role-specific data (pre-filled templates)
+                "role_specific_data": self._extract_role_specific_data(template, transformation_type),
+                
+                # Output batch suggestion
+                "output_batch_suggestion": output_batch_suggestion,
+                
+                # Additional metadata
+                "event_metadata": {
+                    "created_from_po_confirmation": True,
+                    "po_id": str(po_id),
+                    "input_batch_id": str(batch_id),
+                    "suggestion_timestamp": datetime.utcnow().isoformat(),
+                    "template_version": "1.0"
+                }
             }
             
             logger.info(
-                f"Created transformation suggestion for {company.name}",
+                f"Created comprehensive transformation suggestion for {company.name}",
                 company_id=str(company_id),
                 transformation_type=transformation_type.value,
-                po_id=str(po_id)
+                po_id=str(po_id),
+                has_role_specific_data=bool(suggestion.get("role_specific_data"))
             )
             
             return suggestion
             
         except Exception as e:
             logger.error(f"Failed to create transformation suggestion: {str(e)}", exc_info=True)
+            return None
+    
+    def _extract_role_specific_data(self, template: Dict[str, Any], transformation_type: TransformationType) -> Dict[str, Any]:
+        """Extract role-specific data from template based on transformation type."""
+        if transformation_type == TransformationType.HARVEST:
+            return template.get("plantation_data", {})
+        elif transformation_type == TransformationType.MILLING:
+            return template.get("mill_data", {})
+        elif transformation_type == TransformationType.REFINING:
+            return template.get("refinery_data", {})
+        elif transformation_type == TransformationType.MANUFACTURING:
+            return template.get("manufacturer_data", {})
+        return {}
+    
+    def _create_output_batch_from_suggestion(
+        self,
+        output_batch_suggestion: Dict[str, Any],
+        company_id: UUID,
+        user_id: UUID,
+        po_id: UUID
+    ) -> Optional[UUID]:
+        """Create an actual output batch from a suggestion."""
+        try:
+            from app.schemas.batch import BatchCreate, BatchType
+            from app.models.product import Product
+            
+            # Get a default product for the output batch
+            # In a real implementation, this would be determined by the transformation type
+            product = self.db.query(Product).filter(
+                Product.company_id == company_id
+            ).first()
+            
+            if not product:
+                logger.warning(f"No product found for company {company_id}, skipping output batch creation")
+                return None
+            
+            # Create batch data from suggestion
+            batch_data = BatchCreate(
+                batch_id=output_batch_suggestion["batch_id"],
+                batch_type=BatchType.PROCESSING,  # Output from transformation
+                product_id=product.id,
+                quantity=output_batch_suggestion["quantity"],
+                unit=output_batch_suggestion["unit"],
+                production_date=output_batch_suggestion.get("production_date"),
+                expiry_date=output_batch_suggestion.get("expiry_date"),
+                location_name=output_batch_suggestion.get("location_name", "Processing Facility"),
+                quality_grade=output_batch_suggestion.get("quality_grade", "A"),
+                batch_metadata=output_batch_suggestion.get("batch_metadata", {})
+            )
+            
+            # Create the batch using the batch service
+            batch = self.batch_service.create_batch(
+                batch_data=batch_data,
+                company_id=company_id,
+                user_id=user_id
+            )
+            
+            if batch:
+                logger.info(
+                    f"Created output batch {batch.batch_id} from transformation suggestion",
+                    batch_id=str(batch.id),
+                    company_id=str(company_id),
+                    po_id=str(po_id)
+                )
+                return batch.id
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to create output batch from suggestion: {str(e)}", exc_info=True)
             return None
     
     def create_batch_relationship(

@@ -68,6 +68,8 @@ from app.api.dashboard_v2 import router as dashboard_v2_router
 from app.api.dual_chain_transparency import router as dual_chain_transparency_router
 from app.api.transformation_versioning import router as transformation_versioning_router
 from app.api.transformation_enhanced import router as transformation_enhanced_router
+from app.api.enhanced_transformations import router as enhanced_transformations_router
+from app.api.transformation_enhanced_v2 import router as transformation_enhanced_v2_router
 from app.api.websocket import router as websocket_router
 from app.services.seed_data import SeedDataService
 from app.core.service_container import get_container
@@ -322,6 +324,8 @@ app.include_router(debug_transparency_router, prefix="/api/v1", tags=["Debug Tra
 app.include_router(dual_chain_transparency_router, tags=["Dual-Chain Transparency"])
 app.include_router(transformation_versioning_router, prefix="/api/v1", tags=["Transformation Versioning"])
 app.include_router(transformation_enhanced_router, prefix="/api/v1", tags=["Enhanced Transformations"])
+app.include_router(enhanced_transformations_router, tags=["Enhanced Transformations v2"])
+app.include_router(transformation_enhanced_v2_router, prefix="/api/v2/transformations", tags=["Enhanced Transformations v3"])
 app.include_router(dashboard_v2_router, prefix="/api/v2/dashboard", tags=["Dashboard V2"])
 
 # WebSocket endpoints (no prefix)
