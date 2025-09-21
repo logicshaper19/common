@@ -1,496 +1,282 @@
 """
-Compliance Service
-Following the project plan: Build service that uses existing TransparencyCalculationService and TraceabilityService
+Main compliance service for generating reports with dependency injection and error handling.
 """
-from typing import Dict, List, Any, Optional
+from typing import Protocol, Optional
 from uuid import UUID
-from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy.exc import SQLAlchemyError
 
-from app.models.po_compliance_result import POComplianceResult
-from app.models.purchase_order import PurchaseOrder
-from app.models.sector import Sector
-from app.services.traceability import TraceabilityCalculationService
-from app.services.transparency_engine import TransparencyCalculationEngine
-from app.services.compliance.external_apis import DeforestationRiskAPI
-from app.services.document_storage import DocumentStorageService
 from app.core.logging import get_logger
+from app.models.compliance import ComplianceReport, ComplianceTemplate
+from app.schemas.compliance import ComplianceReportRequest, ComplianceReportGenerationResponse
+from app.services.compliance.exceptions import (
+    ComplianceDataError, TemplateNotFoundError, PurchaseOrderNotFoundError
+)
+from app.services.compliance.data_mapper import ComplianceDataMapper
+from app.services.compliance.template_engine import ComplianceTemplateEngine
+from app.services.compliance.config import get_compliance_config
 
 logger = get_logger(__name__)
 
 
-# Specific compliance exceptions for better error handling
-class ComplianceServiceError(Exception):
-    """Base exception for compliance service errors"""
-    pass
+class PurchaseOrderRepositoryProtocol(Protocol):
+    """Protocol for purchase order repository."""
+    
+    def get_by_id(self, po_id: UUID) -> Optional[dict]:
+        """Get purchase order by ID."""
+        ...
 
-class ComplianceEvaluationError(ComplianceServiceError):
-    """Error during compliance evaluation"""
-    pass
 
-class ComplianceDataNotFoundError(ComplianceServiceError):
-    """Required compliance data not found"""
-    pass
-
-class ComplianceRuleNotImplementedError(ComplianceServiceError):
-    """Compliance rule not yet implemented"""
-    pass
+class ComplianceReportRepositoryProtocol(Protocol):
+    """Protocol for compliance report repository."""
+    
+    def create(self, report_data: dict) -> ComplianceReport:
+        """Create a new compliance report."""
+        ...
 
 
 class ComplianceService:
-    """
-    Compliance service that uses existing TransparencyCalculationService and TraceabilityService.
-    Following the project plan - DO NOT recreate their logic.
-    """
+    """Main compliance service with dependency injection and error handling."""
     
-    def __init__(self, db: Session):
+    def __init__(
+        self, 
+        db: Session,
+        data_mapper: Optional[ComplianceDataMapper] = None,
+        template_engine: Optional[ComplianceTemplateEngine] = None,
+        po_repository: Optional[PurchaseOrderRepositoryProtocol] = None,
+        report_repository: Optional[ComplianceReportRepositoryProtocol] = None
+    ):
         self.db = db
-        # Use existing services - DO NOT recreate their logic
-        self.transparency_service = TraceabilityCalculationService(db)
-        self.transparency_engine = TransparencyCalculationEngine(db)
-        self.document_service = DocumentStorageService(db)
+        self.config = get_compliance_config()
+        
+        # Dependency injection with defaults
+        self.data_mapper = data_mapper or ComplianceDataMapper(db)
+        self.template_engine = template_engine or ComplianceTemplateEngine(db)
+        self.po_repository = po_repository
+        self.report_repository = report_repository
     
-    async def evaluate_po_compliance(self, po_id: UUID, regulation: str) -> List[POComplianceResult]:
-        """
-        1. Uses the existing transparency engine to get the supply chain graph.
-        2. Applies the relevant rule set to each node in the graph.
-        3. Saves results to `po_compliance_results`.
-        
-        Following the exact project plan implementation.
-        """
-        logger.info(
-            "Starting PO compliance evaluation",
-            po_id=str(po_id),
-            regulation=regulation
-        )
-        
+    def generate_compliance_report(self, request: ComplianceReportRequest) -> ComplianceReportGenerationResponse:
+        """Generate a compliance report with proper error handling."""
         try:
-            # Get the supply chain graph for the PO USING EXISTING LOGIC
-            transparency_result = await self.transparency_engine.calculate_transparency(
-                po_id=po_id,
-                force_recalculation=False,
-                include_detailed_analysis=True
+            logger.info(
+                "Generating compliance report",
+                po_id=str(request.po_id),
+                regulation_type=request.regulation_type
             )
             
-            if not transparency_result or not transparency_result.nodes:
-                logger.warning("No supply chain graph found for PO", po_id=str(po_id))
-                return []
+            # Validate request
+            self._validate_request(request)
             
-            # Get the rule set based on the PO's product/sector
-            rule_set = self._get_rule_set_for_po(po_id, regulation)
+            # Generate report based on regulation type
+            if request.regulation_type == 'EUDR':
+                report_content = self._generate_eudr_report(request)
+            elif request.regulation_type == 'RSPO':
+                report_content = self._generate_rspo_report(request)
+            else:
+                raise ComplianceDataError(f"Unsupported regulation type: {request.regulation_type}")
             
-            if not rule_set:
-                logger.warning(
-                    "No compliance rules found for PO",
-                    po_id=str(po_id),
-                    regulation=regulation
-                )
-                return []
+            # Save report to database
+            report = self._save_report(request, report_content)
             
-            results = []
-            for rule in rule_set:
-                try:
-                    # For each rule, evaluate it against the entire graph
-                    result = await self._evaluate_rule(rule, transparency_result, po_id)
-                    results.append(result)
-                except Exception as e:
-                    logger.error(
-                        "Error evaluating compliance rule",
-                        rule=rule,
-                        po_id=str(po_id),
-                        error=str(e)
-                    )
-                    # Create a failed result for this rule
-                    failed_result = POComplianceResult(
-                        po_id=po_id,
-                        regulation=regulation,
-                        check_name=rule,
-                        status="fail",
-                        evidence={"error": str(e), "timestamp": datetime.utcnow().isoformat()}
-                    )
-                    results.append(failed_result)
-            
-            # Save all results
-            await self._save_compliance_results(po_id, regulation, results)
+            # Create response
+            response = ComplianceReportGenerationResponse(
+                report_id=report.id,
+                po_id=request.po_id,
+                regulation_type=request.regulation_type,
+                generated_at=report.generated_at,
+                file_size=report.file_size,
+                download_url=f"/api/v1/compliance/reports/{report.id}/download",
+                status=report.status
+            )
             
             logger.info(
-                "PO compliance evaluation completed",
-                po_id=str(po_id),
-                regulation=regulation,
-                rules_evaluated=len(rule_set),
-                results_count=len(results)
+                "Compliance report generated successfully",
+                report_id=str(report.id),
+                po_id=str(request.po_id),
+                regulation_type=request.regulation_type
             )
             
-            return results
+            return response
+            
+        except (PurchaseOrderNotFoundError, TemplateNotFoundError) as e:
+            logger.error("Data not found for compliance report", po_id=str(request.po_id), error=str(e))
+            raise
+        except SQLAlchemyError as e:
+            logger.error("Database error during compliance report generation", po_id=str(request.po_id), error=str(e))
+            raise ComplianceDataError(f"Database error during report generation: {e}", original_error=e)
+        except Exception as e:
+            logger.error("Unexpected error during compliance report generation", po_id=str(request.po_id), error=str(e))
+            raise ComplianceDataError(f"Unexpected error during report generation: {e}", original_error=e)
+    
+    def _validate_request(self, request: ComplianceReportRequest) -> None:
+        """Validate compliance report request."""
+        if not request.po_id:
+            raise ComplianceDataError("Purchase order ID is required")
+        
+        if not request.regulation_type:
+            raise ComplianceDataError("Regulation type is required")
+        
+        if request.regulation_type not in ['EUDR', 'RSPO', 'ISCC']:
+            raise ComplianceDataError(f"Unsupported regulation type: {request.regulation_type}")
+    
+    def _generate_eudr_report(self, request: ComplianceReportRequest) -> bytes:
+        """Generate EUDR compliance report."""
+        try:
+            # Map data to EUDR format
+            eudr_data = self.data_mapper.map_po_to_eudr_data(request.po_id)
+            
+            # Convert to dict for template rendering
+            eudr_dict = {
+                'operator': eudr_data.operator,
+                'product': eudr_data.product,
+                'supply_chain': eudr_data.supply_chain,
+                'risk_assessment': eudr_data.risk_assessment,
+                'trace_path': eudr_data.trace_path,
+                'trace_depth': eudr_data.trace_depth,
+                'generated_at': eudr_data.generated_at
+            }
+            
+            # Generate report
+            return self.template_engine.generate_eudr_report(eudr_dict)
             
         except Exception as e:
-            logger.error(
-                "Error during PO compliance evaluation",
-                po_id=str(po_id),
-                regulation=regulation,
-                error=str(e)
-            )
-            raise
+            logger.error("Failed to generate EUDR report", po_id=str(request.po_id), error=str(e))
+            raise ComplianceDataError(f"Failed to generate EUDR report: {e}", original_error=e)
     
-    async def _evaluate_rule(self, rule: str, transparency_result, po_id: UUID) -> POComplianceResult:
-        """
-        This is where the specific rule logic lives.
-        Following the project plan's rule implementations.
-        """
-        logger.debug(f"Evaluating rule: {rule} for PO: {po_id}")
-        
-        if rule == "geolocation_present":
-            return await self._check_geolocation_present(transparency_result, po_id)
-        elif rule == "deforestation_risk_low":
-            return await self._check_deforestation_risk(transparency_result, po_id)
-        elif rule == "legal_docs_valid":
-            return await self._check_legal_docs_valid(transparency_result, po_id)
-        elif rule == "supply_chain_mapped":
-            return await self._check_supply_chain_mapped(transparency_result, po_id)
-        elif rule == "rspo_certification_valid":
-            return await self._check_rspo_certification_valid(transparency_result, po_id)
-        elif rule == "chain_of_custody_maintained":
-            return await self._check_chain_of_custody_maintained(transparency_result, po_id)
-        else:
-            # Unknown rule - log warning and return pending status
-            logger.warning(f"Compliance rule '{rule}' not implemented yet")
-            return POComplianceResult(
-                po_id=po_id,
-                regulation="unknown",
-                check_name=rule,
-                status="pending",
-                evidence={"message": f"Rule '{rule}' not implemented yet"}
-            )
-    
-    async def _check_geolocation_present(self, transparency_result, po_id: UUID) -> POComplianceResult:
-        """Check if geolocation data is present in origin nodes"""
-        evidence = {
-            "nodes_checked": [],
-            "nodes_with_coordinates": [],
-            "nodes_without_coordinates": []
-        }
-        
-        nodes_with_geo = 0
-        total_origin_nodes = 0
-        
-        for node in transparency_result.nodes:
-            if hasattr(node, 'origin_data') and node.origin_data:
-                total_origin_nodes += 1
-                evidence["nodes_checked"].append(str(node.po_id))
-                
-                # Check if coordinates are present
-                if (hasattr(node.origin_data, 'geographic_coordinates') and 
-                    node.origin_data.geographic_coordinates and
-                    hasattr(node.origin_data.geographic_coordinates, 'latitude') and
-                    hasattr(node.origin_data.geographic_coordinates, 'longitude')):
-                    
-                    nodes_with_geo += 1
-                    evidence["nodes_with_coordinates"].append(str(node.po_id))
-                else:
-                    evidence["nodes_without_coordinates"].append(str(node.po_id))
-        
-        # Determine status
-        if total_origin_nodes == 0:
-            status = "warning"
-            evidence["message"] = "No origin data nodes found"
-        elif nodes_with_geo == total_origin_nodes:
-            status = "pass"
-            evidence["message"] = f"All {total_origin_nodes} origin nodes have geolocation data"
-        elif nodes_with_geo > 0:
-            status = "warning"
-            evidence["message"] = f"{nodes_with_geo}/{total_origin_nodes} origin nodes have geolocation data"
-        else:
-            status = "fail"
-            evidence["message"] = f"No origin nodes have geolocation data (0/{total_origin_nodes})"
-        
-        return POComplianceResult(
-            po_id=po_id,
-            regulation="eudr",
-            check_name="geolocation_present",
-            status=status,
-            evidence=evidence
-        )
-    
-    async def _check_deforestation_risk(self, transparency_result, po_id: UUID) -> POComplianceResult:
-        """
-        Leverages Clovis's API integration idea.
-        Check deforestation risk using external APIs.
-        """
-        evidence = {
-            "nodes_checked": [],
-            "high_risk_nodes": [],
-            "api_responses": []
-        }
-        
-        high_risk_found = False
-        
-        for node in transparency_result.nodes:
-            if (hasattr(node, 'origin_data') and node.origin_data and
-                hasattr(node.origin_data, 'geographic_coordinates') and
-                node.origin_data.geographic_coordinates):
-                
-                evidence["nodes_checked"].append(str(node.po_id))
-                
-                try:
-                    # USE EXTERNAL API (Clovis's concept)
-                    coordinates = [
-                        float(node.origin_data.geographic_coordinates.latitude),
-                        float(node.origin_data.geographic_coordinates.longitude)
-                    ]
-                    
-                    risk_assessment = await DeforestationRiskAPI.check_coordinates(coordinates)
-                    evidence["api_responses"].append({
-                        "node_id": str(node.po_id),
-                        "coordinates": coordinates,
-                        "risk_level": risk_assessment.risk_level,
-                        "confidence": risk_assessment.confidence
-                    })
-                    
-                    if risk_assessment.high_risk:
-                        high_risk_found = True
-                        evidence["high_risk_nodes"].append({
-                            "node_id": str(node.po_id),
-                            "risk_details": risk_assessment.dict()
-                        })
-                        
-                except Exception as e:
-                    logger.error(f"Error checking deforestation risk for node {node.po_id}: {e}")
-                    evidence["api_responses"].append({
-                        "node_id": str(node.po_id),
-                        "error": str(e)
-                    })
-        
-        # Determine status
-        if not evidence["nodes_checked"]:
-            status = "warning"
-            evidence["message"] = "No nodes with coordinates found for deforestation risk check"
-        elif high_risk_found:
-            status = "fail"
-            evidence["message"] = f"High deforestation risk found in {len(evidence['high_risk_nodes'])} nodes"
-        else:
-            status = "pass"
-            evidence["message"] = f"Low deforestation risk for all {len(evidence['nodes_checked'])} checked nodes"
-        
-        return POComplianceResult(
-            po_id=po_id,
-            regulation="eudr",
-            check_name="deforestation_risk_low",
-            status=status,
-            evidence=evidence
-        )
-    
-    async def _check_legal_docs_valid(self, transparency_result, po_id: UUID) -> POComplianceResult:
-        """Check if required legal documents are present and valid"""
-        evidence = {
-            "required_documents": ["eudr_due_diligence_statement", "legal_harvest_permit"],
-            "found_documents": [],
-            "missing_documents": []
-        }
-        
-        # Get documents for this PO
-        documents = await self.document_service.get_documents_by_po(str(po_id))
-        
-        required_docs = evidence["required_documents"]
-        found_docs = []
-        
-        for doc_type in required_docs:
-            matching_docs = [d for d in documents if d.document_type == doc_type]
-            if matching_docs:
-                # Get the most recent document
-                latest_doc = max(matching_docs, key=lambda d: d.created_at)
-                found_docs.append(doc_type)
-                evidence["found_documents"].append({
-                    "document_type": doc_type,
-                    "document_id": str(latest_doc.id),
-                    "created_at": latest_doc.created_at.isoformat(),
-                    "validation_status": latest_doc.validation_status
-                })
-            else:
-                evidence["missing_documents"].append(doc_type)
-        
-        # Determine status
-        if len(found_docs) == len(required_docs):
-            status = "pass"
-            evidence["message"] = "All required legal documents are present"
-        elif len(found_docs) > 0:
-            status = "warning"
-            evidence["message"] = f"{len(found_docs)}/{len(required_docs)} required documents found"
-        else:
-            status = "fail"
-            evidence["message"] = "No required legal documents found"
-        
-        return POComplianceResult(
-            po_id=po_id,
-            regulation="eudr",
-            check_name="legal_docs_valid",
-            status=status,
-            evidence=evidence
-        )
-    
-    async def _check_supply_chain_mapped(self, transparency_result, po_id: UUID) -> POComplianceResult:
-        """Check if supply chain is properly mapped"""
-        evidence = {
-            "total_nodes": len(transparency_result.nodes),
-            "max_depth": transparency_result.max_depth_reached,
-            "mill_nodes": 0,
-            "plantation_nodes": 0,
-            "ttm_score": transparency_result.ttm_score,
-            "ttp_score": transparency_result.ttp_score
-        }
-        
-        # Count different node types
-        for node in transparency_result.nodes:
-            if hasattr(node, 'company_type'):
-                if node.company_type in ['mill', 'processor']:
-                    evidence["mill_nodes"] += 1
-                elif node.company_type in ['plantation', 'farm']:
-                    evidence["plantation_nodes"] += 1
-        
-        # Determine status based on transparency scores
-        if transparency_result.ttm_score >= 0.8:
-            status = "pass"
-            evidence["message"] = f"Supply chain well mapped (TTM: {transparency_result.ttm_score:.2f})"
-        elif transparency_result.ttm_score >= 0.5:
-            status = "warning"
-            evidence["message"] = f"Supply chain partially mapped (TTM: {transparency_result.ttm_score:.2f})"
-        else:
-            status = "fail"
-            evidence["message"] = f"Supply chain poorly mapped (TTM: {transparency_result.ttm_score:.2f})"
-        
-        return POComplianceResult(
-            po_id=po_id,
-            regulation="eudr",
-            check_name="supply_chain_mapped",
-            status=status,
-            evidence=evidence
-        )
-    
-    async def _check_rspo_certification_valid(self, transparency_result, po_id: UUID) -> POComplianceResult:
-        """Check RSPO certification validity"""
-        # Placeholder implementation for RSPO checks
-        return POComplianceResult(
-            po_id=po_id,
-            regulation="rspo",
-            check_name="rspo_certification_valid",
-            status="pending",
-            evidence={"message": "RSPO certification check not yet implemented"}
-        )
-    
-    async def _check_chain_of_custody_maintained(self, transparency_result, po_id: UUID) -> POComplianceResult:
-        """Check chain of custody maintenance"""
-        # Placeholder implementation for chain of custody checks
-        return POComplianceResult(
-            po_id=po_id,
-            regulation="rspo",
-            check_name="chain_of_custody_maintained",
-            status="pending",
-            evidence={"message": "Chain of custody check not yet implemented"}
-        )
-    
-    def _get_rule_set_for_po(self, po_id: UUID, regulation: str) -> List[str]:
-        """Get the rule set based on the PO's product/sector"""
+    def _generate_rspo_report(self, request: ComplianceReportRequest) -> bytes:
+        """Generate RSPO compliance report."""
         try:
-            # Get PO and its sector
+            # Map data to RSPO format
+            rspo_data = self.data_mapper.map_po_to_rspo_data(request.po_id)
+            
+            # Convert to dict for template rendering
+            rspo_dict = {
+                'certification': rspo_data.certification,
+                'supply_chain': rspo_data.supply_chain,
+                'mass_balance': rspo_data.mass_balance,
+                'sustainability': rspo_data.sustainability,
+                'trace_path': rspo_data.trace_path,
+                'trace_depth': rspo_data.trace_depth,
+                'generated_at': rspo_data.generated_at
+            }
+            
+            # Generate report
+            return self.template_engine.generate_rspo_report(rspo_dict)
+            
+        except Exception as e:
+            logger.error("Failed to generate RSPO report", po_id=str(request.po_id), error=str(e))
+            raise ComplianceDataError(f"Failed to generate RSPO report: {e}", original_error=e)
+    
+    def _save_report(self, request: ComplianceReportRequest, report_content: bytes) -> ComplianceReport:
+        """Save compliance report to database."""
+        try:
+            # Get template ID
+            template_id = self._get_template_id(request.regulation_type)
+            
+            # Get company ID from PO
+            company_id = self._get_company_id_from_po(request.po_id)
+            
+            # Create report
+            report = ComplianceReport(
+                company_id=company_id,
+                template_id=template_id,
+                po_id=request.po_id,
+                report_data=request.custom_data or {},
+                file_size=len(report_content),
+                status='GENERATED'
+            )
+            
+            self.db.add(report)
+            self.db.commit()
+            self.db.refresh(report)
+            
+            logger.info("Compliance report saved", report_id=str(report.id))
+            return report
+            
+        except SQLAlchemyError as e:
+            logger.error("Failed to save compliance report", po_id=str(request.po_id), error=str(e))
+            self.db.rollback()
+            raise ComplianceDataError(f"Failed to save compliance report: {e}", original_error=e)
+    
+    def _get_template_id(self, regulation_type: str) -> UUID:
+        """Get template ID for regulation type."""
+        try:
+            template = self.db.query(ComplianceTemplate).filter(
+                ComplianceTemplate.regulation_type == regulation_type,
+                ComplianceTemplate.is_active == True
+            ).first()
+            
+            if not template:
+                # Create default template
+                template = self._create_default_template(regulation_type)
+            
+            return template.id
+            
+        except SQLAlchemyError as e:
+            logger.error("Failed to get template ID", regulation_type=regulation_type, error=str(e))
+            raise ComplianceDataError(f"Failed to get template for {regulation_type}: {e}", original_error=e)
+    
+    def _create_default_template(self, regulation_type: str) -> ComplianceTemplate:
+        """Create default template for regulation type."""
+        try:
+            template = ComplianceTemplate(
+                name=f"Default {regulation_type} Template",
+                regulation_type=regulation_type,
+                version="1.0",
+                template_content=self.template_engine._get_default_template(regulation_type),
+                is_active=True
+            )
+            
+            self.db.add(template)
+            self.db.commit()
+            self.db.refresh(template)
+            
+            logger.info("Default template created", regulation_type=regulation_type, template_id=str(template.id))
+            return template
+            
+        except SQLAlchemyError as e:
+            logger.error("Failed to create default template", regulation_type=regulation_type, error=str(e))
+            self.db.rollback()
+            raise ComplianceDataError(f"Failed to create default template for {regulation_type}: {e}", original_error=e)
+    
+    def _get_company_id_from_po(self, po_id: UUID) -> UUID:
+        """Get company ID from purchase order."""
+        try:
+            from app.models.purchase_order import PurchaseOrder
+            
             po = self.db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
             if not po:
-                raise ComplianceDataNotFoundError(f"Purchase order {po_id} not found")
-            if not po.product:
-                raise ComplianceDataNotFoundError(f"Product not found for purchase order {po_id}")
+                raise PurchaseOrderNotFoundError(str(po_id))
             
-            # Get sector compliance rules
-            sector = self.db.query(Sector).filter(Sector.id == po.product.sector_id).first()
-            if not sector or not sector.compliance_rules:
-                logger.warning(f"No compliance rules found for sector {po.product.sector_id}")
-                return []
+            return po.buyer_company_id
             
-            # Extract rules for the specific regulation
-            regulation_rules = sector.compliance_rules.get(regulation.lower(), {})
-            required_checks = regulation_rules.get("required_checks", [])
-            
-            logger.info(
-                "Retrieved compliance rules for PO",
-                po_id=str(po_id),
-                regulation=regulation,
-                sector=po.product.sector_id,
-                rules_count=len(required_checks)
-            )
-            
-            return required_checks
-            
-        except Exception as e:
-            logger.error(f"Error getting rule set for PO {po_id}: {e}")
-            return []
+        except SQLAlchemyError as e:
+            logger.error("Failed to get company ID from PO", po_id=str(po_id), error=str(e))
+            raise ComplianceDataError(f"Failed to get company ID from purchase order: {e}", original_error=e)
     
-    async def _save_compliance_results(self, po_id: UUID, regulation: str, results: List[POComplianceResult]) -> None:
-        """Save all compliance results to the database"""
+    def get_report(self, report_id: UUID) -> Optional[ComplianceReport]:
+        """Get compliance report by ID."""
         try:
-            for result in results:
-                # Check if result already exists
-                existing = self.db.query(POComplianceResult).filter(
-                    and_(
-                        POComplianceResult.po_id == po_id,
-                        POComplianceResult.regulation == regulation,
-                        POComplianceResult.check_name == result.check_name
-                    )
-                ).first()
-                
-                if existing:
-                    # Update existing result
-                    existing.status = result.status
-                    existing.evidence = result.evidence
-                    existing.updated_at = datetime.utcnow()
-                else:
-                    # Add new result
-                    self.db.add(result)
-            
-            self.db.commit()
-            logger.info(f"Saved {len(results)} compliance results for PO {po_id}")
-            
-        except Exception as e:
-            logger.error(f"Error saving compliance results: {e}")
-            self.db.rollback()
-            raise
+            return self.db.query(ComplianceReport).filter(ComplianceReport.id == report_id).first()
+        except SQLAlchemyError as e:
+            logger.error("Failed to get compliance report", report_id=str(report_id), error=str(e))
+            raise ComplianceDataError(f"Failed to get compliance report: {e}", original_error=e)
     
-    def get_compliance_overview(self, po_id: UUID) -> Dict[str, Any]:
-        """Get compliance overview for a PO (for API integration)"""
+    def list_reports(self, company_id: Optional[UUID] = None, limit: int = 50) -> list[ComplianceReport]:
+        """List compliance reports with optional filtering."""
         try:
-            results = self.db.query(POComplianceResult).filter(
-                POComplianceResult.po_id == po_id
-            ).all()
+            query = self.db.query(ComplianceReport)
             
-            if not results:
-                return {}
+            if company_id:
+                query = query.filter(ComplianceReport.company_id == company_id)
             
-            # Group by regulation
-            overview = {}
-            for result in results:
-                if result.regulation not in overview:
-                    overview[result.regulation] = {
-                        "status": "pass",
-                        "checks_passed": 0,
-                        "total_checks": 0,
-                        "checks": []
-                    }
-                
-                reg_overview = overview[result.regulation]
-                reg_overview["total_checks"] += 1
-                
-                if result.status == "pass":
-                    reg_overview["checks_passed"] += 1
-                elif result.status == "fail":
-                    reg_overview["status"] = "fail"
-                elif result.status == "warning" and reg_overview["status"] == "pass":
-                    reg_overview["status"] = "warning"
-                
-                reg_overview["checks"].append({
-                    "check_name": result.check_name,
-                    "status": result.status,
-                    "checked_at": result.checked_at.isoformat() if result.checked_at else None
-                })
+            return query.limit(limit).all()
             
-            return overview
-            
-        except Exception as e:
-            logger.error(f"Error getting compliance overview for PO {po_id}: {e}")
-            return {}
+        except SQLAlchemyError as e:
+            logger.error("Failed to list compliance reports", company_id=str(company_id) if company_id else None, error=str(e))
+            raise ComplianceDataError(f"Failed to list compliance reports: {e}", original_error=e)
+    
+    def clear_caches(self) -> None:
+        """Clear all caches."""
+        self.template_engine.clear_template_cache()
+        logger.info("All caches cleared")
