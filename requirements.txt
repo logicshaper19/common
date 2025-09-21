@@ -40,3 +40,9 @@ PyYAML>=6.0
 black==23.11.0
 isort==5.12.0
 mypy==1.7.1
+
+# Template engine
+Jinja2>=3.1.0
+
+# PDF generation (optional)
+# xhtml2pdf>=0.2.5

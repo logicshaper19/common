@@ -1,303 +1,292 @@
 """
-Compliance API endpoints
-Following the project plan: Surface compliance data in API
+Compliance API endpoints for EUDR, RSPO, and other regulatory reporting.
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
-from app.models.user import User
-from app.services.compliance.service import ComplianceService
-from app.services.compliance.reporting import ComplianceReportGenerator
+from app.core.auth import get_current_user_sync, CurrentUser
 from app.core.logging import get_logger
+from app.services.compliance import (
+    ComplianceService, ComplianceDataMapper, ComplianceTemplateEngine,
+    PurchaseOrderNotFoundError, CompanyNotFoundError, ProductNotFoundError,
+    TemplateNotFoundError, ComplianceDataError, RiskAssessmentError, MassBalanceError
+)
+from app.schemas.compliance import (
+    ComplianceReportRequest, ComplianceReportGenerationResponse,
+    EUDRReportData, RSPOReportData,
+    RiskAssessmentCreate, RiskAssessmentResponse,
+    MassBalanceCalculation, MassBalanceResponse,
+    HSCodeResponse, ComplianceTemplateResponse
+)
 
 logger = get_logger(__name__)
-
 router = APIRouter(prefix="/compliance", tags=["compliance"])
 
 
-@router.post("/evaluate/{po_id}")
-async def evaluate_po_compliance(
-    po_id: UUID,
-    regulation: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Evaluate compliance for a specific purchase order and regulation.
-    
-    Following the project plan: Manual compliance evaluation endpoint.
-    """
-    try:
-        compliance_service = ComplianceService(db)
-        
-        # Run compliance evaluation
-        results = await compliance_service.evaluate_po_compliance(po_id, regulation)
-        
-        logger.info(
-            "Manual compliance evaluation completed",
-            po_id=str(po_id),
-            regulation=regulation,
-            user_id=str(current_user.id),
-            results_count=len(results)
-        )
-        
-        return {
-            "po_id": str(po_id),
-            "regulation": regulation,
-            "evaluation_completed": True,
-            "checks_performed": len(results),
-            "results": [
-                {
-                    "check_name": result.check_name,
-                    "status": result.status,
-                    "evidence": result.evidence,
-                    "checked_at": result.checked_at.isoformat() if result.checked_at else None
-                }
-                for result in results
-            ]
-        }
-        
-    except Exception as e:
-        logger.error(
-            "Error during manual compliance evaluation",
-            po_id=str(po_id),
-            regulation=regulation,
-            user_id=str(current_user.id),
-            error=str(e)
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error evaluating compliance: {str(e)}"
-        )
-
-
-@router.get("/overview/{po_id}")
-def get_compliance_overview(
-    po_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get compliance overview for a purchase order.
-    
-    Following the project plan: Surface compliance data in API.
-    """
-    try:
-        compliance_service = ComplianceService(db)
-        
-        overview = compliance_service.get_compliance_overview(po_id)
-        
-        logger.info(
-            "Compliance overview retrieved",
-            po_id=str(po_id),
-            user_id=str(current_user.id),
-            regulations_found=len(overview)
-        )
-        
-        return {
-            "po_id": str(po_id),
-            "compliance_overview": overview,
-            "retrieved_at": overview.get("checked_at") if overview else None
-        }
-        
-    except Exception as e:
-        logger.error(
-            "Error retrieving compliance overview",
-            po_id=str(po_id),
-            user_id=str(current_user.id),
-            error=str(e)
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving compliance overview: {str(e)}"
-        )
-
-
-@router.get("/report/{po_id}")
+@router.post("/reports/generate", response_model=ComplianceReportGenerationResponse)
 def generate_compliance_report(
+    request: ComplianceReportRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Generate a compliance report for a purchase order."""
+    try:
+        logger.info(
+            "Generating compliance report",
+            po_id=str(request.po_id),
+            regulation_type=request.regulation_type,
+            user_id=str(current_user.id)
+        )
+        
+        # Initialize compliance service with dependency injection
+        data_mapper = ComplianceDataMapper(db)
+        template_engine = ComplianceTemplateEngine(db)
+        compliance_service = ComplianceService(
+            db=db,
+            data_mapper=data_mapper,
+            template_engine=template_engine
+        )
+        response = compliance_service.generate_compliance_report(request)
+        
+        logger.info(
+            "Compliance report generated successfully",
+            report_id=str(response.report_id),
+            po_id=str(response.po_id),
+            regulation_type=response.regulation_type
+        )
+        
+        return response
+        
+    except (PurchaseOrderNotFoundError, CompanyNotFoundError, ProductNotFoundError) as e:
+        logger.error(f"Data not found for compliance report: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except (TemplateNotFoundError, ComplianceDataError) as e:
+        logger.error(f"Compliance data error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to generate compliance report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate compliance report")
+
+
+@router.get("/reports/{report_id}/download")
+def download_compliance_report(
+    report_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Download a generated compliance report."""
+    # This would implement file download logic
+    # For now, return a placeholder response
+    return {"message": f"Download report {report_id}", "status": "placeholder"}
+
+
+@router.get("/eudr/{po_id}/preview", response_model=EUDRReportData)
+def preview_eudr_report(
     po_id: UUID,
-    regulations: Optional[str] = None,  # Comma-separated list
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user_sync)
 ):
-    """
-    Generate PDF compliance report for a purchase order.
-    
-    Following the project plan: PDF reporting endpoint.
-    """
+    """Preview EUDR report data for a purchase order."""
     try:
-        report_generator = ComplianceReportGenerator(db)
-        
-        # Parse regulations parameter
-        regulation_list = None
-        if regulations:
-            regulation_list = [r.strip().lower() for r in regulations.split(",")]
-        
-        # Generate PDF report
-        pdf_bytes = report_generator.generate_po_compliance_report(po_id, regulation_list)
+        data_mapper = ComplianceDataMapper(db)
+        eudr_data = data_mapper.map_po_to_eudr_data(po_id)
         
         logger.info(
-            "Compliance report generated",
+            "EUDR report preview generated",
             po_id=str(po_id),
-            user_id=str(current_user.id),
-            regulations=regulation_list,
-            report_size=len(pdf_bytes)
+            user_id=str(current_user.id)
         )
         
-        # Return PDF as response
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"attachment; filename=compliance_report_{po_id}.pdf"
-            }
+        return eudr_data
+        
+    except (PurchaseOrderNotFoundError, CompanyNotFoundError, ProductNotFoundError) as e:
+        logger.error(f"Data not found for EUDR preview: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except ComplianceDataError as e:
+        logger.error(f"Compliance data error for EUDR preview: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to generate EUDR preview: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate EUDR preview")
+
+
+@router.get("/rspo/{po_id}/preview", response_model=RSPOReportData)
+def preview_rspo_report(
+    po_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Preview RSPO report data for a purchase order."""
+    try:
+        data_mapper = ComplianceDataMapper(db)
+        rspo_data = data_mapper.map_po_to_rspo_data(po_id)
+        
+        logger.info(
+            "RSPO report preview generated",
+            po_id=str(po_id),
+            user_id=str(current_user.id)
         )
+        
+        return rspo_data
+        
+    except (PurchaseOrderNotFoundError, CompanyNotFoundError, ProductNotFoundError) as e:
+        logger.error(f"Data not found for RSPO preview: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except ComplianceDataError as e:
+        logger.error(f"Compliance data error for RSPO preview: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to generate RSPO preview: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate RSPO preview")
+
+
+@router.post("/risk-assessments", response_model=RiskAssessmentResponse)
+def create_risk_assessment(
+    risk_assessment: RiskAssessmentCreate,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Create a new risk assessment."""
+    try:
+        from app.models.compliance import RiskAssessment
+        
+        # Create risk assessment
+        db_risk_assessment = RiskAssessment(
+            company_id=risk_assessment.company_id,
+            batch_id=risk_assessment.batch_id,
+            po_id=risk_assessment.po_id,
+            risk_type=risk_assessment.risk_type,
+            risk_score=risk_assessment.risk_score,
+            risk_factors=risk_assessment.risk_factors,
+            mitigation_measures=risk_assessment.mitigation_measures,
+            assessment_date=risk_assessment.assessment_date,
+            next_assessment_date=risk_assessment.next_assessment_date,
+            assessed_by_user_id=current_user.id
+        )
+        
+        db.add(db_risk_assessment)
+        db.commit()
+        db.refresh(db_risk_assessment)
+        
+        logger.info(
+            "Risk assessment created",
+            risk_assessment_id=str(db_risk_assessment.id),
+            risk_type=risk_assessment.risk_type,
+            user_id=str(current_user.id)
+        )
+        
+        return RiskAssessmentResponse.from_orm(db_risk_assessment)
         
     except Exception as e:
-        logger.error(
-            "Error generating compliance report",
-            po_id=str(po_id),
-            user_id=str(current_user.id),
-            error=str(e)
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating compliance report: {str(e)}"
-        )
+        logger.error(f"Failed to create risk assessment: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create risk assessment")
 
 
-@router.get("/dashboard")
-def get_compliance_dashboard(
-    regulation: Optional[str] = None,
-    status_filter: Optional[str] = None,  # pass, fail, warning, pending
-    limit: int = 50,
-    offset: int = 0,
+@router.get("/risk-assessments", response_model=List[RiskAssessmentResponse])
+def get_risk_assessments(
+    company_id: Optional[UUID] = Query(None, description="Filter by company ID"),
+    risk_type: Optional[str] = Query(None, description="Filter by risk type"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of assessments to return"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user_sync)
 ):
-    """
-    Get compliance dashboard data for consultants.
-    
-    Following the project plan: Compliance dashboard for consultants.
-    """
+    """Get risk assessments with optional filtering."""
     try:
-        from app.models.po_compliance_result import POComplianceResult
-        from app.models.purchase_order import PurchaseOrder
-        from sqlalchemy import and_, or_
+        from app.models.compliance import RiskAssessment
         
-        # Build query
-        query = db.query(POComplianceResult).join(PurchaseOrder)
+        query = db.query(RiskAssessment)
         
-        # Apply filters
-        filters = []
+        if company_id:
+            query = query.filter(RiskAssessment.company_id == company_id)
+        
+        if risk_type:
+            query = query.filter(RiskAssessment.risk_type == risk_type)
+        
+        risk_assessments = query.limit(limit).all()
+        
+        return [RiskAssessmentResponse.from_orm(ra) for ra in risk_assessments]
+        
+    except Exception as e:
+        logger.error(f"Failed to get risk assessments: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get risk assessments")
+
+
+@router.get("/hs-codes", response_model=List[HSCodeResponse])
+def get_hs_codes(
+    regulation: Optional[str] = Query(None, description="Filter by regulation type"),
+    search: Optional[str] = Query(None, description="Search in description"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of HS codes to return"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Get HS codes with optional filtering."""
+    try:
+        from app.models.compliance import HSCode
+        
+        query = db.query(HSCode)
+        
         if regulation:
-            filters.append(POComplianceResult.regulation == regulation.lower())
-        if status_filter:
-            filters.append(POComplianceResult.status == status_filter.lower())
+            query = query.filter(HSCode.regulation_applicable.contains([regulation]))
         
-        if filters:
-            query = query.filter(and_(*filters))
+        if search:
+            query = query.filter(HSCode.description.ilike(f"%{search}%"))
         
-        # Get total count
-        total_count = query.count()
+        hs_codes = query.limit(limit).all()
         
-        # Apply pagination
-        results = query.offset(offset).limit(limit).all()
-        
-        # Format results
-        dashboard_data = []
-        for result in results:
-            po = result.purchase_order
-            dashboard_data.append({
-                "po_id": str(result.po_id),
-                "po_number": po.po_number if po else "Unknown",
-                "regulation": result.regulation,
-                "check_name": result.check_name,
-                "status": result.status,
-                "checked_at": result.checked_at.isoformat() if result.checked_at else None,
-                "buyer_company": po.buyer_company.name if po and po.buyer_company else "Unknown",
-                "seller_company": po.seller_company.name if po and po.seller_company else "Unknown",
-                "product": po.product.name if po and po.product else "Unknown"
-            })
-        
-        logger.info(
-            "Compliance dashboard data retrieved",
-            user_id=str(current_user.id),
-            regulation=regulation,
-            status_filter=status_filter,
-            total_results=total_count,
-            returned_results=len(dashboard_data)
-        )
-        
-        return {
-            "total_count": total_count,
-            "returned_count": len(dashboard_data),
-            "offset": offset,
-            "limit": limit,
-            "filters": {
-                "regulation": regulation,
-                "status": status_filter
-            },
-            "results": dashboard_data
-        }
+        return [HSCodeResponse.from_orm(hc) for hc in hs_codes]
         
     except Exception as e:
-        logger.error(
-            "Error retrieving compliance dashboard data",
-            user_id=str(current_user.id),
-            error=str(e)
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving dashboard data: {str(e)}"
-        )
+        logger.error(f"Failed to get HS codes: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get HS codes")
 
 
-@router.get("/regulations")
-def get_available_regulations(
+@router.get("/templates", response_model=List[ComplianceTemplateResponse])
+def get_compliance_templates(
+    regulation_type: Optional[str] = Query(None, description="Filter by regulation type"),
+    active_only: bool = Query(True, description="Show only active templates"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user_sync)
 ):
-    """
-    Get list of available regulations for compliance checking.
-    """
+    """Get compliance templates."""
     try:
-        from app.models.sector import Sector
+        from app.models.compliance import ComplianceTemplate
         
-        # Get all sectors with compliance rules
-        sectors = db.query(Sector).filter(
-            Sector.compliance_rules.isnot(None),
-            Sector.is_active == True
+        query = db.query(ComplianceTemplate)
+        
+        if regulation_type:
+            query = query.filter(ComplianceTemplate.regulation_type == regulation_type)
+        
+        if active_only:
+            query = query.filter(ComplianceTemplate.is_active == True)
+        
+        templates = query.all()
+        
+        return [ComplianceTemplateResponse.from_orm(t) for t in templates]
+        
+    except Exception as e:
+        logger.error(f"Failed to get compliance templates: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get compliance templates")
+
+
+@router.get("/mass-balance/{transformation_event_id}", response_model=List[MassBalanceResponse])
+def get_mass_balance_calculations(
+    transformation_event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Get mass balance calculations for a transformation event."""
+    try:
+        from app.models.compliance import MassBalanceCalculation
+        
+        calculations = db.query(MassBalanceCalculation).filter(
+            MassBalanceCalculation.transformation_event_id == transformation_event_id
         ).all()
         
-        regulations = set()
-        sector_regulations = {}
-        
-        for sector in sectors:
-            if sector.compliance_rules:
-                sector_regs = list(sector.compliance_rules.keys())
-                regulations.update(sector_regs)
-                sector_regulations[sector.id] = {
-                    "name": sector.name,
-                    "regulations": sector_regs
-                }
-        
-        return {
-            "available_regulations": sorted(list(regulations)),
-            "by_sector": sector_regulations
-        }
+        return [MassBalanceResponse.from_orm(calc) for calc in calculations]
         
     except Exception as e:
-        logger.error(
-            "Error retrieving available regulations",
-            user_id=str(current_user.id),
-            error=str(e)
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving regulations: {str(e)}"
-        )
+        logger.error(f"Failed to get mass balance calculations: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get mass balance calculations")
