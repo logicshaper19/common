@@ -71,3 +71,4 @@ if __name__ == "__main__":
         print(f"\n⚠️  Some tests failed (exit code: {result})")
         print("This is expected due to SQLite/JSONB compatibility issues.")
 
+

@@ -61,7 +61,7 @@ export const companiesApi = {
       if (companies.length === 0) {
         console.log('⚠️ No business relationships found, falling back to all companies...');
         try {
-          const fallbackResponse = await apiClient.get('/companies');
+          const fallbackResponse = await apiClient.get('/companies?for_supplier_selection=true');
           const allCompanies = fallbackResponse.data.data || [];
           console.log('🏢 Fallback companies:', allCompanies.length);
           return allCompanies;
@@ -79,7 +79,7 @@ export const companiesApi = {
       // Fallback: try to get all companies if business relationships fail
       try {
         console.log('🔄 Falling back to all companies...');
-        const fallbackResponse = await apiClient.get('/companies');
+        const fallbackResponse = await apiClient.get('/companies?for_supplier_selection=true');
         const allCompanies = fallbackResponse.data.companies || [];
         console.log('🏢 Fallback companies:', allCompanies.length);
         return allCompanies;
