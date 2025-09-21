@@ -4,7 +4,7 @@ Transformation schemas for comprehensive supply chain transformation tracking.
 from datetime import datetime, date
 from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 
 from app.models.base import JSONType
@@ -72,9 +72,9 @@ class TransformationEventBase(BaseModel):
     compliance_data: Optional[Dict[str, Any]] = Field(None, description="Compliance information")
     event_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
-    @validator('end_time')
-    def validate_end_time(cls, v, values):
-        if v is not None and 'start_time' in values and v <= values['start_time']:
+    @field_validator('end_time')
+    def validate_end_time(cls, v, info):
+        if v is not None and hasattr(info, 'data') and 'start_time' in info.data and v <= info.data['start_time']:
             raise ValueError('end_time must be after start_time')
         return v
 

@@ -1,0 +1,171 @@
+# Test Configuration File
+# This file contains all configurable defaults for the testing system
+
+# Test Suite Configuration
+test_suite:
+  # Parallel execution settings
+  parallel: true
+  max_workers: 4
+  
+  # Coverage settings
+  coverage_threshold: 80.0
+  
+  # Performance settings
+  performance_threshold_ms: 1000.0
+  
+  # Output settings
+  output_dir: "test_results"
+  report_format: "html"
+  
+  # Execution settings
+  verbose: false
+  fail_fast: false
+  
+  # Default categories to run (empty means all)
+  default_categories: []
+  default_exclude_categories: []
+
+# Test Category Timeouts (in seconds)
+timeouts:
+  unit: 300          # 5 minutes
+  integration: 600   # 10 minutes
+  e2e: 1800         # 30 minutes
+  performance: 3600  # 1 hour
+  security: 900     # 15 minutes
+
+# Database Configuration
+database:
+  # Default database URLs for different environments
+  urls:
+    unit: "postgresql://elisha@localhost:5432/common_test_unit"
+    integration: "postgresql://elisha@localhost:5432/common_test_integration"
+    e2e: "postgresql://elisha@localhost:5432/common_test_e2e"
+    performance: "postgresql://elisha@localhost:5432/common_test_performance"
+    security: "postgresql://elisha@localhost:5432/common_test_security"
+  
+  # Connection settings
+  connection:
+    connect_timeout: 10
+    command_timeout: 30
+    retry_attempts: 3
+    retry_delay: 1
+
+# Performance Testing Configuration
+performance:
+  # Benchmark thresholds (in milliseconds)
+  thresholds:
+    api_response_time: 100
+    database_query_time: 50
+    file_operation_time: 200
+    memory_usage_mb: 100
+  
+  # Load testing settings
+  load_test:
+    concurrent_users: 10
+    duration_seconds: 60
+    ramp_up_seconds: 10
+  
+  # Stress testing settings
+  stress_test:
+    max_concurrent_users: 50
+    max_duration_seconds: 300
+
+# Security Testing Configuration
+security:
+  # SQL injection testing
+  sql_injection:
+    max_payloads: 50
+    timeout_seconds: 5
+  
+  # XSS testing
+  xss:
+    max_payloads: 30
+    timeout_seconds: 3
+  
+  # Rate limiting testing
+  rate_limiting:
+    max_attempts: 10
+    window_seconds: 60
+  
+  # Authentication testing
+  auth:
+    max_brute_force_attempts: 5
+    lockout_duration_seconds: 300
+
+# Coverage Configuration
+coverage:
+  # Minimum coverage thresholds by category
+  thresholds:
+    unit: 90.0
+    integration: 80.0
+    e2e: 70.0
+  
+  # Coverage report settings
+  report:
+    include_branches: true
+    show_missing: true
+    skip_covered: false
+    sort_by: "Cover"
+  
+  # Files to exclude from coverage
+  exclude:
+    - "*/tests/*"
+    - "*/test_*"
+    - "*/__pycache__/*"
+    - "*/migrations/*"
+    - "*/conftest.py"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # Log files
+  files:
+    test_execution: "test_results/test_execution.log"
+    performance: "test_results/performance.log"
+    security: "test_results/security.log"
+    errors: "test_results/errors.log"
+  
+  # Log rotation
+  rotation:
+    max_bytes: 10485760  # 10MB
+    backup_count: 5
+
+# CI/CD Configuration
+ci_cd:
+  # GitHub Actions settings
+  github_actions:
+    timeout_minutes: 30
+    max_retries: 2
+    
+  # Notification settings
+  notifications:
+    on_failure: true
+    on_success: false
+    webhook_url: ""
+    
+  # Artifact settings
+  artifacts:
+    test_results: true
+    coverage_reports: true
+    performance_reports: true
+    security_reports: true
+
+# Environment-specific overrides
+environments:
+  development:
+    test_suite:
+      verbose: true
+      max_workers: 2
+    
+  staging:
+    test_suite:
+      max_workers: 8
+      coverage_threshold: 85.0
+    
+  production:
+    test_suite:
+      max_workers: 16
+      coverage_threshold: 90.0
+      fail_fast: true

@@ -3,7 +3,7 @@ Team invitation schemas for request/response validation.
 """
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from uuid import UUID
 
 from app.models.team_invitation import InvitationStatus
@@ -16,14 +16,14 @@ class TeamInvitationCreate(BaseModel):
     role: str = Field(..., pattern="^(admin|buyer|seller|viewer)$", description="Role to assign to the invited user")
     message: Optional[str] = Field(None, max_length=1000, description="Optional message to include with the invitation")
     
-    @validator('email')
+    @field_validator('email')
     def validate_email(cls, v):
         """Validate email format."""
         if not v or len(v.strip()) == 0:
             raise ValueError('Email cannot be empty')
         return v.lower().strip()
     
-    @validator('full_name')
+    @field_validator('full_name')
     def validate_full_name(cls, v):
         """Validate full name if provided."""
         if v is not None:
@@ -73,7 +73,7 @@ class TeamInvitationAccept(BaseModel):
     password: str = Field(..., min_length=8, max_length=100, description="Password for the new user account")
     full_name: Optional[str] = Field(None, min_length=1, max_length=255, description="Full name (if not provided in invitation)")
     
-    @validator('password')
+    @field_validator('password')
     def validate_password(cls, v):
         """Validate password strength."""
         if len(v) < 8:
@@ -126,7 +126,7 @@ class BulkInvitationCreate(BaseModel):
     """Schema for creating multiple team invitations."""
     invitations: List[TeamInvitationCreate] = Field(..., min_items=1, max_items=50)
     
-    @validator('invitations')
+    @field_validator('invitations')
     def validate_unique_emails(cls, v):
         """Ensure all emails in the bulk invitation are unique."""
         emails = [inv.email for inv in v]

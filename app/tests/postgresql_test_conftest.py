@@ -24,7 +24,8 @@ POSTGRESQL_DATABASE_URL = "postgresql://elisha@localhost:5432/common_test"
 # Create PostgreSQL engine
 engine = create_engine(
     POSTGRESQL_DATABASE_URL,
-    poolclass=StaticPool,
+    pool_pre_ping=True,
+        poolclass=StaticPool,
     echo=False
 )
 

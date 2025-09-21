@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List
 from uuid import UUID
 from datetime import datetime, date
 from decimal import Decimal
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, field_validator, Field
 import re
 
 from app.models.transformation import TransformationType
@@ -22,7 +22,7 @@ class TransformationTemplateRequest(BaseModel):
     input_batch_data: Optional[Dict[str, Any]] = None
     facility_id: Optional[str] = None
     
-    @validator('company_type')
+    @field_validator('company_type')
     def validate_company_type(cls, v):
         valid_types = [
             'plantation_grower', 
@@ -34,13 +34,13 @@ class TransformationTemplateRequest(BaseModel):
             raise ValueError(f'Invalid company type: {v}. Must be one of {valid_types}')
         return v
     
-    @validator('facility_id')
+    @field_validator('facility_id')
     def validate_facility_id(cls, v):
         if v and not re.match(r'^[A-Z]+-\d+$', v):
             raise ValueError('Invalid facility ID format. Expected format: ABC-123')
         return v
     
-    @validator('input_batch_data')
+    @field_validator('input_batch_data')
     def validate_input_batch_data(cls, v):
         if v is not None:
             required_fields = ['id', 'product_id', 'quantity', 'unit']
@@ -57,7 +57,7 @@ class RoleDataValidationRequest(BaseModel):
     company_type: str = Field(..., min_length=1, max_length=50)
     role_data: Dict[str, Any] = Field(..., min_items=1)
     
-    @validator('company_type')
+    @field_validator('company_type')
     def validate_company_type(cls, v):
         valid_types = [
             'plantation_grower', 
@@ -77,7 +77,7 @@ class CompleteTransformationRequest(BaseModel):
     user_id: UUID
     auto_populate_role_data: bool = True
     
-    @validator('transformation_data')
+    @field_validator('transformation_data')
     def validate_transformation_data(cls, v):
         required_fields = ['transformation_type', 'input_batch_id', 'company_id']
         missing_fields = [field for field in required_fields if field not in v]
@@ -95,7 +95,7 @@ class BatchReferenceSchema(BaseModel):
     quality_grade: Optional[str] = None
     certification_status: Optional[str] = None
     
-    @validator('unit')
+    @field_validator('unit')
     def validate_unit(cls, v):
         valid_units = ['kg', 'tonnes', 'liters', 'pieces', 'bags']
         if v not in valid_units:
@@ -113,7 +113,7 @@ class QualityMetricsSchema(BaseModel):
     color_grade: Optional[str] = None
     purity_percentage: Optional[Decimal] = Field(None, ge=0, le=100)
     
-    @validator('color_grade')
+    @field_validator('color_grade')
     def validate_color_grade(cls, v):
         if v and not re.match(r'^[A-Z]\d+$', v):
             raise ValueError('Invalid color grade format. Expected format: A1, B2, etc.')
@@ -130,7 +130,7 @@ class ProcessParametersSchema(BaseModel):
     water_used: Optional[Decimal] = Field(None, ge=0)
     chemical_additives: Optional[List[str]] = None
     
-    @validator('chemical_additives')
+    @field_validator('chemical_additives')
     def validate_chemical_additives(cls, v):
         if v:
             # Basic validation for chemical names
@@ -149,11 +149,13 @@ class EfficiencyMetricsSchema(BaseModel):
     water_efficiency: Optional[Decimal] = Field(None, ge=0, le=100)
     processing_time_hours: Optional[Decimal] = Field(None, ge=0, le=168)
     
-    @validator('yield_percentage', 'waste_percentage')
-    def validate_yield_waste_sum(cls, v, values):
-        if v is not None and 'waste_percentage' in values:
-            waste = values.get('waste_percentage', 0) or 0
-            if v + waste > 100:
+    @field_validator('yield_percentage', 'waste_percentage')
+    def validate_yield_waste_sum(cls, v, info):
+        if v is not None and hasattr(info, 'data'):
+            # Get the other field value
+            other_field = 'waste_percentage' if info.field_name == 'yield_percentage' else 'yield_percentage'
+            other_value = info.data.get(other_field, 0) or 0
+            if v + other_value > 100:
                 raise ValueError('Yield and waste percentages cannot exceed 100%')
         return v
 
@@ -170,13 +172,13 @@ class LocationDataSchema(BaseModel):
     latitude: Optional[Decimal] = Field(None, ge=-90, le=90)
     longitude: Optional[Decimal] = Field(None, ge=-180, le=180)
     
-    @validator('country')
+    @field_validator('country')
     def validate_country_code(cls, v):
         if not re.match(r'^[A-Z]{2}$', v):
             raise ValueError('Country must be a 2-letter ISO code (e.g., US, MY)')
         return v.upper()
     
-    @validator('postal_code')
+    @field_validator('postal_code')
     def validate_postal_code(cls, v):
         if v and not re.match(r'^[A-Za-z0-9\s\-]{3,10}$', v):
             raise ValueError('Invalid postal code format')
@@ -193,9 +195,9 @@ class CertificationDataSchema(BaseModel):
     expiry_date: date
     is_valid: bool = True
     
-    @validator('expiry_date')
-    def validate_expiry_date(cls, v, values):
-        if 'issue_date' in values and v <= values['issue_date']:
+    @field_validator('expiry_date')
+    def validate_expiry_date(cls, v, info):
+        if hasattr(info, 'data') and 'issue_date' in info.data and v <= info.data['issue_date']:
             raise ValueError('Expiry date must be after issue date')
         return v
 
@@ -209,7 +211,7 @@ class WeatherConditionsSchema(BaseModel):
     wind_speed_kmh: Optional[Decimal] = Field(None, ge=0, le=300)
     weather_condition: Optional[str] = None
     
-    @validator('weather_condition')
+    @field_validator('weather_condition')
     def validate_weather_condition(cls, v):
         if v:
             valid_conditions = [
@@ -232,11 +234,11 @@ class TransformationEventCreateSchema(BaseModel):
     process_description: Optional[str] = Field(None, max_length=500)
     start_time: datetime
     end_time: Optional[datetime] = None
-    status: str = Field(default="pending", regex="^(pending|in_progress|completed|failed)$")
+    status: str = Field(default="pending", pattern="^(pending|in_progress|completed|failed)$")
     
-    @validator('end_time')
-    def validate_end_time(cls, v, values):
-        if v and 'start_time' in values and v <= values['start_time']:
+    @field_validator('end_time')
+    def validate_end_time(cls, v, info):
+        if v and hasattr(info, 'data') and 'start_time' in info.data and v <= info.data['start_time']:
             raise ValueError('End time must be after start time')
         return v
 

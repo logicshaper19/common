@@ -26,11 +26,11 @@ from app.models.purchase_order import PurchaseOrder
 from app.models.batch import Batch
 
 # Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_viral_analytics.db"
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost:5432/test_viral_analytics"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool)
+    pool_pre_ping=True,
+        poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Create tables

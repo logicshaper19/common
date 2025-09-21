@@ -1,6 +1,6 @@
 """
-PostgreSQL test configuration for JSONB compatibility.
-This replaces the SQLite configuration for tests that need JSONB functionality.
+PostgreSQL-only test configuration for comprehensive testing.
+All tests use PostgreSQL to ensure consistency and full feature support.
 """
 import pytest
 import asyncio
@@ -10,23 +10,18 @@ from typing import Generator, Dict, Any, Optional
 from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.core.database import get_db, Base
 from app.core.config import settings
+from app.tests.database_config import create_integration_test_engine
 
 # PostgreSQL test database URL
 POSTGRESQL_DATABASE_URL = "postgresql://elisha@localhost:5432/common_test"
 
-# Create PostgreSQL engine
-engine = create_engine(
-    POSTGRESQL_DATABASE_URL,
-    poolclass=StaticPool,
-    echo=False
-)
+# Create PostgreSQL engine with appropriate configuration for integration tests
+engine = create_integration_test_engine(POSTGRESQL_DATABASE_URL)
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

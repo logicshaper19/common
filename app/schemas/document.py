@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class DocumentBase(BaseModel):
@@ -92,7 +92,7 @@ class ProxyRelationshipCreate(ProxyRelationshipBase):
     """Schema for creating a new proxy relationship"""
     expires_at: Optional[datetime] = Field(None, description="When this authorization expires")
     
-    @validator('authorized_permissions')
+    @field_validator('authorized_permissions')
     def validate_permissions(cls, v):
         valid_permissions = [
             'upload_certificates', 'provide_gps', 'submit_harvest_data',
@@ -103,7 +103,7 @@ class ProxyRelationshipCreate(ProxyRelationshipBase):
                 raise ValueError(f"Invalid permission: {permission}")
         return v
     
-    @validator('document_types_allowed')
+    @field_validator('document_types_allowed')
     def validate_document_types(cls, v):
         if v is None:
             return v

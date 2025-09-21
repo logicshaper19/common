@@ -1,7 +1,7 @@
 """
 Company schemas for API requests and responses.
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
@@ -36,13 +36,13 @@ class CompanyBase(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     website: Optional[str] = Field(None, max_length=255)
     
-    @validator('email')
+    @field_validator('email')
     def validate_email(cls, v):
         if v and '@' not in v:
             raise ValueError('Invalid email format')
         return v
     
-    @validator('website')
+    @field_validator('website')
     def validate_website(cls, v):
         if v and not (v.startswith('http://') or v.startswith('https://')):
             return f'https://{v}'
@@ -69,7 +69,7 @@ class CompanyUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     website: Optional[str] = Field(None, max_length=255)
     
-    @validator('email')
+    @field_validator('email')
     def validate_email(cls, v):
         if v and '@' not in v:
             raise ValueError('Invalid email format')

@@ -6,7 +6,7 @@ from datetime import datetime, date
 from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 from pydantic import BaseModel, Field, validator
-from enum import Enum
+from e, field_validatornum import Enum
 from decimal import Decimal
 
 
@@ -41,7 +41,7 @@ class TransformationMetric(BaseModel):
     measurement_date: datetime = Field(default_factory=datetime.utcnow, description="When metric was measured")
     notes: Optional[str] = Field(None, description="Additional notes or context")
     
-    @validator('value')
+    @field_validator('value')
     def validate_value_positive(cls, v):
         if v < 0:
             raise ValueError('Metric value must be positive')
@@ -71,7 +71,7 @@ class PlantationMetrics(BaseModel):
     fuel_consumption: Optional[float] = Field(None, ge=0, description="Fuel consumption (liters/hectare)")
     pesticide_usage: Optional[float] = Field(None, ge=0, description="Pesticide usage (kg/hectare)")
     
-    @validator('yield_per_hectare')
+    @field_validator('yield_per_hectare')
     def validate_yield_benchmark(cls, v):
         """Validate against industry benchmarks."""
         if v < 10:
@@ -80,7 +80,7 @@ class PlantationMetrics(BaseModel):
             raise ValueError('Yield per hectare above industry maximum (35 tonnes/ha)')
         return v
     
-    @validator('oer_potential')
+    @field_validator('oer_potential')
     def validate_oer_benchmark(cls, v):
         """Validate OER against industry standards."""
         if v < 15:
@@ -89,7 +89,7 @@ class PlantationMetrics(BaseModel):
             raise ValueError('OER potential above industry maximum (25%)')
         return v
     
-    @validator('harvest_to_mill_time_hours')
+    @field_validator('harvest_to_mill_time_hours')
     def validate_harvest_time(cls, v):
         """Validate harvest-to-mill time for quality preservation."""
         if v > 48:
@@ -125,7 +125,7 @@ class MillMetrics(BaseModel):
     cost_per_tonne: Optional[float] = Field(None, ge=0, description="Processing cost per tonne")
     revenue_per_tonne: Optional[float] = Field(None, description="Revenue per tonne")
     
-    @validator('oil_extraction_rate')
+    @field_validator('oil_extraction_rate')
     def validate_oer_benchmark(cls, v):
         """Validate OER against industry benchmarks."""
         if v < 18:
@@ -134,14 +134,14 @@ class MillMetrics(BaseModel):
             raise ValueError('OER above industry maximum (25%)')
         return v
     
-    @validator('cpo_ffa_level')
+    @field_validator('cpo_ffa_level')
     def validate_ffa_quality(cls, v):
         """Validate FFA level for oil quality."""
         if v > 5:
             raise ValueError('FFA level exceeds quality threshold (5%)')
         return v
     
-    @validator('nut_fibre_boiler_ratio')
+    @field_validator('nut_fibre_boiler_ratio')
     def validate_energy_self_sufficiency(cls, v):
         """Validate energy self-sufficiency."""
         if v < 70:
@@ -171,7 +171,7 @@ class KernelCrusherMetrics(BaseModel):
     energy_consumption: float = Field(..., ge=0, description="Energy consumption (kWh/tonne)")
     water_consumption: float = Field(..., ge=0, description="Water consumption (m³/tonne)")
     
-    @validator('kernel_oil_yield')
+    @field_validator('kernel_oil_yield')
     def validate_kernel_yield_benchmark(cls, v):
         """Validate kernel oil yield against industry benchmarks."""
         if v < 40:
@@ -180,7 +180,7 @@ class KernelCrusherMetrics(BaseModel):
             raise ValueError('Kernel oil yield above industry maximum (50%)')
         return v
     
-    @validator('cake_residual_oil')
+    @field_validator('cake_residual_oil')
     def validate_cake_residual_benchmark(cls, v):
         """Validate cake residual oil against industry standards."""
         if v > 8:
@@ -212,14 +212,14 @@ class RefineryMetrics(BaseModel):
     water_consumption: float = Field(..., ge=0, description="Water consumption (m³/tonne)")
     chemical_usage: Optional[Dict[str, float]] = Field(None, description="Chemical usage (kg/tonne)")
     
-    @validator('refining_loss')
+    @field_validator('refining_loss')
     def validate_refining_loss_benchmark(cls, v):
         """Validate refining loss against industry benchmarks."""
         if v > 2:
             raise ValueError('Refining loss exceeds industry maximum (2%)')
         return v
     
-    @validator('olein_yield', 'stearin_yield')
+    @field_validator('olein_yield', 'stearin_yield')
     def validate_fractionation_yields(cls, v):
         """Validate fractionation yields."""
         if v < 15:
@@ -228,7 +228,7 @@ class RefineryMetrics(BaseModel):
             raise ValueError('Fractionation yield above maximum (85%)')
         return v
     
-    @validator('iodine_value_consistency')
+    @field_validator('iodine_value_consistency')
     def validate_iv_consistency(cls, v):
         """Validate IV consistency for product specification."""
         if v > 1:
@@ -265,21 +265,21 @@ class ManufacturerMetrics(BaseModel):
     revenue_per_unit: Optional[float] = Field(None, description="Revenue per unit")
     profit_margin: Optional[float] = Field(None, description="Profit margin (%)")
     
-    @validator('recipe_adherence_variance')
+    @field_validator('recipe_adherence_variance')
     def validate_recipe_adherence(cls, v):
         """Validate recipe adherence against quality standards."""
         if v > 0.5:
             raise ValueError('Recipe adherence variance exceeds quality threshold (0.5%)')
         return v
     
-    @validator('production_line_efficiency')
+    @field_validator('production_line_efficiency')
     def validate_production_efficiency(cls, v):
         """Validate production line efficiency."""
         if v < 80:
             raise ValueError('Production line efficiency below minimum (80%)')
         return v
     
-    @validator('product_waste_scrap_rate')
+    @field_validator('product_waste_scrap_rate')
     def validate_waste_rate(cls, v):
         """Validate waste/scrap rate against sustainability standards."""
         if v > 2:

@@ -2,7 +2,7 @@
 Application configuration settings using Pydantic Settings.
 """
 from typing import List, Optional, Dict, Any
-from pydantic import Field, validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
 import os
 import secrets
@@ -109,7 +109,7 @@ class Settings(BaseSettings):
     v2_notification_center: bool = Field(default=False, alias="V2_NOTIFICATION_CENTER")
 
     # Validators
-    @validator('environment')
+    @field_validator('environment')
     def validate_environment(cls, v):
         """Validate environment value."""
         valid_environments = [e.value for e in Environment]
@@ -117,7 +117,7 @@ class Settings(BaseSettings):
             raise ValueError(f"Environment must be one of: {valid_environments}")
         return v
 
-    @validator('log_level')
+    @field_validator('log_level')
     def validate_log_level(cls, v):
         """Validate log level."""
         valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
@@ -125,14 +125,14 @@ class Settings(BaseSettings):
             raise ValueError(f"Log level must be one of: {valid_levels}")
         return v.upper()
 
-    @validator('jwt_secret_key')
-    def validate_jwt_secret(cls, v, values):
+    @field_validator('jwt_secret_key')
+    def validate_jwt_secret(cls, v, info):
         """Validate JWT secret key."""
         if len(v) < 32:
             raise ValueError("JWT secret key must be at least 32 characters long")
 
         # Check for weak secrets in production
-        env = values.get('environment', 'development')
+        env = info.data.get('environment', 'development') if hasattr(info, 'data') else 'development'
         if env in ['staging', 'production']:
             weak_secrets = [
                 "your-super-secret-jwt-key-change-in-production",
@@ -143,30 +143,30 @@ class Settings(BaseSettings):
 
         return v
 
-    @validator('database_url')
-    def validate_database_url(cls, v, values):
+    @field_validator('database_url')
+    def validate_database_url(cls, v, info):
         """Validate database URL."""
         if not v.startswith(('postgresql://', 'sqlite:///', 'mysql://')):
             raise ValueError("Database URL must start with postgresql://, sqlite:///, or mysql://")
 
         # Warn about SQLite in production
-        env = values.get('environment', 'development')
+        env = info.data.get('environment', 'development') if hasattr(info, 'data') else 'development'
         if env == 'production' and v.startswith('sqlite:///'):
             raise ValueError("SQLite is not recommended for production use")
 
         return v
 
-    @validator('redis_url')
+    @field_validator('redis_url')
     def validate_redis_url(cls, v):
         """Validate Redis URL."""
         if not v.startswith('redis://'):
             raise ValueError("Redis URL must start with redis://")
         return v
 
-    @validator('admin_password')
-    def validate_admin_password(cls, v, values):
+    @field_validator('admin_password')
+    def validate_admin_password(cls, v, info):
         """Validate admin password."""
-        env = values.get('environment', 'development')
+        env = info.data.get('environment', 'development') if hasattr(info, 'data') else 'development'
 
         # Require strong password in production
         if env in ['staging', 'production']:
