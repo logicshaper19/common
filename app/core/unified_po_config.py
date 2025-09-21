@@ -15,15 +15,15 @@ class UnifiedPOConfig:
     
     # Processor types that should trigger transformations
     PROCESSOR_TYPES: List[str] = field(default_factory=lambda: [
-        'mill', 'refinery', 'manufacturer', 'processor'
+        'mill_processor', 'refinery_crusher', 'manufacturer', 'plantation_grower'
     ])
     
     # Company type to transformation type mapping
     TRANSFORMATION_TYPE_MAPPING: Dict[str, TransformationType] = field(default_factory=lambda: {
-        'mill': TransformationType.MILLING,
-        'refinery': TransformationType.REFINING,
-        'manufacturer': TransformationType.MANUFACTURING,
-        'processor': TransformationType.BLENDING
+        'plantation_grower': TransformationType.HARVEST,
+        'mill_processor': TransformationType.MILLING,
+        'refinery_crusher': TransformationType.REFINING,
+        'manufacturer': TransformationType.MANUFACTURING
     })
     
     # ID generation patterns
