@@ -21,7 +21,7 @@ const DebugAuth: React.FC = () => {
   const testIncomingPOs = async () => {
     try {
       setError(null);
-      const response = await apiClient.get('/purchase-orders/incoming-simple');
+      const response = await apiClient.get('/simple/purchase-orders/incoming-simple');
       setDebugInfo({ incomingPOs: response.data });
     } catch (err: any) {
       setError(err.message || 'Unknown error');

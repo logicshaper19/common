@@ -244,7 +244,7 @@ export const purchaseOrderApi = {
   // Get incoming purchase orders (where current user's company is the seller)
   getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
     // Get POs where current user is the seller and status is pending (awaiting acceptance/editing)
-    const response = await apiClient.get('/purchase-orders/incoming-simple');
+    const response = await apiClient.get('/simple/purchase-orders/incoming-simple');
     return response.data || [];
   },
 
