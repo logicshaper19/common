@@ -133,13 +133,13 @@ def can_manage_company(user: CurrentUser, target_company_id: UUID) -> bool:
 
 def can_create_purchase_order(user: CurrentUser) -> bool:
     """Check if user can create purchase orders."""
-    return user.role in ['admin', 'cooperative_manager', 'trader']
+    return user.role in ['admin', 'cooperative_manager', 'trader', 'originator', 'seller', 'buyer']
 
 
 def can_confirm_purchase_order(user: CurrentUser, po: PurchaseOrder) -> bool:
     """Check if user can confirm purchase order."""
     return (user.company_id == po.seller_company_id and 
-            user.role in ['admin', 'cooperative_manager'])
+            user.role in ['admin', 'cooperative_manager', 'seller', 'refinery_manager', 'mill_manager', 'production_manager'])
 
 
 def can_approve_purchase_order(user: CurrentUser, po: PurchaseOrder) -> bool:

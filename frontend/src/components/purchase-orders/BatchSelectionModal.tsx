@@ -6,27 +6,9 @@ import DataTable from '../ui/DataTable';
 import Modal from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { useToast } from '../../contexts/ToastContext';
+import { harvestApi, HarvestBatch } from '../../services/harvestApi';
 
-interface HarvestBatch {
-  id: string;
-  batch_id: string;
-  harvest_date: string;
-  farm_name: string;
-  farm_id: string;
-  plantation_type: string;
-  quantity: number;
-  unit: string;
-  available_quantity: number;
-  location_coordinates?: {
-    latitude: number;
-    longitude: number;
-  };
-  certifications: string[];
-  quality_parameters: Record<string, any>;
-  origin_data: Record<string, any>;
-  status: 'active' | 'consumed' | 'expired';
-  created_at: string;
-}
+// Using HarvestBatch from harvestApi service
 
 interface BatchSelectionModalProps {
   isOpen: boolean;
@@ -66,87 +48,22 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
   const loadHarvestBatches = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // const response = await harvestApi.getAvailableHarvestBatches(productId);
-      // setHarvestBatches(response.data);
+      // Get available harvest batches from the API
+      const batches = await harvestApi.getAvailableHarvestBatches(
+        productId,
+        requiredQuantity,
+        requiredUnit
+      );
       
-      // Mock data for now
-      setHarvestBatches([
-        {
-          id: '1',
-          batch_id: 'H-20241201-001',
-          harvest_date: '2024-12-01',
-          farm_name: 'Sumatra Smallholder Farm A',
-          farm_id: 'FARM-001',
-          plantation_type: 'smallholder',
-          quantity: 1000,
-          unit: 'KGM',
-          available_quantity: 1000,
-          location_coordinates: {
-            latitude: -0.7893,
-            longitude: 100.3491
-          },
-          certifications: ['RSPO', 'NDPE'],
-          quality_parameters: {
-            oil_content: 22.5,
-            moisture_content: 18.2
-          },
-          origin_data: {
-            harvest_date: '2024-12-01',
-            farm_information: {
-              farm_name: 'Sumatra Smallholder Farm A',
-              farm_id: 'FARM-001',
-              plantation_type: 'smallholder',
-              cultivation_methods: ['sustainable', 'organic']
-            },
-            geographic_coordinates: {
-              latitude: -0.7893,
-              longitude: 100.3491
-            },
-            certifications: ['RSPO', 'NDPE'],
-            processing_notes: 'Harvested in optimal conditions'
-          },
-          status: 'active',
-          created_at: '2024-12-01T08:00:00Z'
-        },
-        {
-          id: '2',
-          batch_id: 'H-20241128-002',
-          harvest_date: '2024-11-28',
-          farm_name: 'Sumatra Smallholder Farm B',
-          farm_id: 'FARM-002',
-          plantation_type: 'smallholder',
-          quantity: 750,
-          unit: 'KGM',
-          available_quantity: 750,
-          location_coordinates: {
-            latitude: -0.8123,
-            longitude: 100.3123
-          },
-          certifications: ['RSPO', 'Organic'],
-          quality_parameters: {
-            oil_content: 24.1,
-            moisture_content: 16.8
-          },
-          origin_data: {
-            harvest_date: '2024-11-28',
-            farm_information: {
-              farm_name: 'Sumatra Smallholder Farm B',
-              farm_id: 'FARM-002',
-              plantation_type: 'smallholder',
-              cultivation_methods: ['organic', 'biodiversity']
-            },
-            geographic_coordinates: {
-              latitude: -0.8123,
-              longitude: 100.3123
-            },
-            certifications: ['RSPO', 'Organic'],
-            processing_notes: 'Organic harvest with biodiversity protection'
-          },
-          status: 'active',
-          created_at: '2024-11-28T10:30:00Z'
-        }
-      ]);
+      setHarvestBatches(batches);
+      
+      if (batches.length === 0) {
+        showToast({
+          type: 'info',
+          title: 'No Harvest Batches Available',
+          message: 'No harvest batches found for this product. Please create a harvest batch first.'
+        });
+      }
     } catch (error) {
       console.error('Error loading harvest batches:', error);
       showToast({ title: 'Error', message: 'Failed to load available harvest batches', type: 'error' });
@@ -158,14 +75,14 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
   // Handle batch selection
   const handleBatchSelect = (batch: HarvestBatch) => {
     setSelectedBatch(batch);
-    setSelectedQuantity(Math.min(requiredQuantity, batch.available_quantity));
+    setSelectedQuantity(Math.min(requiredQuantity, batch.quantity));
     setShowBatchDetails(true);
   };
 
   // Handle quantity change
   const handleQuantityChange = (quantity: number) => {
     if (selectedBatch) {
-      const maxQuantity = Math.min(requiredQuantity, selectedBatch.available_quantity);
+      const maxQuantity = Math.min(requiredQuantity, selectedBatch.quantity);
       setSelectedQuantity(Math.min(quantity, maxQuantity));
     }
   };
@@ -193,7 +110,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       render: (batch: HarvestBatch) => (
         <div className="flex items-center space-x-2">
           <CalendarIcon className="h-4 w-4 text-gray-400" />
-          <span>{new Date(batch.harvest_date).toLocaleDateString()}</span>
+          <span>{new Date(batch.origin_data?.harvest_date || batch.production_date).toLocaleDateString()}</span>
         </div>
       )
     },
@@ -202,8 +119,8 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       label: 'Farm',
       render: (batch: HarvestBatch) => (
         <div>
-          <div className="font-medium text-gray-900">{batch.farm_name}</div>
-          <div className="text-sm text-gray-500">ID: {batch.farm_id}</div>
+          <div className="font-medium text-gray-900">{batch.origin_data?.farm_information?.farm_name || batch.location_name || 'N/A'}</div>
+          <div className="text-sm text-gray-500">ID: {batch.origin_data?.farm_information?.farm_id || batch.facility_code || 'N/A'}</div>
         </div>
       )
     },
@@ -214,20 +131,17 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
         <div className="flex items-center space-x-2">
           <MapPinIcon className="h-4 w-4 text-gray-400" />
           <span className="text-sm">
-            {batch.location_coordinates 
-              ? `${batch.location_coordinates.latitude.toFixed(4)}, ${batch.location_coordinates.longitude.toFixed(4)}`
-              : 'No coordinates'
-            }
+            {batch.origin_data?.farm_information?.farm_name || batch.location_name || 'N/A'}
           </span>
         </div>
       )
     },
     {
-      key: 'available_quantity',
+      key: 'quantity',
       label: 'Available',
       render: (batch: HarvestBatch) => (
         <div className="text-right">
-          <div className="font-medium">{batch.available_quantity.toLocaleString()}</div>
+          <div className="font-medium">{batch.quantity.toLocaleString()}</div>
           <div className="text-sm text-gray-500">{batch.unit}</div>
         </div>
       )
@@ -258,7 +172,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
           onClick={() => handleBatchSelect(batch)}
           variant="outline"
           size="sm"
-          disabled={batch.available_quantity < requiredQuantity}
+          disabled={batch.quantity < requiredQuantity}
         >
           Select Batch
         </Button>
@@ -310,20 +224,20 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium text-gray-500">Farm Name</label>
-                        <p className="text-gray-900">{selectedBatch.farm_name}</p>
+                        <p className="text-gray-900">{selectedBatch.origin_data?.farm_information?.farm_name || selectedBatch.location_name || 'N/A'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Harvest Date</label>
-                        <p className="text-gray-900">{new Date(selectedBatch.harvest_date).toLocaleDateString()}</p>
+                        <p className="text-gray-900">{new Date(selectedBatch.origin_data?.harvest_date || selectedBatch.production_date).toLocaleDateString()}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Available Quantity</label>
-                        <p className="text-gray-900">{selectedBatch.available_quantity.toLocaleString()} {selectedBatch.unit}</p>
+                        <p className="text-gray-900">{selectedBatch.quantity.toLocaleString()} {selectedBatch.unit}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Certifications</label>
                         <div className="flex flex-wrap gap-1">
-                          {selectedBatch.certifications.map((cert) => (
+                          {(selectedBatch.certifications || []).map((cert) => (
                             <Badge key={cert} variant="primary" size="sm">
                               {cert}
                             </Badge>
@@ -341,13 +255,13 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                         <input
                           type="number"
                           min="1"
-                          max={Math.min(requiredQuantity, selectedBatch.available_quantity)}
+                          max={Math.min(requiredQuantity, selectedBatch.quantity)}
                           value={selectedQuantity}
                           onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 0)}
                           className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-sm text-gray-500">
-                          of {Math.min(requiredQuantity, selectedBatch.available_quantity).toLocaleString()} {requiredUnit}
+                          of {Math.min(requiredQuantity, selectedBatch.quantity).toLocaleString()} {requiredUnit}
                         </span>
                       </div>
                     </div>

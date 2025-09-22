@@ -68,12 +68,6 @@ class Company(Base):
     brands = relationship("Brand", back_populates="company", cascade="all, delete-orphan")
     gap_actions = relationship("GapAction", foreign_keys="GapAction.company_id", back_populates="company")
     locations = relationship("Location", foreign_keys="Location.company_id", back_populates="company")
-    transformation_events = relationship(
-        "TransformationEvent", 
-        back_populates="company", 
-        lazy="select",
-        foreign_keys="TransformationEvent.company_id"
-    )
     
     # Amendment relationships
     proposed_amendments = relationship(
@@ -86,6 +80,9 @@ class Company(Base):
         foreign_keys="Amendment.requires_approval_from_company_id",
         back_populates="requires_approval_from_company"
     )
+    
+    # Transformation relationships
+    transformation_events = relationship("TransformationEvent", back_populates="company")
 
     # Performance indexes for frequently queried fields
     __table_args__ = (

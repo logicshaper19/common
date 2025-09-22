@@ -293,3 +293,31 @@ class ComplianceReportGenerationResponse(BaseModel):
     file_size: int
     download_url: str
     status: str
+
+
+# Mass Balance Calculation Schemas
+class MassBalanceCalculation(BaseModel):
+    """Mass balance calculation request schema."""
+    po_id: UUID = Field(..., description="Purchase order ID")
+    regulation_type: RegulationType = Field(..., description="Regulation type")
+    calculation_method: str = Field(..., description="Calculation method")
+    input_quantities: Dict[str, Decimal] = Field(..., description="Input quantities by product")
+    output_quantities: Dict[str, Decimal] = Field(..., description="Output quantities by product")
+    conversion_factors: Dict[str, Decimal] = Field(default_factory=dict, description="Conversion factors")
+    waste_percentage: Optional[Decimal] = Field(None, ge=0, le=100, description="Waste percentage")
+    notes: Optional[str] = Field(None, description="Calculation notes")
+
+
+class MassBalanceResponse(BaseModel):
+    """Mass balance calculation response schema."""
+    id: UUID
+    po_id: UUID
+    regulation_type: RegulationType
+    calculation_method: str
+    input_total: Decimal
+    output_total: Decimal
+    waste_amount: Decimal
+    mass_balance_ratio: Decimal
+    compliance_status: str
+    calculated_at: datetime
+    notes: Optional[str] = None

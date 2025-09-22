@@ -10,6 +10,7 @@ from sqlalchemy import and_
 from app.models.purchase_order import PurchaseOrder
 from app.models.company import Company
 from app.models.product import Product
+from app.models.batch import Batch
 from app.schemas.purchase_order import PurchaseOrderCreate
 from app.services.purchase_order import PurchaseOrderService
 from app.core.logging import get_logger
@@ -41,13 +42,28 @@ class POChainingService:
         Returns:
             Dict with confirmation result and created child POs
         """
+        from app.core.logging import get_logger
+        logger = get_logger(__name__)
+        
+        print(f"🔗 POChainingService.confirm_po_and_create_children called with po_id: {po_id}, confirming_user_id: {confirming_user_id}")
+        print(f"🔗 Confirmation data: {confirmation_data}")
+        logger.info(f"POChainingService.confirm_po_and_create_children called with po_id: {po_id}, confirming_user_id: {confirming_user_id}")
+        logger.info(f"Confirmation data: {confirmation_data}")
+        
         # Get the PO being confirmed
         po = self.db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
         if not po:
+            print(f"❌ PO {po_id} not found in database")
+            logger.error(f"PO {po_id} not found in database")
             raise ValueError(f"PO {po_id} not found")
         
+        print(f"📦 PO found: {po.po_number} with status: {po.status}")
+        logger.info(f"Found PO: {po.po_number} with status: {po.status}")
+        
         # Confirm the PO
+        logger.info("Calling _confirm_po method")
         confirmation_result = self._confirm_po(po, confirmation_data, confirming_user_id)
+        logger.info("_confirm_po method completed successfully")
         
         # Check fulfillment method
         fulfillment_method = confirmation_data.get('fulfillment_method', 'create_child_pos')
@@ -112,16 +128,37 @@ class POChainingService:
         confirming_user_id: UUID
     ) -> Dict[str, Any]:
         """Confirm a single PO"""
-        # Update PO with confirmation data
-        po.status = 'confirmed'
-        po.confirmed_at = confirmation_data.get('confirmed_at')
-        po.confirmed_quantity = confirmation_data.get('confirmed_quantity', po.quantity)
-        po.confirmed_unit_price = confirmation_data.get('confirmed_unit_price', po.unit_price)
-        po.confirmed_delivery_date = confirmation_data.get('confirmed_delivery_date', po.delivery_date)
-        po.confirmed_delivery_location = confirmation_data.get('confirmed_delivery_location', po.delivery_location)
-        po.seller_notes = confirmation_data.get('seller_notes', '')
+        from app.core.logging import get_logger
+        logger = get_logger(__name__)
         
-        self.db.commit()
+        logger.info(f"_confirm_po called for PO: {po.po_number} (ID: {po.id})")
+        logger.info(f"Current PO status: {po.status}")
+        logger.info(f"Confirmation data: {confirmation_data}")
+        
+        try:
+            # Update PO with confirmation data
+            logger.info("Updating PO with confirmation data")
+            po.status = 'confirmed'
+            po.confirmed_at = confirmation_data.get('confirmed_at')
+            po.confirmed_quantity = confirmation_data.get('confirmed_quantity', po.quantity)
+            po.confirmed_unit_price = confirmation_data.get('confirmed_unit_price', po.unit_price)
+            po.confirmed_delivery_date = confirmation_data.get('confirmed_delivery_date', po.delivery_date)
+            po.confirmed_delivery_location = confirmation_data.get('confirmed_delivery_location', po.delivery_location)
+            po.seller_notes = confirmation_data.get('seller_notes', '')
+            
+            # Inherit origin data from linked harvest batches
+            print("DEBUG: About to call _inherit_origin_data_from_batches")
+            self._inherit_origin_data_from_batches(po, confirmation_data)
+            print("DEBUG: Finished calling _inherit_origin_data_from_batches")
+            
+            logger.info("Committing PO confirmation to database")
+            self.db.commit()
+            logger.info("PO confirmation committed successfully")
+        except Exception as e:
+            logger.error(f"Error in _confirm_po: {str(e)}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            self.db.rollback()
+            raise
         
         return {
             "po_id": str(po.id),
@@ -500,3 +537,224 @@ class POChainingService:
             }
             for child in children
         ]
+    
+    def _inherit_origin_data_from_batches(self, po: PurchaseOrder, confirmation_data: Dict[str, Any]) -> None:
+        """
+        Inherit origin data from linked harvest batches during PO confirmation.
+        
+        Args:
+            po: The purchase order being confirmed
+            confirmation_data: Confirmation data containing stock_batches
+        """
+        from app.core.logging import get_logger
+        logger = get_logger(__name__)
+        
+        print(f"🌾 _inherit_origin_data_from_batches called for PO: {po.id}")
+        stock_batches = confirmation_data.get('stock_batches', [])
+        print(f"🌾 Stock batches in confirmation data: {stock_batches}")
+        logger.info(f"Stock batches in confirmation data: {stock_batches}")
+        if not stock_batches:
+            print("❌ No stock batches provided, skipping origin data inheritance")
+            logger.info("No stock batches provided, skipping origin data inheritance")
+            return
+        
+        logger.info(f"Inheriting origin data from {len(stock_batches)} linked batches")
+        
+        try:
+            # Collect all batch IDs and convert to UUID objects
+            batch_ids = []
+            for batch in stock_batches:
+                batch_id = batch.get('batch_id')
+                if batch_id:
+                    try:
+                        # Convert string UUID to UUID object
+                        from uuid import UUID
+                        batch_ids.append(UUID(batch_id))
+                    except ValueError:
+                        logger.warning(f"Invalid UUID format for batch_id: {batch_id}")
+                        continue
+            
+            if not batch_ids:
+                print("❌ No valid batch IDs found in stock_batches")
+                logger.warning("No valid batch IDs found in stock_batches")
+                return
+            
+            print(f"🌾 Retrieving harvest batches for IDs: {batch_ids}")
+            logger.info(f"Retrieving harvest batches for IDs: {batch_ids}")
+            
+            # Retrieve harvest batches from database
+            print(f"🌾 Querying database for batches with IDs: {batch_ids}")
+            logger.info(f"Querying database for batches with IDs: {batch_ids}")
+            harvest_batches = self.db.query(Batch).filter(
+                Batch.id.in_(batch_ids),
+                Batch.batch_type == 'harvest'  # Only harvest batches have origin data
+            ).all()
+            
+            print(f"🌾 Found {len(harvest_batches)} harvest batches in database")
+            logger.info(f"Found {len(harvest_batches)} harvest batches in database")
+            for batch in harvest_batches:
+                print(f"🌾 Batch {batch.batch_id} (ID: {batch.id}) has origin_data: {bool(batch.origin_data)}")
+                logger.info(f"Batch {batch.batch_id} (ID: {batch.id}) has origin_data: {bool(batch.origin_data)}")
+            
+            if not harvest_batches:
+                logger.warning("No harvest batches found for the provided batch IDs")
+                return
+            
+            logger.info(f"Found {len(harvest_batches)} harvest batches with origin data")
+            
+            # Collect and merge origin data from all harvest batches
+            print(f"🌾 Merging origin data from {len(harvest_batches)} harvest batches")
+            inherited_origin_data = self._merge_origin_data_from_batches(harvest_batches)
+            print(f"🌾 Merged origin data: {inherited_origin_data}")
+            
+            if inherited_origin_data:
+                # Update PO with inherited origin data
+                print(f"🌾 Setting origin data on PO: {inherited_origin_data}")
+                logger.info(f"Setting origin data on PO: {inherited_origin_data}")
+                if po.origin_data:
+                    # Merge with existing origin data
+                    existing_origin_data = po.origin_data if isinstance(po.origin_data, dict) else {}
+                    po.origin_data = {**existing_origin_data, **inherited_origin_data}
+                    print(f"🌾 Merged origin data: {po.origin_data}")
+                    logger.info(f"Merged origin data: {po.origin_data}")
+                else:
+                    # Set new origin data
+                    po.origin_data = inherited_origin_data
+                    print(f"🌾 Set new origin data: {po.origin_data}")
+                    logger.info(f"Set new origin data: {po.origin_data}")
+                
+                print("✅ Successfully inherited origin data from harvest batches")
+                logger.info("Successfully inherited origin data from harvest batches")
+                logger.info(f"Inherited origin data keys: {list(inherited_origin_data.keys())}")
+                
+                # Update transparency score based on inherited origin data
+                print("🌾 Updating transparency score based on inherited origin data")
+                print("🌾 *** CALLING _update_transparency_score METHOD ***")
+                self._update_transparency_score(po, inherited_origin_data)
+                print("🌾 *** FINISHED _update_transparency_score METHOD ***")
+            else:
+                print("❌ No origin data to inherit from harvest batches")
+                logger.warning("No origin data to inherit from harvest batches")
+                
+        except Exception as e:
+            logger.error(f"Error inheriting origin data from batches: {str(e)}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            # Don't raise the exception - origin data inheritance is not critical for PO confirmation
+    
+    def _merge_origin_data_from_batches(self, harvest_batches: List[Batch]) -> Dict[str, Any]:
+        """
+        Merge origin data from multiple harvest batches.
+        
+        Args:
+            harvest_batches: List of harvest batch objects
+            
+        Returns:
+            Merged origin data dictionary
+        """
+        from app.core.logging import get_logger
+        logger = get_logger(__name__)
+        
+        merged_origin_data = {}
+        
+        for batch in harvest_batches:
+            if not batch.origin_data:
+                continue
+                
+            origin_data = batch.origin_data if isinstance(batch.origin_data, dict) else {}
+            
+            # Merge farm information
+            if 'farm_information' in origin_data:
+                if 'farm_information' not in merged_origin_data:
+                    merged_origin_data['farm_information'] = []
+                
+                # Add farm info if not already present
+                farm_info = origin_data['farm_information']
+                if isinstance(farm_info, dict):
+                    # Single farm
+                    if farm_info not in merged_origin_data['farm_information']:
+                        merged_origin_data['farm_information'].append(farm_info)
+                elif isinstance(farm_info, list):
+                    # Multiple farms
+                    for farm in farm_info:
+                        if farm not in merged_origin_data['farm_information']:
+                            merged_origin_data['farm_information'].append(farm)
+            
+            # Merge geographic coordinates
+            if 'geographic_coordinates' in origin_data:
+                if 'geographic_coordinates' not in merged_origin_data:
+                    merged_origin_data['geographic_coordinates'] = []
+                
+                coords = origin_data['geographic_coordinates']
+                if isinstance(coords, dict):
+                    # Single coordinate set
+                    if coords not in merged_origin_data['geographic_coordinates']:
+                        merged_origin_data['geographic_coordinates'].append(coords)
+                elif isinstance(coords, list):
+                    # Multiple coordinate sets
+                    for coord in coords:
+                        if coord not in merged_origin_data['geographic_coordinates']:
+                            merged_origin_data['geographic_coordinates'].append(coord)
+            
+            # Merge harvest date (use the earliest date)
+            if 'harvest_date' in origin_data:
+                harvest_date = origin_data['harvest_date']
+                if 'harvest_date' not in merged_origin_data:
+                    merged_origin_data['harvest_date'] = harvest_date
+                else:
+                    # Keep the earliest harvest date
+                    try:
+                        from datetime import datetime
+                        existing_date = datetime.fromisoformat(merged_origin_data['harvest_date'].replace('Z', '+00:00'))
+                        new_date = datetime.fromisoformat(harvest_date.replace('Z', '+00:00'))
+                        if new_date < existing_date:
+                            merged_origin_data['harvest_date'] = harvest_date
+                    except (ValueError, AttributeError):
+                        # If date parsing fails, keep the existing date
+                        pass
+            
+            # Merge certifications
+            if 'certifications' in origin_data:
+                if 'certifications' not in merged_origin_data:
+                    merged_origin_data['certifications'] = []
+                
+                certs = origin_data['certifications']
+                if isinstance(certs, list):
+                    for cert in certs:
+                        if cert not in merged_origin_data['certifications']:
+                            merged_origin_data['certifications'].append(cert)
+                elif isinstance(certs, str) and certs not in merged_origin_data['certifications']:
+                    merged_origin_data['certifications'].append(certs)
+            
+            # Add batch reference for traceability
+            if 'source_batches' not in merged_origin_data:
+                merged_origin_data['source_batches'] = []
+            
+            batch_reference = {
+                'batch_id': str(batch.id),
+                'batch_number': batch.batch_id,
+                'quantity': float(batch.quantity),
+                'unit': batch.unit,
+                'production_date': batch.production_date.isoformat() if batch.production_date else None
+            }
+            
+            if batch_reference not in merged_origin_data['source_batches']:
+                merged_origin_data['source_batches'].append(batch_reference)
+        
+        logger.info(f"Merged origin data from {len(harvest_batches)} batches")
+        return merged_origin_data
+    
+    def _update_transparency_score(self, po: PurchaseOrder, origin_data: Dict[str, Any]) -> None:
+        """
+        Update transparency score based on inherited origin data.
+        
+        NOTE: This method is deprecated in favor of deterministic transparency.
+        The deterministic transparency system calculates transparency in real-time
+        from the supply_chain_traceability materialized view based on explicit
+        user-created links, not algorithmic scoring.
+        
+        Args:
+            po: The purchase order
+            origin_data: The inherited origin data
+        """
+        # No-op: Deterministic transparency handles this via materialized views
+        logger.info("Transparency score update skipped - using deterministic transparency system")

@@ -141,7 +141,7 @@ class PurchaseOrderOrchestrator(BaseService):
                     "unit": po_data.unit,
                     "delivery_date": po_data.delivery_date,
                     "delivery_location": po_data.delivery_location,
-                    "status": "draft",  # Default status
+                    "status": "pending",  # Default status - allows immediate confirmation
                     "composition": po_data.composition,
                     "input_materials": po_data.input_materials,
                     "origin_data": po_data.origin_data,

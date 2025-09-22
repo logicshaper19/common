@@ -102,8 +102,10 @@ class PermissionService:
             
         # Check if user has appropriate role and company type allows PO creation
         has_appropriate_role = (user.role == UserRole.SUPPLY_CHAIN_MANAGER or user.role == "supply_chain_manager" or 
-                              user.role == "brand_manager" or user.role == "procurement_director")
-        company_allows_po_creation = user.company.company_type in [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR, "brand", "trader", "processor"]
+                              user.role == "brand_manager" or user.role == "procurement_director" or
+                              user.role == "buyer" or user.role == "seller" or user.role == "refinery_manager" or user.role == "mill_manager" or
+                              user.role == "originator" or user.role == "cooperative_manager")
+        company_allows_po_creation = user.company.company_type in [CompanyType.BRAND, CompanyType.TRADER, CompanyType.PROCESSOR, CompanyType.ORIGINATOR, "brand", "manufacturer", "trader", "processor", "refinery_crusher", "mill_processor", "trader_aggregator", "smallholder_cooperative", "plantation_grower"]
         
         logger.info(
             "PO creation permission check details",
@@ -140,8 +142,9 @@ class PermissionService:
         ]
         
         return (
-            (user.company.company_type == CompanyType.PROCESSOR and user.role in processor_roles) or
-            (user.company.company_type in [CompanyType.ORIGINATOR, "smallholder_cooperative", "plantation_grower"] and user.role in originator_roles)
+            (user.company.company_type in [CompanyType.PROCESSOR, "processor", "refinery_crusher", "mill_processor"] and user.role in processor_roles) or
+            (user.company.company_type in [CompanyType.ORIGINATOR, "smallholder_cooperative", "plantation_grower"] and user.role in originator_roles) or
+            (user.role == "seller")  # Allow seller role for palm oil companies
         )
     
     def can_user_view_po(self, user: User, po: PurchaseOrder) -> bool:
@@ -209,7 +212,7 @@ class PermissionService:
         # Determine PO permissions based on company type
         company_type = user.company.company_type
         
-        # BRAND: Only outgoing POs (they buy from suppliers)
+        # BRAND/MANUFACTURER: Only outgoing POs (they buy from suppliers)
         if company_type in ["brand", "manufacturer"]:
             can_create_po = self.can_user_create_po(user)
             can_confirm_po = False  # Brands don't receive POs
