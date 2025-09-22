@@ -151,12 +151,12 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       label: 'Certifications',
       render: (batch: HarvestBatch) => (
         <div className="flex flex-wrap gap-1">
-          {batch.certifications.slice(0, 2).map((cert) => (
+          {batch.certifications?.slice(0, 2).map((cert) => (
             <Badge key={cert} variant="secondary" size="sm">
               {cert}
             </Badge>
-          ))}
-          {batch.certifications.length > 2 && (
+          )) || []}
+          {batch.certifications && batch.certifications.length > 2 && (
             <Badge variant="secondary" size="sm">
               +{batch.certifications.length - 2}
             </Badge>
