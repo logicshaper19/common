@@ -80,7 +80,7 @@ export const companiesApi = {
       try {
         console.log('🔄 Falling back to all companies...');
         const fallbackResponse = await apiClient.get('/companies?for_supplier_selection=true');
-        const allCompanies = fallbackResponse.data.companies || [];
+        const allCompanies = fallbackResponse.data.data || [];
         console.log('🏢 Fallback companies:', allCompanies.length);
         return allCompanies;
       } catch (fallbackError) {

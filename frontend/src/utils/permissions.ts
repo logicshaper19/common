@@ -79,7 +79,8 @@ export const canCreatePO = (user: User): boolean => {
     UserRole.BRAND_MANAGER,
     UserRole.PROCUREMENT_DIRECTOR,
     UserRole.CSR_MANAGER,
-    UserRole.SUPPLY_CHAIN_MANAGER
+    UserRole.SUPPLY_CHAIN_MANAGER,
+    'buyer'  // Allow buyer role for manufacturers
   ];
   
   // Trader roles that can create POs
@@ -96,10 +97,21 @@ export const canCreatePO = (user: User): boolean => {
     UserRole.SUPPLY_CHAIN_MANAGER
   ];
   
+  // Originator roles that can create POs
+  const originatorCreateRoles = [
+    UserRole.COOPERATIVE_MANAGER,
+    'originator',
+    'cooperative_manager'
+  ];
+  
   return (
     ((user.company.company_type === CompanyType.BRAND || user.company.company_type === CompanyType.MANUFACTURER) && brandRoles.includes(user.role as any)) ||
     (user.company.company_type === CompanyType.TRADER && traderRoles.includes(user.role as any)) ||
-    (user.company.company_type === CompanyType.PROCESSOR && processorRoles.includes(user.role as any))
+    (user.company.company_type === CompanyType.PROCESSOR && processorRoles.includes(user.role as any)) ||
+    (user.company.company_type === 'mill_processor' && processorRoles.includes(user.role as any)) ||
+    (user.company.company_type === 'refinery_crusher' && processorRoles.includes(user.role as any)) ||
+    (user.company.company_type === 'trader_aggregator' && traderRoles.includes(user.role as any)) ||
+    (['smallholder_cooperative', 'plantation_grower'].includes(user.company.company_type) && originatorCreateRoles.includes(user.role as any))
   );
 };
 
@@ -135,6 +147,13 @@ export const canConfirmPO = (user: User): boolean => {
   const originatorRoles = [
     UserRole.COOPERATIVE_MANAGER,
     'originator'
+  ];
+  
+  // Originator roles that can create POs
+  const originatorCreateRoles = [
+    UserRole.COOPERATIVE_MANAGER,
+    'originator',
+    'cooperative_manager'
   ];
   
   return (

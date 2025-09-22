@@ -170,3 +170,5 @@ def log_security_violation(entity_id: UUID, description: str, actor_user_id: UUI
 
 
 
+
+

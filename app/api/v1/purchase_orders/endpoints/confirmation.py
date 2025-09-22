@@ -99,40 +99,69 @@ def confirm_purchase_order(
     """Confirm a purchase order and automatically create child POs if needed."""
     from datetime import datetime
     from app.services.po_chaining import POChainingService
+    from app.core.logging import get_logger
 
-    # Initialize services
-    chaining_service = POChainingService(po_service.db)
+    logger = get_logger(__name__)
+    
+    print(f"🌟 ENHANCED CONFIRMATION ENDPOINT CALLED - UNIQUE MARKER 🌟")
+    print(f"🌟 PO ID: {po_id}")
+    print(f"🌟 Current user: {current_user.email} (ID: {current_user.id})")
+    print(f"🌟 Confirmation data: {confirmation.dict()}")
+    print(f"🌟 This is the ENHANCED endpoint with origin data inheritance! 🌟")
+    logger.info(f"Starting PO confirmation for ID: {po_id}")
+    logger.info(f"Current user: {current_user.email} (ID: {current_user.id})")
+    logger.info(f"Confirmation data: {confirmation.dict()}")
 
-    # Get the purchase order
-    po = po_service.get_purchase_order_by_id(str(po_id))
-    if not po:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
-
-    # Check if PO is in a confirmable state
-    from app.schemas.purchase_order import PurchaseOrderStatus
-    if po.status not in [PurchaseOrderStatus.PENDING.value, PurchaseOrderStatus.AWAITING_CONFIRMATION.value]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Purchase order cannot be confirmed in current status: {po.status}"
-        )
-
-    # Prepare confirmation data
-    confirmation_data = {
-        "confirmed_at": datetime.utcnow(),
-        "confirmed_quantity": confirmation.confirmed_quantity,
-        "confirmed_unit_price": confirmation.confirmed_unit_price,
-        "confirmed_delivery_date": confirmation.delivery_date,
-        "confirmed_delivery_location": confirmation.delivery_location,
-        "seller_notes": confirmation.notes
-    }
-
-    # Use chaining service to confirm PO and create child POs
     try:
+        # Initialize services
+        chaining_service = POChainingService(po_service.db)
+        logger.info("POChainingService initialized successfully")
+
+        # Get the purchase order
+        po = po_service.get_purchase_order_by_id(str(po_id))
+        if not po:
+            logger.error(f"Purchase order not found for ID: {po_id}")
+            raise HTTPException(status_code=404, detail="Purchase order not found")
+        
+        logger.info(f"Found PO: {po.po_number} with status: {po.status}")
+
+        # Check if PO is in a confirmable state
+        from app.schemas.purchase_order import PurchaseOrderStatus
+        logger.info(f"Checking PO status: {po.status} against confirmable statuses: {[PurchaseOrderStatus.PENDING.value, PurchaseOrderStatus.AWAITING_ACCEPTANCE.value]}")
+        
+        if po.status not in [PurchaseOrderStatus.PENDING.value, PurchaseOrderStatus.AWAITING_ACCEPTANCE.value]:
+            logger.error(f"PO status {po.status} is not confirmable")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Purchase order cannot be confirmed in current status: {po.status}"
+            )
+        
+        logger.info("PO status validation passed")
+
+        # Prepare confirmation data
+        confirmation_data = {
+            "confirmed_at": datetime.utcnow(),
+            "confirmed_quantity": confirmation.confirmed_quantity,
+            "confirmed_unit_price": confirmation.confirmed_unit_price,
+            "confirmed_delivery_date": confirmation.delivery_date,
+            "confirmed_delivery_location": confirmation.delivery_location,
+            "seller_notes": confirmation.notes,
+            "stock_batches": confirmation.stock_batches if hasattr(confirmation, 'stock_batches') else []  # Pass stock batches for origin data inheritance
+        }
+        
+        logger.info(f"Prepared confirmation data: {confirmation_data}")
+
+        # Use chaining service to confirm PO and create child POs
+        logger.info(f"Calling chaining_service.confirm_po_and_create_children with po_id: {po.id}, confirming_user_id: {current_user.id}")
+        
         result = chaining_service.confirm_po_and_create_children(
             po_id=po.id,
             confirmation_data=confirmation_data,
             confirming_user_id=current_user.id
         )
+
+        # NOTE: Transparency metrics are calculated deterministically via materialized views
+        # No need to calculate them here - they are available through the deterministic transparency API
 
         logger.info(
             "Purchase order confirmed with chaining",
@@ -142,7 +171,7 @@ def confirm_purchase_order(
             child_pos_created=len(result.get("child_pos_created", []))
         )
 
-        return {
+        response = {
             "message": "Purchase order confirmed successfully",
             "po_id": str(po_id),
             "status": "confirmed",
@@ -150,17 +179,21 @@ def confirm_purchase_order(
             "fulfillment_status": result.get("fulfillment_status"),
             "fulfillment_percentage": result.get("fulfillment_percentage")
         }
+        
+        return response
 
     except Exception as e:
-        logger.error(
-            "Failed to confirm PO with chaining",
-            po_id=str(po_id),
-            error=str(e)
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to confirm purchase order: {str(e)}"
-        )
+        logger.error(f"Failed to confirm PO with chaining for ID: {po_id}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception message: {str(e)}")
+        logger.error(f"Exception args: {e.args}")
+        if hasattr(e, 'detail'):
+            logger.error(f"Exception detail: {e.detail}")
+        if hasattr(e, 'response'):
+            logger.error(f"Exception response: {e.response}")
+        
+        # Re-raise the original exception to preserve the error details
+        raise
 
 @router.post("/{po_id}/buyer-approve", response_model=PurchaseOrderResponse)
 def buyer_approve_discrepancies(

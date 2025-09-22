@@ -1,84 +1,60 @@
-#!/usr/bin/env python3
 """
-Consolidated Database Configuration for Common Project
-Environment-specific database URLs for PostgreSQL-only architecture
+Database configuration utilities for the Common Supply Chain Platform.
 """
-
 import os
-from typing import Dict
+from typing import Optional, Dict, Any
 
-# Environment-specific database configurations
-DATABASE_URLS: Dict[str, str] = {
-    'production': 'postgresql://elisha@localhost:5432/common_db',
-    'development': 'postgresql://elisha@localhost:5432/common_dev', 
-    'testing': 'postgresql://elisha@localhost:5432/common_test'
-}
-
-def get_database_url(environment: str = None) -> str:
-    """
-    Get the appropriate database URL for the current environment
-    
-    Args:
-        environment: Environment name ('production', 'development', 'testing')
-                    If None, will try to determine from ENV variable or default to development
-    
-    Returns:
-        Database URL string
-    """
-    if environment is None:
-        environment = os.getenv('ENVIRONMENT', 'development')
-    
-    if environment not in DATABASE_URLS:
-        raise ValueError(f"Unknown environment: {environment}. Available: {list(DATABASE_URLS.keys())}")
-    
-    return DATABASE_URLS[environment]
 
 def get_current_database_url() -> str:
     """
-    Get the current database URL from environment variables or default to development
-    """
-    return os.getenv('DATABASE_URL', get_database_url('development'))
-
-# Environment detection helpers
-def is_production() -> bool:
-    return os.getenv('ENVIRONMENT', 'development') == 'production'
-
-def is_development() -> bool:
-    return os.getenv('ENVIRONMENT', 'development') == 'development'
-
-def is_testing() -> bool:
-    return os.getenv('ENVIRONMENT', 'development') == 'testing'
-
-# Database connection info for logging
-def get_database_info() -> Dict[str, str]:
-    """
-    Get database connection information for logging/debugging
-    """
-    url = get_current_database_url()
-    # Parse URL to extract database name
-    if 'common_db' in url:
-        db_name = 'common_db (production)'
-    elif 'common_dev' in url:
-        db_name = 'common_dev (development)'
-    elif 'common_test' in url:
-        db_name = 'common_test (testing)'
-    else:
-        db_name = 'unknown'
+    Get the current database URL from environment variables.
     
+    Returns:
+        Database connection URL
+    """
+    # Check for environment-specific database URL
+    database_url = os.getenv("DATABASE_URL")
+    
+    if database_url:
+        return database_url
+    
+    # Fallback to individual components
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = os.getenv("DB_PORT", "5432")
+    db_name = os.getenv("DB_NAME", "common_platform")
+    db_user = os.getenv("DB_USER", "postgres")
+    db_password = os.getenv("DB_PASSWORD", "password")
+    
+    return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
+
+def get_database_info() -> Dict[str, Any]:
+    """
+    Get database connection information.
+    
+    Returns:
+        Dictionary containing database connection details
+    """
     return {
-        'url': url,
-        'database': db_name,
-        'environment': os.getenv('ENVIRONMENT', 'development')
+        "host": os.getenv("DB_HOST", "localhost"),
+        "port": int(os.getenv("DB_PORT", "5432")),
+        "name": os.getenv("DB_NAME", "common_platform"),
+        "user": os.getenv("DB_USER", "postgres"),
+        "url": get_current_database_url()
     }
 
-if __name__ == "__main__":
-    print("Database Configuration:")
-    print("=" * 50)
-    for env, url in DATABASE_URLS.items():
-        print(f"{env:12}: {url}")
+
+def get_test_database_url() -> str:
+    """
+    Get the test database URL.
     
-    print("\nCurrent Configuration:")
-    print("=" * 50)
-    info = get_database_info()
-    for key, value in info.items():
-        print(f"{key:12}: {value}")
+    Returns:
+        Test database connection URL
+    """
+    test_db_name = os.getenv("TEST_DB_NAME", "test_common_platform")
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = os.getenv("DB_PORT", "5432")
+    db_user = os.getenv("DB_USER", "postgres")
+    db_password = os.getenv("DB_PASSWORD", "password")
+    
+    return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{test_db_name}"

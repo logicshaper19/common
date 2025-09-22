@@ -223,20 +223,20 @@ export const purchaseOrderApi = {
       });
     }
     
-    const response = await apiClient.get(`/simple/purchase-orders/?${params.toString()}`);
+    const response = await apiClient.get(`/purchase-orders/?${params.toString()}`);
     return response.data;
   },
 
   // Get a specific purchase order by ID
   getPurchaseOrder: async (id: string): Promise<PurchaseOrderWithDetails> => {
-    const response = await apiClient.get(`/simple/purchase-orders/${id}`);
+    const response = await apiClient.get(`/purchase-orders/${id}`);
     return response.data;
   },
 
   // Create a new purchase order
   createPurchaseOrder: async (data: PurchaseOrderCreate): Promise<PurchaseOrder> => {
     console.log('📤 Sending purchase order data to API:', data);
-    const response = await apiClient.post('/simple/purchase-orders/', data);
+    const response = await apiClient.post('/purchase-orders/', data);
     console.log('📥 Purchase order created successfully:', response.data);
     return response.data;
   },
@@ -244,7 +244,7 @@ export const purchaseOrderApi = {
   // Get incoming purchase orders (where current user's company is the seller)
   getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
     // Get POs where current user is the seller and status is pending (awaiting acceptance/editing)
-    const response = await apiClient.get('/simple/purchase-orders/incoming-simple');
+    const response = await apiClient.get('/purchase-orders/incoming-simple');
     return response.data || [];
   },
 
@@ -256,7 +256,7 @@ export const purchaseOrderApi = {
 
   // Seller confirmation of purchase order (using simplified confirm endpoint)
   sellerConfirmPurchaseOrder: async (id: string, confirmation: SellerConfirmation): Promise<PurchaseOrder> => {
-    const response = await apiClient.put(`/simple/purchase-orders/${id}/confirm`, {});
+    const response = await apiClient.post(`/purchase-orders/${id}/confirm`, {});
     return response.data;
   },
 
@@ -285,7 +285,7 @@ export const purchaseOrderApi = {
 
   // Simple confirmation API function
   confirmPurchaseOrder: async (id: string, confirmation: PurchaseOrderConfirmation): Promise<ConfirmationResponse> => {
-    const response = await apiClient.put(`/simple/purchase-orders/${id}/confirm`, {});
+    const response = await apiClient.post(`/purchase-orders/${id}/confirm`, confirmation);
     return {
       success: true,
       message: "Purchase order confirmed successfully",
@@ -296,7 +296,7 @@ export const purchaseOrderApi = {
 
   // New acceptance and editing API functions
   acceptPurchaseOrder: async (id: string, acceptance: any): Promise<any> => {
-    const response = await apiClient.put(`/simple/purchase-orders/${id}/approve`, {});
+    const response = await apiClient.put(`/purchase-orders/${id}/approve`, {});
     return response.data;
   },
 

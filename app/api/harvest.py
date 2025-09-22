@@ -5,7 +5,8 @@ This API handles harvest declarations that create batches with origin data,
 following the correct "create then transfer" model where harvest events
 create batches that can later be sold via Purchase Orders.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import status as http_status
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from typing import List, Optional
@@ -15,7 +16,8 @@ from datetime import date, datetime
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
-from app.models.batch import Batch, BatchType, BatchStatus
+from app.models.batch import Batch
+from app.schemas.batch import BatchType, BatchStatus
 from app.services.batch import BatchTrackingService
 from app.schemas.batch import BatchCreate, BatchResponse, BatchListResponse
 from app.core.logging import get_logger
@@ -125,18 +127,13 @@ def declare_harvest(
             company_id=str(current_user.company_id)
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create harvest batch"
         )
 
 
-@router.get("/batches", response_model=BatchListResponse)
+@router.get("/batches")
 def get_harvest_batches(
-    company_id: Optional[UUID] = Query(None, description="Filter by company ID"),
-    status: Optional[BatchStatus] = Query(None, description="Filter by batch status"),
-    farm_name: Optional[str] = Query(None, description="Filter by farm name"),
-    harvest_date_from: Optional[date] = Query(None, description="Filter by harvest date from"),
-    harvest_date_to: Optional[date] = Query(None, description="Filter by harvest date to"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
@@ -147,55 +144,29 @@ def get_harvest_batches(
     
     This returns only harvest-type batches (not processing or transformation batches).
     """
-    batch_service = BatchTrackingService(db)
-    
     try:
-        # Build filter conditions
-        filters = [Batch.batch_type == BatchType.HARVEST.value]
-        
-        # Company filter
-        if company_id:
-            filters.append(Batch.company_id == company_id)
-        else:
-            # Default to current user's company
-            filters.append(Batch.company_id == current_user.company_id)
-        
-        # Status filter
-        if status:
-            filters.append(Batch.status == status.value)
-        
-        # Farm name filter (search in origin_data)
-        if farm_name:
-            filters.append(
-                Batch.origin_data['farm_information']['farm_name'].astext.ilike(f'%{farm_name}%')
+        # Simple direct query for harvest batches
+        batches = db.query(Batch).filter(
+            and_(
+                Batch.company_id == current_user.company_id,
+                Batch.batch_type == BatchType.HARVEST.value
             )
+        ).order_by(Batch.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
         
-        # Harvest date filters (search in origin_data)
-        if harvest_date_from:
-            filters.append(
-                Batch.origin_data['harvest_date'].astext >= harvest_date_from.isoformat()
+        total = db.query(Batch).filter(
+            and_(
+                Batch.company_id == current_user.company_id,
+                Batch.batch_type == BatchType.HARVEST.value
             )
-        if harvest_date_to:
-            filters.append(
-                Batch.origin_data['harvest_date'].astext <= harvest_date_to.isoformat()
-            )
+        ).count()
         
-        # Get batches
-        batches, total = batch_service.get_batches(
-            filters=filters,
-            page=page,
-            per_page=per_page,
-            order_by='created_at',
-            order_direction='desc'
-        )
-        
-        return BatchListResponse(
-            batches=batches,
-            total=total,
-            page=page,
-            per_page=per_page,
-            total_pages=(total + per_page - 1) // per_page
-        )
+        return {
+            "batches": batches,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total + per_page - 1) // per_page
+        }
         
     except Exception as e:
         logger.error(
@@ -205,7 +176,7 @@ def get_harvest_batches(
             company_id=str(current_user.company_id)
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch harvest batches"
         )
 
@@ -256,7 +227,7 @@ def get_harvest_batch(
             user_id=str(current_user.id)
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch harvest batch"
         )
 
@@ -314,6 +285,6 @@ def get_harvest_traceability(
             user_id=str(current_user.id)
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch harvest traceability"
         )

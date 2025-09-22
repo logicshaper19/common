@@ -20,7 +20,11 @@ from app.models.product import Product
 from app.schemas.batch import BatchCreate, BatchType, BatchStatus
 from app.schemas.transformation import TransformationEventCreate, BatchReference
 from app.services.batch import BatchTrackingService
-from app.services.transformation import TransformationService
+import importlib.util
+import os
+spec = importlib.util.spec_from_file_location("transformation_module", os.path.join(os.path.dirname(__file__), "transformation.py"))
+transformation_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(transformation_module)
 from app.core.logging import get_logger
 from app.core.unified_po_config import get_config, format_batch_id, format_event_id, format_facility_id, get_transformation_type, is_processor_type
 from app.services.transformation_templates import TransformationTemplateEngine
@@ -34,7 +38,7 @@ class POBatchIntegrationService:
     def __init__(self, db: Session):
         self.db = db
         self.batch_service = BatchTrackingService(db)
-        self.transformation_service = TransformationService(db)
+        self.transformation_service = transformation_module.TransformationService(db)
         self.config = get_config()
         self.template_engine = TransformationTemplateEngine()
     

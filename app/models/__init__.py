@@ -18,6 +18,7 @@ from .po_compliance_result import POComplianceResult
 from .po_batch_linkage import POBatchLinkage
 from .po_fulfillment_allocation import POFulfillmentAllocation
 from .batch_farm_contribution import BatchFarmContribution
+from .transformation import TransformationEvent
 
 # Enums
 from .enums import AmendmentType, AmendmentStatus, AmendmentPriority, AmendmentReason
@@ -46,6 +47,7 @@ __all__ = [
     "POBatchLinkage",
     "POFulfillmentAllocation",
     "BatchFarmContribution",
+    "TransformationEvent",
     # Enums
     "AmendmentType",
     "AmendmentStatus", 
