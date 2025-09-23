@@ -249,9 +249,30 @@ export const purchaseOrderApi = {
 
   // Get incoming purchase orders (where current user's company is the seller)
   getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
-    // Get POs where current user is the seller and status is pending (awaiting acceptance/editing)
-    const response = await apiClient.get('/simple/purchase-orders/incoming-simple');
-    return response.data || [];
+    // Get all purchase orders and filter for incoming ones (where current user is seller)
+    const response = await apiClient.get('/api/v1/purchase-orders', {
+      params: {
+        per_page: 100,
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      }
+    });
+    
+    const allOrders = response.data?.purchase_orders || [];
+    
+    // Filter for incoming orders (where current user's company is the seller)
+    // and status is pending (not confirmed, rejected, etc.)
+    const incomingOrders = allOrders.filter((po: any) => {
+      const isIncoming = po.seller_company_id && po.buyer_company_id; // Has both buyer and seller
+      const isPending = po.status && 
+        (po.status.toLowerCase() === 'pending' || 
+         po.status.toLowerCase() === 'awaiting_acceptance' ||
+         po.status.toLowerCase() === 'awaiting_confirmation');
+      
+      return isIncoming && isPending;
+    });
+    
+    return incomingOrders;
   },
 
   // Update a purchase order (not available in simplified API yet)
