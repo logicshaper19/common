@@ -31,14 +31,21 @@ export const usePurchaseOrderCount = (): UsePurchaseOrderCountReturn => {
       // Fetch all purchase orders to get total count
       const response = await purchaseOrderApi.getPurchaseOrders({
         page: 1,
-        per_page: 1 // We only need the total count, not the actual data
+        per_page: 100 // Get more orders to properly count pending ones
       });
 
       setTotalCount(response.total);
 
-      // For now, use total count as pending count since status filtering has issues
-      // TODO: Fix status filtering in the API
-      setPendingCount(response.total);
+      // Count only pending orders (not confirmed, rejected, etc.)
+      const purchaseOrders = response.purchase_orders || [];
+      const pendingOrders = purchaseOrders.filter(po => 
+        po.status && 
+        (po.status.toLowerCase() === 'pending' || 
+         po.status.toLowerCase() === 'awaiting_acceptance' ||
+         po.status.toLowerCase() === 'awaiting_confirmation')
+      );
+      
+      setPendingCount(pendingOrders.length);
     } catch (err) {
       console.error('Error fetching purchase order counts:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch counts');
