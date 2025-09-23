@@ -296,8 +296,12 @@ export const purchaseOrderApi = {
     // Filter for incoming orders (where current user's company is the SELLER)
     // and status is pending (not confirmed, rejected, etc.)
     const incomingOrders = allOrders.filter((po: any) => {
-      const isIncoming = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
-      const isCurrentUserSeller = finalCompanyId && po.seller_company_id === finalCompanyId;
+      // Try different possible property names for company IDs
+      const sellerCompanyId = po.seller_company_id || po.sellerCompanyId || po.seller_company?.id;
+      const buyerCompanyId = po.buyer_company_id || po.buyerCompanyId || po.buyer_company?.id;
+      
+      const isIncoming = buyerCompanyId && sellerCompanyId; // Has both buyer and seller
+      const isCurrentUserSeller = finalCompanyId && sellerCompanyId === finalCompanyId;
       const isPending = po.status && 
         (po.status.toLowerCase() === 'pending' || 
          po.status.toLowerCase() === 'awaiting_acceptance' ||
@@ -305,7 +309,13 @@ export const purchaseOrderApi = {
       
       console.log(`  PO ${po.po_number}: isIncoming=${isIncoming}, isCurrentUserSeller=${isCurrentUserSeller}, isPending=${isPending}`);
       console.log(`    - po.seller_company_id: ${po.seller_company_id}`);
+      console.log(`    - po.sellerCompanyId: ${po.sellerCompanyId}`);
+      console.log(`    - po.seller_company?.id: ${po.seller_company?.id}`);
+      console.log(`    - sellerCompanyId (final): ${sellerCompanyId}`);
       console.log(`    - po.buyer_company_id: ${po.buyer_company_id}`);
+      console.log(`    - po.buyerCompanyId: ${po.buyerCompanyId}`);
+      console.log(`    - po.buyer_company?.id: ${po.buyer_company?.id}`);
+      console.log(`    - buyerCompanyId (final): ${buyerCompanyId}`);
       console.log(`    - finalCompanyId: ${finalCompanyId}`);
       
       return isIncoming && isCurrentUserSeller && isPending;
@@ -356,8 +366,12 @@ export const purchaseOrderApi = {
     
     // Filter for outgoing orders (where current user's company is the BUYER)
     const outgoingOrders = allOrders.filter((po: any) => {
-      const isOutgoing = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
-      const isCurrentUserBuyer = finalCompanyId && po.buyer_company_id === finalCompanyId;
+      // Try different possible property names for company IDs
+      const sellerCompanyId = po.seller_company_id || po.sellerCompanyId || po.seller_company?.id;
+      const buyerCompanyId = po.buyer_company_id || po.buyerCompanyId || po.buyer_company?.id;
+      
+      const isOutgoing = buyerCompanyId && sellerCompanyId; // Has both buyer and seller
+      const isCurrentUserBuyer = finalCompanyId && buyerCompanyId === finalCompanyId;
       return isOutgoing && isCurrentUserBuyer;
     });
     
