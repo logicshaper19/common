@@ -260,16 +260,21 @@ export const purchaseOrderApi = {
     
     const allOrders = response.data?.purchase_orders || [];
     
+    // Get current user's company ID from localStorage or context
+    const userData = localStorage.getItem('user_data');
+    const currentUserCompanyId = userData ? JSON.parse(userData).company_id : null;
+    
     // Filter for incoming orders (where current user's company is the SELLER)
     // and status is pending (not confirmed, rejected, etc.)
     const incomingOrders = allOrders.filter((po: any) => {
       const isIncoming = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
+      const isCurrentUserSeller = currentUserCompanyId && po.seller_company_id === currentUserCompanyId;
       const isPending = po.status && 
         (po.status.toLowerCase() === 'pending' || 
          po.status.toLowerCase() === 'awaiting_acceptance' ||
          po.status.toLowerCase() === 'awaiting_confirmation');
       
-      return isIncoming && isPending;
+      return isIncoming && isCurrentUserSeller && isPending;
     });
     
     return incomingOrders;
@@ -288,10 +293,15 @@ export const purchaseOrderApi = {
     
     const allOrders = response.data?.purchase_orders || [];
     
+    // Get current user's company ID from localStorage or context
+    const userData = localStorage.getItem('user_data');
+    const currentUserCompanyId = userData ? JSON.parse(userData).company_id : null;
+    
     // Filter for outgoing orders (where current user's company is the BUYER)
     const outgoingOrders = allOrders.filter((po: any) => {
       const isOutgoing = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
-      return isOutgoing;
+      const isCurrentUserBuyer = currentUserCompanyId && po.buyer_company_id === currentUserCompanyId;
+      return isOutgoing && isCurrentUserBuyer;
     });
     
     return outgoingOrders;
