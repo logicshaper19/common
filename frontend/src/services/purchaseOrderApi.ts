@@ -247,10 +247,10 @@ export const purchaseOrderApi = {
     return response.data;
   },
 
-  // Get incoming purchase orders (where current user's company is the seller)
+  // Get incoming purchase orders (where current user's company is the buyer)
   getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
-    // Get all purchase orders and filter for incoming ones (where current user is seller)
-    const response = await apiClient.get('/api/v1/purchase-orders', {
+    // Use the simple API endpoint that exists
+    const response = await apiClient.get('/purchase-orders', {
       params: {
         per_page: 100,
         sort_by: 'created_at',
@@ -260,10 +260,10 @@ export const purchaseOrderApi = {
     
     const allOrders = response.data?.purchase_orders || [];
     
-    // Filter for incoming orders (where current user's company is the seller)
+    // Filter for incoming orders (where current user's company is the BUYER)
     // and status is pending (not confirmed, rejected, etc.)
     const incomingOrders = allOrders.filter((po: any) => {
-      const isIncoming = po.seller_company_id && po.buyer_company_id; // Has both buyer and seller
+      const isIncoming = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
       const isPending = po.status && 
         (po.status.toLowerCase() === 'pending' || 
          po.status.toLowerCase() === 'awaiting_acceptance' ||
@@ -273,6 +273,28 @@ export const purchaseOrderApi = {
     });
     
     return incomingOrders;
+  },
+
+  // Get outgoing purchase orders (where current user's company is the seller)
+  getOutgoingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
+    // Use the simple API endpoint that exists
+    const response = await apiClient.get('/purchase-orders', {
+      params: {
+        per_page: 100,
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      }
+    });
+    
+    const allOrders = response.data?.purchase_orders || [];
+    
+    // Filter for outgoing orders (where current user's company is the SELLER)
+    const outgoingOrders = allOrders.filter((po: any) => {
+      const isOutgoing = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
+      return isOutgoing;
+    });
+    
+    return outgoingOrders;
   },
 
   // Update a purchase order (not available in simplified API yet)
