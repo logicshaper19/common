@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusIcon, DocumentTextIcon, MapPinIcon, CalendarIcon, ChartBarIcon, CheckCircleIcon, ClockIcon, TruckIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, DocumentTextIcon, MapPinIcon, CalendarIcon, ChartBarIcon, CheckCircleIcon, ClockIcon, TruckIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import DataTable from '../ui/DataTable';
@@ -45,6 +45,7 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<HarvestBatch | null>(null);
 
   // Calculate analytics from harvest batches data
@@ -192,6 +193,55 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
     setShowViewModal(true);
   };
 
+  // Handle edit batch
+  const handleEditBatch = (batch: HarvestBatch) => {
+    setSelectedBatch(batch);
+    setShowEditModal(true);
+  };
+
+  // Handle edit form submission
+  const handleEditSubmit = async (harvestData: any) => {
+    try {
+      // TODO: Replace with actual API call
+      // await harvestApi.updateHarvestBatch(selectedBatch?.id, harvestData);
+      
+      console.log('Updating harvest batch:', harvestData);
+      
+      // Update local state
+      setHarvestBatches(prev => prev.map(batch => 
+        batch.id === selectedBatch?.id 
+          ? {
+              ...batch,
+              batch_id: harvestData.batch_number,
+              product_type: harvestData.product_type,
+              harvest_date: harvestData.harvest_date,
+              farm_name: harvestData.farm_information?.farm_name || '',
+              farm_id: harvestData.farm_information?.farm_id || '',
+              plantation_type: harvestData.farm_information?.plantation_type || '',
+              quantity: harvestData.quantity,
+              unit: harvestData.unit,
+              location_coordinates: harvestData.geographic_coordinates,
+              certifications: harvestData.certifications,
+              quality_parameters: harvestData.quality_parameters,
+            }
+          : batch
+      ));
+      
+      setShowEditModal(false);
+      setSelectedBatch(null);
+      showToast({ title: 'Success', message: 'Harvest batch updated successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error updating harvest batch:', error);
+      showToast({ title: 'Error', message: 'Failed to update harvest batch', type: 'error' });
+    }
+  };
+
+  // Handle edit form cancel
+  const handleEditCancel = () => {
+    setShowEditModal(false);
+    setSelectedBatch(null);
+  };
+
   // Table columns
   const harvestColumns = [
     {
@@ -285,6 +335,24 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
         >
           {batch?.status || 'unknown'}
         </Badge>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (value: any, batch: HarvestBatch) => (
+        <div className="flex space-x-2">
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditBatch(batch);
+            }}
+            variant="outline"
+            size="sm"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </Button>
+        </div>
       )
     }
   ];
@@ -480,6 +548,40 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
               </CardBody>
             </Card>
           </div>
+        </Modal>
+      )}
+
+      {/* Edit Harvest Modal */}
+      {showEditModal && selectedBatch && (
+        <Modal
+          isOpen={showEditModal}
+          onClose={handleEditCancel}
+          title="Edit Harvest Batch"
+          size="xl"
+        >
+          <HarvestDeclarationForm
+            productType={selectedBatch.product_type}
+            initialData={{
+              product_type: selectedBatch.product_type,
+              geographic_coordinates: selectedBatch.location_coordinates || { latitude: 0, longitude: 0 },
+              certifications: selectedBatch.certifications,
+              harvest_date: selectedBatch.harvest_date,
+              farm_information: {
+                farm_id: selectedBatch.farm_id,
+                farm_name: selectedBatch.farm_name,
+                plantation_type: selectedBatch.plantation_type as 'smallholder' | 'estate' | 'cooperative',
+                cultivation_methods: []
+              },
+              batch_number: selectedBatch.batch_id,
+              quantity: selectedBatch.quantity,
+              unit: selectedBatch.unit,
+              quality_parameters: selectedBatch.quality_parameters,
+              processing_notes: ''
+            }}
+            onSubmit={handleEditSubmit}
+            onCancel={handleEditCancel}
+            isLoading={loading}
+          />
         </Modal>
       )}
     </div>

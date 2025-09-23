@@ -40,6 +40,7 @@ interface HarvestData {
 
 interface HarvestDeclarationFormProps {
   productType?: string;
+  initialData?: Partial<HarvestData>;
   onSubmit: (harvestData: HarvestData) => void;
   onCancel: () => void;
   isLoading?: boolean;
@@ -48,6 +49,7 @@ interface HarvestDeclarationFormProps {
 
 const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
   productType: initialProductType,
+  initialData,
   onSubmit,
   onCancel,
   isLoading = false,
@@ -73,27 +75,27 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
 
   // Form state
   const [harvestData, setHarvestData] = useState<HarvestData>({
-    product_type: selectedProductType,
-    geographic_coordinates: { latitude: 0, longitude: 0 },
-    certifications: [],
-    harvest_date: '',
-    farm_information: {
+    product_type: initialData?.product_type || selectedProductType,
+    geographic_coordinates: initialData?.geographic_coordinates || { latitude: 0, longitude: 0 },
+    certifications: initialData?.certifications || [],
+    harvest_date: initialData?.harvest_date || '',
+    farm_information: initialData?.farm_information || {
       farm_id: '',
       farm_name: '',
       plantation_type: 'smallholder',
       cultivation_methods: []
     },
-    batch_number: '',
-    quantity: 0,
-    unit: 'KGM',
-    quality_parameters: {
+    batch_number: initialData?.batch_number || '',
+    quantity: initialData?.quantity || 0,
+    unit: initialData?.unit || 'KGM',
+    quality_parameters: initialData?.quality_parameters || {
       oil_content: undefined,
       moisture_content: undefined,
       free_fatty_acid: undefined,
       dirt_content: undefined,
       kernel_to_fruit_ratio: undefined
     },
-    processing_notes: ''
+    processing_notes: initialData?.processing_notes || ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -106,6 +108,16 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
       product_type: selectedProductType
     }));
   }, [selectedProductType]);
+
+  // Update harvestData when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      setHarvestData(prev => ({
+        ...prev,
+        ...initialData
+      }));
+    }
+  }, [initialData]);
 
   // Available certifications
   const availableCertifications = [
