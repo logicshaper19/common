@@ -12,6 +12,7 @@ import {
   ClockIcon,
   ArrowLeftIcon,
   PrinterIcon,
+  MapIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { purchaseOrderApi, PurchaseOrderWithDetails, ProposeChangesRequest, PurchaseOrderConfirmation, ConfirmationResponse } from '../services/purchaseOrderApi';
@@ -23,6 +24,7 @@ import Badge from '../components/ui/Badge';
 import AmendmentModal from '../components/purchase-orders/AmendmentModal';
 import ConfirmationModal from '../components/purchase-orders/ConfirmationModal';
 import EditPurchaseOrderModal from '../components/purchase-orders/EditPurchaseOrderModal';
+import PurchaseOrderTraceability from '../components/purchase-orders/PurchaseOrderTraceability';
 import { cn, formatCurrency, formatDate } from '../lib/utils';
 
 const PurchaseOrderDetailPage: React.FC = () => {
@@ -34,7 +36,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'details' | 'amendments' | 'history'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'amendments' | 'history' | 'traceability'>('details');
   const [showAmendmentModal, setShowAmendmentModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -320,6 +322,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
             { id: 'details', label: 'Order Details', icon: DocumentTextIcon },
             { id: 'amendments', label: 'Amendments', icon: PencilIcon, count: purchaseOrder.amendments?.length || 0 },
             { id: 'history', label: 'History', icon: ClockIcon },
+            { id: 'traceability', label: 'Traceability', icon: MapIcon },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -494,6 +497,13 @@ const PurchaseOrderDetailPage: React.FC = () => {
             </div>
           </CardBody>
         </Card>
+      )}
+
+      {activeTab === 'traceability' && (
+        <PurchaseOrderTraceability
+          poId={id!}
+          poNumber={purchaseOrder.po_number}
+        />
       )}
 
       {/* Modals */}
