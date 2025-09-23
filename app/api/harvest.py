@@ -136,6 +136,8 @@ def declare_harvest(
 def get_harvest_batches(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
+    product_id: Optional[UUID] = Query(None, description="Filter by product ID"),
+    status: Optional[str] = Query("active", description="Filter by status"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -145,18 +147,62 @@ def get_harvest_batches(
     This returns only harvest-type batches (not processing or transformation batches).
     """
     try:
-        # For palm oil supply chain demo, allow access to harvest batches from all companies
-        # In production, this would be restricted to business partners only
-        batches = db.query(Batch).filter(
+        # Build query for harvest batches
+        query = db.query(Batch).filter(
             Batch.batch_type == BatchType.HARVEST.value
-        ).order_by(Batch.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+        )
         
-        total = db.query(Batch).filter(
-            Batch.batch_type == BatchType.HARVEST.value
-        ).count()
+        # Filter by status if provided
+        if status:
+            query = query.filter(Batch.status == status)
+            
+        # Filter by product if provided
+        if product_id:
+            query = query.filter(Batch.product_id == product_id)
+        
+        # Get total count before pagination
+        total = query.count()
+        
+        # Apply pagination and ordering
+        batches = query.order_by(Batch.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+        
+        # Convert to proper response format
+        batch_responses = []
+        for batch in batches:
+            batch_response = {
+                "id": batch.id,
+                "batch_id": batch.batch_id,
+                "batch_type": batch.batch_type,
+                "company_id": batch.company_id,
+                "product_id": batch.product_id,
+                "quantity": float(batch.quantity) if batch.quantity else 0,
+                "unit": batch.unit or "N/A",
+                "production_date": batch.production_date.isoformat() if batch.production_date else None,
+                "expiry_date": batch.expiry_date.isoformat() if batch.expiry_date else None,
+                "status": batch.status,
+                "location_name": batch.location_name,
+                "location_coordinates": batch.location_coordinates,
+                "facility_code": batch.facility_code,
+                "quality_metrics": batch.quality_metrics,
+                "processing_method": batch.processing_method,
+                "storage_conditions": batch.storage_conditions,
+                "transportation_method": batch.transportation_method,
+                "transformation_id": batch.transformation_id,
+                "parent_batch_ids": batch.parent_batch_ids,
+                "origin_data": batch.origin_data,
+                "certifications": batch.certifications or [],
+                "source_purchase_order_id": batch.source_purchase_order_id,
+                "created_at": batch.created_at.isoformat() if batch.created_at else None,
+                "updated_at": batch.updated_at.isoformat() if batch.updated_at else None,
+                "created_by_user_id": batch.created_by_user_id,
+                "company_name": getattr(batch, 'company_name', None),
+                "product_name": getattr(batch, 'product_name', None),
+                "batch_metadata": batch.batch_metadata
+            }
+            batch_responses.append(batch_response)
         
         return {
-            "batches": batches,
+            "batches": batch_responses,
             "total": total,
             "page": page,
             "per_page": per_page,
