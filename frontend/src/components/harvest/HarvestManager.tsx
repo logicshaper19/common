@@ -27,6 +27,15 @@ interface HarvestBatch {
   quality_parameters: Record<string, any>;
   status: 'active' | 'consumed' | 'expired';
   created_at: string;
+  // Enhanced allocation tracking
+  allocated_quantity?: number;
+  available_quantity?: number;
+  allocated_orders?: Array<{
+    po_id: string;
+    po_number: string;
+    allocated_quantity: number;
+    buyer_company: string;
+  }>;
 }
 
 interface HarvestManagerProps {
@@ -110,22 +119,40 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
       const apiBatches = response.batches || [];
       
       // Transform API data to match the expected interface
-      const transformedBatches = apiBatches.map((batch: any) => ({
-        id: batch.id,
-        batch_id: batch.batch_id,
-        product_type: batch.product_name || 'Fresh Fruit Bunches',
-        harvest_date: batch.origin_data?.harvest_date || batch.production_date,
-        farm_name: batch.origin_data?.farm_information?.farm_name || batch.location_name || 'Unknown Farm',
-        farm_id: batch.origin_data?.farm_information?.farm_id || batch.facility_code || 'N/A',
-        plantation_type: batch.origin_data?.farm_information?.plantation_type || 'smallholder',
-        quantity: batch.quantity || 0,
-        unit: batch.unit || 'KGM',
-        location_coordinates: batch.origin_data?.geographic_coordinates || batch.location_coordinates,
-        certifications: batch.certifications || [],
-        quality_parameters: batch.quality_metrics || {},
-        status: batch.status || 'active',
-        created_at: batch.created_at
-      }));
+      const transformedBatches = apiBatches.map((batch: any) => {
+        // Mock allocation data for demonstration - in real implementation, this would come from the API
+        const totalQuantity = batch.quantity || 0;
+        const mockAllocatedQuantity = Math.random() > 0.5 ? Math.floor(totalQuantity * 0.3) : 0; // 30% chance of being allocated
+        const mockAllocatedOrders = mockAllocatedQuantity > 0 ? [
+          {
+            po_id: 'po-123',
+            po_number: 'PO-20250922-276EFA9D',
+            allocated_quantity: mockAllocatedQuantity,
+            buyer_company: 'Tani Maju Cooperative'
+          }
+        ] : [];
+        
+        return {
+          id: batch.id,
+          batch_id: batch.batch_id,
+          product_type: batch.product_name || 'Fresh Fruit Bunches',
+          harvest_date: batch.origin_data?.harvest_date || batch.production_date,
+          farm_name: batch.origin_data?.farm_information?.farm_name || batch.location_name || 'Unknown Farm',
+          farm_id: batch.origin_data?.farm_information?.farm_id || batch.facility_code || 'N/A',
+          plantation_type: batch.origin_data?.farm_information?.plantation_type || 'smallholder',
+          quantity: totalQuantity,
+          unit: batch.unit || 'KGM',
+          location_coordinates: batch.origin_data?.geographic_coordinates || batch.location_coordinates,
+          certifications: batch.certifications || [],
+          quality_parameters: batch.quality_metrics || {},
+          status: batch.status || 'active',
+          created_at: batch.created_at,
+          // Enhanced allocation tracking
+          allocated_quantity: mockAllocatedQuantity,
+          available_quantity: totalQuantity - mockAllocatedQuantity,
+          allocated_orders: mockAllocatedOrders
+        };
+      });
       
       setHarvestBatches(transformedBatches);
       
@@ -299,13 +326,45 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
     },
     {
       key: 'quantity',
-      label: 'Quantity',
-      render: (value: any, batch: HarvestBatch) => (
-        <div className="text-right">
-          <div className="font-medium">{batch?.quantity?.toLocaleString() || 'N/A'}</div>
-          <div className="text-sm text-gray-500">{batch?.unit || 'N/A'}</div>
+      label: 'Quantity & Availability',
+      render: (value: any, batch: HarvestBatch) => {
+        const totalQuantity = batch?.quantity || 0;
+        const allocatedQuantity = batch?.allocated_quantity || 0;
+        const availableQuantity = batch?.available_quantity || (totalQuantity - allocatedQuantity);
+        const utilizationPercentage = totalQuantity > 0 ? (allocatedQuantity / totalQuantity) * 100 : 0;
+        
+        return (
+          <div className="min-w-[200px]">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-sm font-medium text-gray-900">
+                {availableQuantity.toLocaleString()} / {totalQuantity.toLocaleString()}
+              </span>
+              <span className="text-xs text-gray-500">{batch?.unit || 'N/A'}</span>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  utilizationPercentage === 0 ? 'bg-green-500' :
+                  utilizationPercentage < 50 ? 'bg-yellow-500' :
+                  utilizationPercentage < 90 ? 'bg-orange-500' : 'bg-red-500'
+                }`}
+                style={{ width: `${utilizationPercentage}%` }}
+              />
+            </div>
+            
+            <div className="flex justify-between items-center mt-1">
+              <span className="text-xs text-gray-500">
+                {allocatedQuantity > 0 ? `${allocatedQuantity.toLocaleString()} allocated` : 'Fully available'}
+              </span>
+              <span className="text-xs text-gray-500">
+                {Math.round(utilizationPercentage)}% used
+              </span>
+            </div>
         </div>
-      )
+        );
+      }
     },
     {
       key: 'certifications',
@@ -327,15 +386,82 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
     },
     {
       key: 'status',
-      label: 'Status',
-      render: (value: any, batch: HarvestBatch) => (
-        <Badge 
-          variant={batch?.status === 'active' ? 'success' : 'secondary'}
-          size="sm"
-        >
-          {batch?.status || 'unknown'}
-        </Badge>
-      )
+      label: 'Status & Utilization',
+      render: (value: any, batch: HarvestBatch) => {
+        const totalQuantity = batch?.quantity || 0;
+        const allocatedQuantity = batch?.allocated_quantity || 0;
+        const availableQuantity = batch?.available_quantity || (totalQuantity - allocatedQuantity);
+        const utilizationPercentage = totalQuantity > 0 ? (allocatedQuantity / totalQuantity) * 100 : 0;
+        
+        // Determine status based on utilization
+        let statusText = 'Active';
+        let statusVariant: 'success' | 'warning' | 'secondary' = 'success';
+        
+        if (batch?.status === 'consumed') {
+          statusText = 'Fully Consumed';
+          statusVariant = 'secondary';
+        } else if (batch?.status === 'expired') {
+          statusText = 'Expired';
+          statusVariant = 'secondary';
+        } else if (utilizationPercentage === 100) {
+          statusText = 'Fully Allocated';
+          statusVariant = 'warning';
+        } else if (utilizationPercentage > 0) {
+          statusText = 'Partially Allocated';
+          statusVariant = 'warning';
+        } else {
+          statusText = 'Available';
+          statusVariant = 'success';
+        }
+        
+        return (
+          <div className="space-y-1">
+            <Badge variant={statusVariant} size="sm">
+              {statusText}
+            </Badge>
+            {allocatedQuantity > 0 && (
+              <div className="text-xs text-gray-500">
+                {batch?.allocated_orders?.length || 0} order(s)
+              </div>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      key: 'allocations',
+      label: 'Allocations',
+      render: (value: any, batch: HarvestBatch) => {
+        const allocatedOrders = batch?.allocated_orders || [];
+        
+        if (allocatedOrders.length === 0) {
+          return (
+            <div className="text-sm text-gray-500">
+              No allocations
+            </div>
+          );
+        }
+        
+        return (
+          <div className="space-y-1">
+            {allocatedOrders.slice(0, 2).map((order, index) => (
+              <div key={index} className="text-xs">
+                <div className="font-medium text-gray-900">
+                  {order.po_number}
+                </div>
+                <div className="text-gray-500">
+                  {order.allocated_quantity.toLocaleString()} {batch?.unit} → {order.buyer_company}
+                </div>
+              </div>
+            ))}
+            {allocatedOrders.length > 2 && (
+              <div className="text-xs text-gray-500">
+                +{allocatedOrders.length - 2} more order(s)
+              </div>
+            )}
+          </div>
+        );
+      }
     },
     {
       key: 'actions',
@@ -348,8 +474,8 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
               handleEditBatch(batch);
             }}
             variant="outline"
-            size="sm"
-          >
+          size="sm"
+        >
             <PencilIcon className="h-4 w-4" />
           </Button>
         </div>
