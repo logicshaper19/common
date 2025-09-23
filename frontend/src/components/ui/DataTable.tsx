@@ -57,6 +57,13 @@ const DataTable: React.FC<DataTableProps> = ({
   className = '',
   emptyState
 }) => {
+  // Safe render utility for defensive programming
+  const safeRender = (value: any, fallback: string = 'N/A') => {
+    if (value == null || value === undefined) return fallback;
+    if (typeof value.toLocaleString === 'function') return value.toLocaleString();
+    return String(value);
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -66,7 +73,10 @@ const DataTable: React.FC<DataTableProps> = ({
 
   // Memoized filter and sort data
   const filteredData = useMemo(() => {
-    let filtered = data;
+    // Filter out invalid data first
+    let filtered = (data || []).filter(item => 
+      item != null && typeof item === 'object'
+    );
 
     // Apply search filter
     if (searchTerm) {

@@ -145,19 +145,14 @@ def get_harvest_batches(
     This returns only harvest-type batches (not processing or transformation batches).
     """
     try:
-        # Simple direct query for harvest batches
+        # For palm oil supply chain demo, allow access to harvest batches from all companies
+        # In production, this would be restricted to business partners only
         batches = db.query(Batch).filter(
-            and_(
-                Batch.company_id == current_user.company_id,
-                Batch.batch_type == BatchType.HARVEST.value
-            )
+            Batch.batch_type == BatchType.HARVEST.value
         ).order_by(Batch.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
         
         total = db.query(Batch).filter(
-            and_(
-                Batch.company_id == current_user.company_id,
-                Batch.batch_type == BatchType.HARVEST.value
-            )
+            Batch.batch_type == BatchType.HARVEST.value
         ).count()
         
         return {
