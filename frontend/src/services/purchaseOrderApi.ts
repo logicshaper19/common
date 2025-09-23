@@ -247,7 +247,7 @@ export const purchaseOrderApi = {
     return response.data;
   },
 
-  // Get incoming purchase orders (where current user's company is the buyer)
+  // Get incoming purchase orders (where current user's company is the SELLER - orders to fulfill)
   getIncomingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
     // Use the simple API endpoint that exists
     const response = await apiClient.get('/purchase-orders', {
@@ -260,7 +260,7 @@ export const purchaseOrderApi = {
     
     const allOrders = response.data?.purchase_orders || [];
     
-    // Filter for incoming orders (where current user's company is the BUYER)
+    // Filter for incoming orders (where current user's company is the SELLER)
     // and status is pending (not confirmed, rejected, etc.)
     const incomingOrders = allOrders.filter((po: any) => {
       const isIncoming = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
@@ -275,7 +275,7 @@ export const purchaseOrderApi = {
     return incomingOrders;
   },
 
-  // Get outgoing purchase orders (where current user's company is the seller)
+  // Get outgoing purchase orders (where current user's company is the BUYER - orders placed with suppliers)
   getOutgoingPurchaseOrders: async (): Promise<PurchaseOrderWithRelations[]> => {
     // Use the simple API endpoint that exists
     const response = await apiClient.get('/purchase-orders', {
@@ -288,7 +288,7 @@ export const purchaseOrderApi = {
     
     const allOrders = response.data?.purchase_orders || [];
     
-    // Filter for outgoing orders (where current user's company is the SELLER)
+    // Filter for outgoing orders (where current user's company is the BUYER)
     const outgoingOrders = allOrders.filter((po: any) => {
       const isOutgoing = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
       return isOutgoing;
