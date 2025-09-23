@@ -474,7 +474,7 @@ const OriginatorLayout: React.FC = () => {
                                 {po.product}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {po.quantity.toLocaleString()} KG
+                                {(po.quantity || 0).toLocaleString()} KG
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 {getStatusBadge(po.status)}

@@ -111,7 +111,7 @@ const CustomNode: React.FC<{ data: any }> = ({ data }) => {
           {node.product_name}
         </p>
         <p className="text-xs text-neutral-600">
-          {node.quantity.toLocaleString()} {node.unit}
+          {(node.quantity || 0).toLocaleString()} {node.unit || 'N/A'}
         </p>
       </div>
 

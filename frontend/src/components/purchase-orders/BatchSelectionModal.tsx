@@ -141,8 +141,8 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       label: 'Available',
       render: (batch: HarvestBatch) => (
         <div className="text-right">
-          <div className="font-medium">{batch.quantity.toLocaleString()}</div>
-          <div className="text-sm text-gray-500">{batch.unit}</div>
+          <div className="font-medium">{(batch.quantity || 0).toLocaleString()}</div>
+          <div className="text-sm text-gray-500">{batch.unit || 'N/A'}</div>
         </div>
       )
     },
@@ -212,7 +212,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                 <DocumentTextIcon className="h-5 w-5 text-blue-600" />
                 <div>
                   <p className="text-sm font-medium text-blue-900">
-                    Required: {requiredQuantity.toLocaleString()} {requiredUnit}
+                    Required: {(requiredQuantity || 0).toLocaleString()} {requiredUnit}
                   </p>
                   <p className="text-sm text-blue-700">
                     Select a harvest batch with origin data to fulfill this purchase order
@@ -238,7 +238,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Available Quantity</label>
-                        <p className="text-gray-900">{selectedBatch ? `${selectedBatch.quantity.toLocaleString()} ${selectedBatch.unit}` : 'N/A'}</p>
+                        <p className="text-gray-900">{selectedBatch ? `${(selectedBatch.quantity || 0).toLocaleString()} ${selectedBatch.unit || 'N/A'}` : 'N/A'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Certifications</label>
@@ -267,7 +267,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                           className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-sm text-gray-500">
-                          of {Math.min(requiredQuantity, selectedBatch.quantity).toLocaleString()} {requiredUnit}
+                          of {Math.min(requiredQuantity || 0, selectedBatch.quantity || 0).toLocaleString()} {requiredUnit}
                         </span>
                       </div>
                     </div>

@@ -201,7 +201,7 @@ const InventoryManagementCard: React.FC<InventoryManagementCardProps> = ({
                         <span className="font-medium">{batch.product.name}</span>
                       </p>
                       <p className="text-sm text-neutral-500 mb-2">
-                        {batch.quantity.toLocaleString()} {batch.unit}
+                        {(batch.quantity || 0).toLocaleString()} {batch.unit || 'N/A'}
                         {batch.location && ` • ${batch.location}`}
                       </p>
                       <div className="flex items-center justify-between text-xs text-neutral-500">
