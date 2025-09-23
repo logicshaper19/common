@@ -26,6 +26,7 @@ import { ProposeChangesModal } from '../components/purchase-orders/ProposeChange
 import ConfirmationModal from '../components/purchase-orders/ConfirmationModal';
 import EditPurchaseOrderModal from '../components/purchase-orders/EditPurchaseOrderModal';
 import PurchaseOrderTraceability from '../components/purchase-orders/PurchaseOrderTraceability';
+import { DeliveryConfirmationModal } from '../components/purchase-orders/DeliveryConfirmationModal';
 import { PurchaseOrderTransformations } from '../components/purchase-orders/PurchaseOrderTransformations';
 import { TransformationPrompt } from '../components/transformation/TransformationPrompt';
 import { TransformationWizard } from '../components/transformation/TransformationWizard';
@@ -44,6 +45,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
   const [showAmendmentModal, setShowAmendmentModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeliveryConfirmationModal, setShowDeliveryConfirmationModal] = useState(false);
   const [showTransformationPrompt, setShowTransformationPrompt] = useState(false);
   const [showTransformationWizard, setShowTransformationWizard] = useState(false);
 
@@ -142,6 +144,20 @@ const PurchaseOrderDetailPage: React.FC = () => {
     }
   };
 
+  const getDeliveryStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'delivered':
+        return 'success';
+      case 'in_transit':
+        return 'info';
+      case 'failed':
+        return 'error';
+      case 'pending':
+      default:
+        return 'warning';
+    }
+  };
+
   const getAmendmentStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'approved':
@@ -185,8 +201,67 @@ const PurchaseOrderDetailPage: React.FC = () => {
     );
   };
 
+  const canConfirmDelivery = () => {
+    if (!purchaseOrder || !user) return false;
+    return (
+      purchaseOrder.status === 'confirmed' &&
+      purchaseOrder.delivery_status === 'pending' &&
+      purchaseOrder.buyer_company.id === user.company?.id
+    );
+  };
+
   const handleProposeAmendment = () => {
     setShowAmendmentModal(true);
+  };
+
+  const handleDeliveryConfirmation = () => {
+    setShowDeliveryConfirmationModal(true);
+  };
+
+  const handleConfirmDelivery = async (deliveryNotes: string) => {
+    if (!id || !purchaseOrder) return;
+
+    try {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const authToken = localStorage.getItem('auth_token');
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/purchase-orders/${id}/confirm-delivery`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ delivery_notes: deliveryNotes })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to confirm delivery');
+      }
+
+      const updatedPO = await response.json();
+      
+      // Update the local state
+      setPurchaseOrder(updatedPO);
+      
+      // Also reload the purchase order to ensure we have the latest data
+      await loadPurchaseOrder();
+      
+      showToast({
+        type: 'success',
+        title: 'Delivery Confirmed',
+        message: 'The delivery has been confirmed and batch ownership has been transferred.'
+      });
+      
+      setShowDeliveryConfirmationModal(false);
+    } catch (error) {
+      console.error('Error confirming delivery:', error);
+      showToast({
+        type: 'error',
+        title: 'Delivery Confirmation Failed',
+        message: error instanceof Error ? error.message : 'Failed to confirm delivery'
+      });
+    }
   };
 
   const handleConfirmOrder = () => {
@@ -367,6 +442,17 @@ const PurchaseOrderDetailPage: React.FC = () => {
                   Propose Amendment
                 </Button>
               )}
+              
+              {canConfirmDelivery() && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleDeliveryConfirmation}
+                  leftIcon={<CheckCircleIcon className="h-4 w-4" />}
+                >
+                  Confirm Delivery
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -435,6 +521,19 @@ const PurchaseOrderDetailPage: React.FC = () => {
                 <div>
                   <label className="text-sm font-medium text-neutral-700">Delivery Date</label>
                   <p className="text-neutral-900">{formatDate(purchaseOrder.delivery_date)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-neutral-700">Delivery Status</label>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={getDeliveryStatusColor(purchaseOrder.delivery_status)} size="sm">
+                      {purchaseOrder.delivery_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                    </Badge>
+                    {purchaseOrder.delivered_at && (
+                      <span className="text-xs text-neutral-500">
+                        {formatDate(purchaseOrder.delivered_at)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-neutral-700">Created</label>
@@ -640,6 +739,15 @@ const PurchaseOrderDetailPage: React.FC = () => {
               });
             }
           }}
+        />
+      )}
+
+      {showDeliveryConfirmationModal && (
+        <DeliveryConfirmationModal
+          isOpen={showDeliveryConfirmationModal}
+          onClose={() => setShowDeliveryConfirmationModal(false)}
+          purchaseOrder={purchaseOrder}
+          onConfirm={handleConfirmDelivery}
         />
       )}
 

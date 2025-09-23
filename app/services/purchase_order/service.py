@@ -794,3 +794,89 @@ class PurchaseOrderOrchestrator(BaseService):
             merged_data.update(update_data)
             return merged_data
         return update_data
+    
+    def confirm_delivery(
+        self,
+        po_id: str,
+        user_id: UUID,
+        delivery_notes: str = None
+    ) -> PurchaseOrder:
+        """
+        Confirm delivery and transfer batch ownership.
+        
+        Args:
+            po_id: Purchase order UUID string
+            user_id: User ID who is confirming delivery
+            delivery_notes: Optional notes about delivery condition
+            
+        Returns:
+            Updated purchase order
+            
+        Raises:
+            PurchaseOrderNotFoundError: If PO not found
+            PurchaseOrderValidationError: If validation fails
+        """
+        try:
+            uuid_obj = UUID(po_id)
+        except ValueError:
+            raise PurchaseOrderNotFoundError(po_id)
+        
+        # Get existing purchase order
+        purchase_order = self.repository.get_by_id_or_raise(uuid_obj)
+        
+        # Validate delivery confirmation
+        if purchase_order.status != 'confirmed':
+            raise PurchaseOrderValidationError("Can only confirm delivery for confirmed purchase orders")
+        
+        if purchase_order.delivery_status == 'delivered':
+            raise PurchaseOrderValidationError("Delivery already confirmed for this purchase order")
+        
+        # Capture old state for audit
+        old_state = self.audit_manager._serialize_po_state(purchase_order)
+        
+        try:
+            # Update PO delivery status
+            purchase_order.delivery_status = 'delivered'
+            purchase_order.delivered_at = datetime.now(timezone.utc)
+            purchase_order.delivery_confirmed_by = user_id
+            purchase_order.delivery_notes = delivery_notes
+            
+            # Transfer batch ownership
+            if purchase_order.batch_id:
+                from app.models.batch import Batch
+                batch = self.db.query(Batch).filter(Batch.id == purchase_order.batch_id).first()
+                if batch:
+                    batch.company_id = purchase_order.buyer_company_id
+                    batch.status = 'delivered'
+                    batch.updated_at = datetime.now(timezone.utc)
+            
+            # Commit changes
+            self.db.commit()
+            
+            # Log audit trail
+            self.audit_manager.log_status_change(
+                purchase_order,
+                "delivery_confirmed",
+                user_id,
+                f"Delivery confirmed with notes: {delivery_notes or 'No notes'}"
+            )
+            
+            logger.info(
+                "Delivery confirmed successfully",
+                po_id=str(purchase_order.id),
+                po_number=purchase_order.po_number,
+                confirmed_by=str(user_id),
+                batch_transferred=purchase_order.batch_id is not None
+            )
+            
+            return purchase_order
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(
+                "Failed to confirm delivery",
+                po_id=str(purchase_order.id),
+                error=str(e),
+                exc_info=True
+            )
+            raise PurchaseOrderError(f"Failed to confirm delivery: {str(e)}")
