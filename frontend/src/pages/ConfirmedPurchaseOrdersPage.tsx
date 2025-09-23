@@ -10,8 +10,7 @@ import {
   DocumentTextIcon, 
   CheckCircleIcon, 
   CalendarIcon, 
-  TruckIcon,
-  EyeIcon
+  TruckIcon
 } from '@heroicons/react/24/outline';
 
 const ConfirmedPurchaseOrdersPage: React.FC = () => {
@@ -107,117 +106,6 @@ const ConfirmedPurchaseOrdersPage: React.FC = () => {
     loadPurchaseOrders();
   };
 
-  // Handle row click - view details
-  const handleRowClick = (purchaseOrder: PurchaseOrderWithRelations) => {
-    // Navigate to purchase order details
-    window.location.href = `/purchase-orders/${purchaseOrder.id}`;
-  };
-
-  // Table columns for confirmed purchase orders
-  const columns = [
-    {
-      key: 'po_number',
-      label: 'PO Number',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div className="font-medium text-gray-900">
-          {po.po_number || `PO-${po.id.slice(-8)}`}
-        </div>
-      )
-    },
-    {
-      key: 'product_name',
-      label: 'Product',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div>
-          <div className="font-medium text-gray-900">{po.product?.name || 'N/A'}</div>
-          <div className="text-sm text-gray-500">{po.quantity} {po.unit}</div>
-        </div>
-      )
-    },
-    {
-      key: 'buyer_company',
-      label: 'Buyer',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div>
-          <div className="font-medium text-gray-900">{po.buyer_company?.name || 'N/A'}</div>
-          <div className="text-sm text-gray-500">{po.buyer_company?.company_type || ''}</div>
-        </div>
-      )
-    },
-    {
-      key: 'seller_company',
-      label: 'Seller',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div>
-          <div className="font-medium text-gray-900">{po.seller_company?.name || 'N/A'}</div>
-          <div className="text-sm text-gray-500">{po.seller_company?.company_type || ''}</div>
-        </div>
-      )
-    },
-    {
-      key: 'unit_price',
-      label: 'Unit Price',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div className="text-right">
-          <div className="font-medium text-gray-900">
-            ${po.unit_price?.toLocaleString(undefined, { maximumFractionDigits: 2 }) || '0.00'}
-          </div>
-          <div className="text-sm text-gray-500">per {po.unit}</div>
-        </div>
-      )
-    },
-    {
-      key: 'total_value',
-      label: 'Total Value',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div className="text-right font-medium text-gray-900">
-          ${((po.quantity || 0) * (po.unit_price || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-        </div>
-      )
-    },
-    {
-      key: 'delivery_date',
-      label: 'Delivery Date',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div className="flex items-center space-x-2">
-          <CalendarIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm">
-            {po.delivery_date ? new Date(po.delivery_date).toLocaleDateString() : 'Not set'}
-          </span>
-        </div>
-      )
-    },
-    {
-      key: 'confirmed_at',
-      label: 'Confirmed',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div className="flex items-center space-x-2">
-          <CheckCircleIcon className="h-4 w-4 text-green-500" />
-          <span className="text-sm text-gray-600">
-            {po.updated_at ? new Date(po.updated_at).toLocaleDateString() : 'N/A'}
-          </span>
-        </div>
-      )
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (value: any, po: PurchaseOrderWithRelations) => (
-        <div className="flex space-x-2">
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRowClick(po);
-            }}
-            variant="outline"
-            size="sm"
-          >
-            <EyeIcon className="h-4 w-4" />
-          </Button>
-        </div>
-      )
-    }
-  ];
 
   return (
     <div className="space-y-6">
@@ -259,17 +147,9 @@ const ConfirmedPurchaseOrdersPage: React.FC = () => {
         />
         <CardBody>
           <PurchaseOrderTable
-            data={purchaseOrders}
-            columns={columns}
+            purchaseOrders={purchaseOrders}
             loading={loading}
-            onRowClick={handleRowClick}
-            emptyState={{
-              icon: CheckCircleIcon,
-              title: 'No confirmed purchase orders',
-              description: 'Confirmed purchase orders will appear here once they are confirmed by sellers.',
-              actionLabel: 'View Incoming Orders',
-              onAction: () => window.location.href = '/purchase-orders'
-            }}
+            onRefresh={handleRefresh}
           />
         </CardBody>
       </Card>
