@@ -195,5 +195,16 @@ export const harvestApi = {
     }
     
     return batches;
+  },
+
+  // Update batch allocation when used in purchase order
+  updateBatchAllocation: async (batchId: string, allocationData: {
+    allocated_quantity: number;
+    purchase_order_id: string;
+    purchase_order_number: string;
+    buyer_company: string;
+  }): Promise<HarvestBatch> => {
+    const response = await harvestApiClient.post(`/api/harvest/batches/${batchId}/allocation`, allocationData);
+    return response.data;
   }
 };

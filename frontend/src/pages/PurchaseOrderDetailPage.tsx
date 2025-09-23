@@ -187,6 +187,22 @@ const PurchaseOrderDetailPage: React.FC = () => {
 
       const response: ConfirmationResponse = await purchaseOrderApi.confirmPurchaseOrder(id, enhancedConfirmation);
 
+      // Update batch allocation if a batch was used
+      if (confirmation.batch_id && confirmation.confirmed_quantity) {
+        try {
+          const { harvestApi } = await import('../services/harvestApi');
+          await harvestApi.updateBatchAllocation(confirmation.batch_id, {
+            allocated_quantity: confirmation.confirmed_quantity,
+            purchase_order_id: id,
+            purchase_order_number: purchaseOrder.po_number || `PO-${id.slice(-8)}`,
+            buyer_company: purchaseOrder.buyer_company?.name || 'Unknown Buyer'
+          });
+        } catch (allocationError) {
+          console.warn('Failed to update batch allocation:', allocationError);
+          // Don't fail the entire confirmation if allocation update fails
+        }
+      }
+
       showToast({
         type: 'success',
         title: 'Order Confirmed',
