@@ -264,27 +264,49 @@ export const purchaseOrderApi = {
     const userData = localStorage.getItem('user_data');
     const currentUserCompanyId = userData ? JSON.parse(userData).company?.id : null;
     
+    // Also try to get from auth_token if user_data doesn't work
+    const token = localStorage.getItem('auth_token');
+    let fallbackCompanyId = null;
+    if (token && !currentUserCompanyId) {
+      try {
+        // Decode JWT token to get user info
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        fallbackCompanyId = payload.company_id;
+      } catch (e) {
+        console.log('Could not decode token for company ID');
+      }
+    }
+    
+    const finalCompanyId = currentUserCompanyId || fallbackCompanyId;
+    
     console.log('🔍 getIncomingPurchaseOrders - Debug Info:');
-    console.log('  Current User Company ID:', currentUserCompanyId);
+    console.log('  Current User Company ID (from user_data):', currentUserCompanyId);
+    console.log('  Fallback Company ID (from token):', fallbackCompanyId);
+    console.log('  Final Company ID:', finalCompanyId);
     console.log('  Total POs fetched:', allOrders.length);
     console.log('  All POs:', allOrders.map((po: any) => ({ 
       po_number: po.po_number, 
       seller_company_id: po.seller_company_id, 
       buyer_company_id: po.buyer_company_id,
-      status: po.status 
+      status: po.status,
+      // Show all available properties
+      all_properties: Object.keys(po)
     })));
     
     // Filter for incoming orders (where current user's company is the SELLER)
     // and status is pending (not confirmed, rejected, etc.)
     const incomingOrders = allOrders.filter((po: any) => {
       const isIncoming = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
-      const isCurrentUserSeller = currentUserCompanyId && po.seller_company_id === currentUserCompanyId;
+      const isCurrentUserSeller = finalCompanyId && po.seller_company_id === finalCompanyId;
       const isPending = po.status && 
         (po.status.toLowerCase() === 'pending' || 
          po.status.toLowerCase() === 'awaiting_acceptance' ||
          po.status.toLowerCase() === 'awaiting_confirmation');
       
       console.log(`  PO ${po.po_number}: isIncoming=${isIncoming}, isCurrentUserSeller=${isCurrentUserSeller}, isPending=${isPending}`);
+      console.log(`    - po.seller_company_id: ${po.seller_company_id}`);
+      console.log(`    - po.buyer_company_id: ${po.buyer_company_id}`);
+      console.log(`    - finalCompanyId: ${finalCompanyId}`);
       
       return isIncoming && isCurrentUserSeller && isPending;
     });
@@ -311,14 +333,31 @@ export const purchaseOrderApi = {
     const userData = localStorage.getItem('user_data');
     const currentUserCompanyId = userData ? JSON.parse(userData).company?.id : null;
     
+    // Also try to get from auth_token if user_data doesn't work
+    const token = localStorage.getItem('auth_token');
+    let fallbackCompanyId = null;
+    if (token && !currentUserCompanyId) {
+      try {
+        // Decode JWT token to get user info
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        fallbackCompanyId = payload.company_id;
+      } catch (e) {
+        console.log('Could not decode token for company ID');
+      }
+    }
+    
+    const finalCompanyId = currentUserCompanyId || fallbackCompanyId;
+    
     console.log('🔍 getOutgoingPurchaseOrders - Debug Info:');
-    console.log('  Current User Company ID:', currentUserCompanyId);
+    console.log('  Current User Company ID (from user_data):', currentUserCompanyId);
+    console.log('  Fallback Company ID (from token):', fallbackCompanyId);
+    console.log('  Final Company ID:', finalCompanyId);
     console.log('  Total POs fetched:', allOrders.length);
     
     // Filter for outgoing orders (where current user's company is the BUYER)
     const outgoingOrders = allOrders.filter((po: any) => {
       const isOutgoing = po.buyer_company_id && po.seller_company_id; // Has both buyer and seller
-      const isCurrentUserBuyer = currentUserCompanyId && po.buyer_company_id === currentUserCompanyId;
+      const isCurrentUserBuyer = finalCompanyId && po.buyer_company_id === finalCompanyId;
       return isOutgoing && isCurrentUserBuyer;
     });
     
