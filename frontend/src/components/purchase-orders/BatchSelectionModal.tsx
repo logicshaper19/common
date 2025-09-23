@@ -64,6 +64,20 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       console.log('📦 Received batches:', batches);
       console.log('📦 Batch count:', batches.length);
       
+      // Debug: Log the first batch in detail
+      if (batches.length > 0) {
+        console.log('🔍 First batch details:', {
+          id: batches[0].id,
+          batch_id: batches[0].batch_id,
+          quantity: batches[0].quantity,
+          unit: batches[0].unit,
+          production_date: batches[0].production_date,
+          location_name: batches[0].location_name,
+          origin_data: batches[0].origin_data,
+          certifications: batches[0].certifications
+        });
+      }
+      
       setHarvestBatches(batches);
       
       if (batches.length === 0) {
@@ -111,14 +125,17 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
     {
       key: 'batch_id',
       label: 'Batch ID',
-      render: (batch: HarvestBatch) => (
-        <div className="font-medium text-gray-900">{batch.batch_id}</div>
-      )
+      render: (value: any, batch: HarvestBatch) => {
+        console.log('🔍 Batch ID render - value:', value, 'batch:', batch);
+        return (
+          <div className="font-medium text-gray-900">{batch?.batch_id || 'N/A'}</div>
+        );
+      }
     },
     {
       key: 'harvest_date',
       label: 'Harvest Date',
-      render: (batch: HarvestBatch) => (
+      render: (value: any, batch: HarvestBatch) => (
         <div className="flex items-center space-x-2">
           <CalendarIcon className="h-4 w-4 text-gray-400" />
           <span>{batch ? new Date(batch.origin_data?.harvest_date || batch.production_date || batch.created_at).toLocaleDateString() : 'N/A'}</span>
@@ -128,7 +145,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
     {
       key: 'farm_name',
       label: 'Farm',
-      render: (batch: HarvestBatch) => (
+      render: (value: any, batch: HarvestBatch) => (
         <div>
           <div className="font-medium text-gray-900">{batch ? (batch.origin_data?.farm_information?.farm_name || batch.location_name || 'N/A') : 'N/A'}</div>
           <div className="text-sm text-gray-500">ID: {batch ? (batch.origin_data?.farm_information?.farm_id || batch.facility_code || batch.batch_id || 'N/A') : 'N/A'}</div>
@@ -138,7 +155,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
     {
       key: 'location',
       label: 'Location',
-      render: (batch: HarvestBatch) => (
+      render: (value: any, batch: HarvestBatch) => (
         <div className="flex items-center space-x-2">
           <MapPinIcon className="h-4 w-4 text-gray-400" />
           <span className="text-sm">
@@ -150,7 +167,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
     {
       key: 'quantity',
       label: 'Available',
-      render: (batch: HarvestBatch) => (
+      render: (value: any, batch: HarvestBatch) => (
         <div className="text-right">
           <div className="font-medium">{(batch.quantity || 0).toLocaleString()}</div>
           <div className="text-sm text-gray-500">{batch.unit || 'N/A'}</div>
@@ -160,7 +177,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
     {
       key: 'certifications',
       label: 'Certifications',
-      render: (batch: HarvestBatch) => (
+      render: (value: any, batch: HarvestBatch) => (
         <div className="flex flex-wrap gap-1">
           {batch ? (
             <>
@@ -184,7 +201,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
     {
       key: 'actions',
       label: 'Actions',
-      render: (batch: HarvestBatch) => (
+      render: (value: any, batch: HarvestBatch) => (
         <Button
           onClick={() => batch && handleBatchSelect(batch)}
           variant="outline"
