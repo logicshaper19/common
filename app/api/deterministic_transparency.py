@@ -243,14 +243,20 @@ def get_supply_chain_trace(
                 detail="Purchase order not found"
             )
         
-        # Allow access to both buyer and seller companies, plus admins
-        if (current_user.company_id != po.buyer_company_id and 
-            current_user.company_id != po.seller_company_id and
-            current_user.role not in ["admin", "super_admin"]):
+        # Use universal access control for traceability
+        from app.services.universal_access_control import UniversalAccessControl, AccessLevel
+        
+        access_control = UniversalAccessControl(db)
+        decision = access_control.can_access_traceability(current_user, po, AccessLevel.READ)
+        
+        if not decision.allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to purchase order trace data"
+                detail=f"Access denied: {decision.reason}"
             )
+        
+        # Log the access attempt for audit trail
+        access_control.log_access_attempt(current_user, "traceability", po_id, decision)
         
         logger.info(
             f"Supply chain trace retrieved for PO {po_id}: "

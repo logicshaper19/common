@@ -57,16 +57,30 @@ class FarmManagementService:
             "total_farm_area_hectares": self._get_total_farm_area(company_id)
         }
     
-    def get_company_farms(self, company_id: UUID) -> List[Dict[str, Any]]:
+    def get_company_farms(self, company_id: UUID, current_user: User = None) -> List[Dict[str, Any]]:
         """
-        Get all farms for a company
+        Get all farms for a company using universal access control
         
         Args:
             company_id: ID of the company
+            current_user: Current user object (for access control)
             
         Returns:
             List of farm information
         """
+        # If current_user is provided, use universal access control
+        if current_user:
+            from app.services.universal_access_control import UniversalAccessControl, AccessLevel
+            
+            access_control = UniversalAccessControl(self.db)
+            decision = access_control.can_access_farm_data(current_user, company_id, AccessLevel.READ)
+            
+            if not decision.allowed:
+                raise PermissionError(f"Access denied: {decision.reason}")
+            
+            # Log the access attempt
+            access_control.log_access_attempt(current_user, "farm_data", company_id, decision)
+        
         farms = self.db.query(Location).filter(
             and_(
                 Location.company_id == company_id,

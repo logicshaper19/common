@@ -51,6 +51,7 @@ from app.api.transparency import router as transparency_router
 from app.api.origin_data import router as origin_data_router
 from app.api.harvest import router as harvest_router
 from app.api.farm_management import router as farm_management_router
+from app.api.v1.access_control import router as access_control_router # Universal access control
 # Business relationships router removed - using simplified relationships instead
 from app.api.batches import router as batches_router
 from app.api.performance import router as performance_router
@@ -320,6 +321,7 @@ app.include_router(transparency_router, prefix="/api/v1", tags=["Transparency"])
 app.include_router(origin_data_router, prefix="/api/v1", tags=["Origin Data"])
 app.include_router(harvest_router, prefix="/api", tags=["Harvest"])
 app.include_router(farm_management_router, prefix="/api/v1", tags=["Farm Management"])
+app.include_router(access_control_router, prefix="/api/v1/access-control", tags=["Access Control"])
 # Business relationships router removed - using simplified relationships instead
 app.include_router(batches_router, prefix="/api/v1", tags=["Batch Tracking"])
 app.include_router(performance_router, prefix="/api/v1", tags=["Performance"])

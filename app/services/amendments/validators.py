@@ -137,12 +137,28 @@ class AmendmentValidator:
         current_user_company_id: UUID
     ) -> None:
         """Validate user has permission to create amendments for this PO."""
-        if current_user_company_id not in [
-            purchase_order.buyer_company_id,
-            purchase_order.seller_company_id
-        ]:
+        from app.services.universal_access_control import UniversalAccessControl, AccessLevel
+        
+        # Get current user (we need the full user object for universal access control)
+        from app.models.user import User
+        user = self.db.query(User).filter(User.company_id == current_user_company_id).first()
+        
+        if not user:
+            raise AmendmentPermissionError("User not found")
+        
+        # Use universal access control
+        access_control = UniversalAccessControl(self.db)
+        decision = access_control.can_access_purchase_order(user, purchase_order, AccessLevel.WRITE)
+        
+        if not decision.allowed:
             raise AmendmentPermissionError(
-                "Only buyer or seller companies can create amendments"
+                f"Access denied: {decision.reason}"
+            )
+        
+        # Check for write restrictions
+        if decision.restrictions and "read_only" in decision.restrictions:
+            raise AmendmentPermissionError(
+                "Read-only access: Cannot create amendments"
             )
     
     def _validate_po_status_for_amendment(
