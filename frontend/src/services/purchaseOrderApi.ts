@@ -260,9 +260,19 @@ export const purchaseOrderApi = {
     
     const allOrders = response.data?.purchase_orders || [];
     
-    // Get current user's company ID from localStorage or context
+    // Get current user's company ID from localStorage (stored by AuthContext)
     const userData = localStorage.getItem('user_data');
-    const currentUserCompanyId = userData ? JSON.parse(userData).company_id : null;
+    const currentUserCompanyId = userData ? JSON.parse(userData).company?.id : null;
+    
+    console.log('🔍 getIncomingPurchaseOrders - Debug Info:');
+    console.log('  Current User Company ID:', currentUserCompanyId);
+    console.log('  Total POs fetched:', allOrders.length);
+    console.log('  All POs:', allOrders.map((po: any) => ({ 
+      po_number: po.po_number, 
+      seller_company_id: po.seller_company_id, 
+      buyer_company_id: po.buyer_company_id,
+      status: po.status 
+    })));
     
     // Filter for incoming orders (where current user's company is the SELLER)
     // and status is pending (not confirmed, rejected, etc.)
@@ -274,8 +284,12 @@ export const purchaseOrderApi = {
          po.status.toLowerCase() === 'awaiting_acceptance' ||
          po.status.toLowerCase() === 'awaiting_confirmation');
       
+      console.log(`  PO ${po.po_number}: isIncoming=${isIncoming}, isCurrentUserSeller=${isCurrentUserSeller}, isPending=${isPending}`);
+      
       return isIncoming && isCurrentUserSeller && isPending;
     });
+    
+    console.log('  Filtered incoming orders:', incomingOrders.length);
     
     return incomingOrders;
   },
@@ -293,9 +307,13 @@ export const purchaseOrderApi = {
     
     const allOrders = response.data?.purchase_orders || [];
     
-    // Get current user's company ID from localStorage or context
+    // Get current user's company ID from localStorage (stored by AuthContext)
     const userData = localStorage.getItem('user_data');
-    const currentUserCompanyId = userData ? JSON.parse(userData).company_id : null;
+    const currentUserCompanyId = userData ? JSON.parse(userData).company?.id : null;
+    
+    console.log('🔍 getOutgoingPurchaseOrders - Debug Info:');
+    console.log('  Current User Company ID:', currentUserCompanyId);
+    console.log('  Total POs fetched:', allOrders.length);
     
     // Filter for outgoing orders (where current user's company is the BUYER)
     const outgoingOrders = allOrders.filter((po: any) => {
@@ -303,6 +321,8 @@ export const purchaseOrderApi = {
       const isCurrentUserBuyer = currentUserCompanyId && po.buyer_company_id === currentUserCompanyId;
       return isOutgoing && isCurrentUserBuyer;
     });
+    
+    console.log('  Filtered outgoing orders:', outgoingOrders.length);
     
     return outgoingOrders;
   },
