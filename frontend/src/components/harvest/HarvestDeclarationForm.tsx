@@ -193,9 +193,10 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
 
   // Handle cultivation method changes
   const handleCultivationMethodChange = (method: string, checked: boolean) => {
+    const currentMethods = harvestData.farm_information?.cultivation_methods || [];
     const newMethods = checked
-      ? [...harvestData.farm_information.cultivation_methods, method]
-      : harvestData.farm_information.cultivation_methods.filter(m => m !== method);
+      ? [...currentMethods, method]
+      : currentMethods.filter(m => m !== method);
     
     updateFarmInfo('cultivation_methods', newMethods);
   };
@@ -215,11 +216,11 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
     }
 
     // Validate farm information
-    if (!harvestData.farm_information.farm_name.trim()) {
+    if (!harvestData.farm_information?.farm_name?.trim()) {
       newErrors.farm_name = 'Farm name is required';
     }
 
-    if (!harvestData.farm_information.farm_id.trim()) {
+    if (!harvestData.farm_information?.farm_id?.trim()) {
       newErrors.farm_id = 'Farm ID is required';
     }
 
@@ -462,7 +463,7 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
             </label>
             <input
               type="text"
-              value={harvestData.farm_information.farm_name}
+              value={harvestData.farm_information?.farm_name || ''}
               onChange={(e) => updateFarmInfo('farm_name', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
@@ -483,7 +484,7 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
             </label>
             <input
               type="text"
-              value={harvestData.farm_information.farm_id}
+              value={harvestData.farm_information?.farm_id || ''}
               onChange={(e) => updateFarmInfo('farm_id', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
@@ -503,7 +504,7 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
               Plantation Type
             </label>
             <select
-              value={harvestData.farm_information.plantation_type}
+              value={harvestData.farm_information?.plantation_type || ''}
               onChange={(e) => updateFarmInfo('plantation_type', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={disabled}
@@ -524,7 +525,7 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
                 <label key={method.value} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={harvestData.farm_information.cultivation_methods.includes(method.value)}
+                    checked={harvestData.farm_information?.cultivation_methods?.includes(method.value) || false}
                     onChange={(e) => handleCultivationMethodChange(method.value, e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     disabled={disabled}

@@ -200,6 +200,12 @@ export interface PurchaseOrderConfirmation {
   notes?: string;
   confirmed_quantity?: number;
   confirmed_unit?: string;
+  confirmed_unit_price?: number;
+  delivery_location?: string;
+  stock_batches?: Array<{
+    batch_id: string;
+    quantity_to_use: number;
+  }>;
 }
 
 export interface ConfirmationResponse {

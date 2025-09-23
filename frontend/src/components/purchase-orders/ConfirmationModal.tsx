@@ -55,9 +55,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   const [confirmedLocation, setConfirmedLocation] = useState(purchaseOrder.delivery_location);
   const [sellerNotes, setSellerNotes] = useState('');
 
-  // Detect if user is an originator
+  // Detect if user is an originator and check for available harvest batches
   useEffect(() => {
-    const checkOriginatorStatus = () => {
+    const checkOriginatorStatus = async () => {
       // Check if user's company is an originator based on multiple criteria
       const companyType = user?.company?.company_type;
       const sectorId = user?.sector_id;
@@ -79,8 +79,10 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       const originatorStatus = Boolean(isOriginatorType || isOriginatorTier || hasOriginatorPermissions);
       setIsOriginator(originatorStatus);
 
-      // For raw materials from originators, show batch selection by default
-      if (originatorStatus && purchaseOrder.product.category === 'raw_material') {
+      // For raw materials and Fresh Fruit Bunches, always show batch selection option
+      if (purchaseOrder.product.category === 'raw_material' || 
+          purchaseOrder.product.name === 'Fresh Fruit Bunches') {
+        console.log('🌾 Raw material or FFB detected, showing batch selection');
         setShowBatchSelection(true);
       }
     };
@@ -88,7 +90,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     if (user && isOpen) {
       checkOriginatorStatus();
     }
-  }, [user, isOpen, purchaseOrder.product.category]);
+  }, [user, isOpen, purchaseOrder.product.category, purchaseOrder.product.id, purchaseOrder.quantity, purchaseOrder.unit]);
 
   // Handle batch selection
   const handleBatchSelection = async (batch: any, selectedQuantity: number) => {
@@ -148,12 +150,13 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       return;
     }
 
-    // Check if originator should select a batch
-    if (isOriginator && purchaseOrder.product.category === 'raw_material' && !selectedBatch) {
+    // Check if batch selection is available and should be used
+    if ((purchaseOrder.product.category === 'raw_material' || 
+         purchaseOrder.product.name === 'Fresh Fruit Bunches') && !selectedBatch) {
       showToast({
         type: 'warning',
-        title: 'Batch Selection Required',
-        message: 'As an originator, please select a harvest batch for this raw material.'
+        title: 'Batch Selection Available',
+        message: 'Harvest batches are available for this raw material. Please select a batch for better traceability.'
       });
       setShowBatchSelection(true);
       return;
@@ -198,7 +201,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   if (!isOpen) return null;
 
   // Show batch selection if required
-  if (showBatchSelection && isOriginator) {
+  if (showBatchSelection) {
+    console.log('🌾 Rendering BatchSelectionModal');
     return (
       <BatchSelectionModal
         isOpen={showBatchSelection}
@@ -269,6 +273,37 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Batch Selection Option for All Users */}
+              {!isOriginator && (purchaseOrder.product.category === 'raw_material' || 
+                                 purchaseOrder.product.name === 'Fresh Fruit Bunches') && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">
+                        Harvest Batch Selection Available
+                      </p>
+                      <p className="text-sm text-blue-700">
+                        Select a harvest batch to provide complete origin traceability for this raw material.
+                      </p>
+                    </div>
+                    {!showBatchSelection && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          console.log('🌾 Batch selection button clicked');
+                          setShowBatchSelection(true);
+                        }}
+                      >
+                        Select Harvest Batch
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Original vs Confirmed Comparison */}
               <Card>
                 <CardBody>

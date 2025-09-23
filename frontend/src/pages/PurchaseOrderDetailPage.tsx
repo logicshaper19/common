@@ -21,7 +21,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import AmendmentModal from '../components/purchase-orders/AmendmentModal';
-import SimpleConfirmationModal from '../components/purchase-orders/SimpleConfirmationModal';
+import ConfirmationModal from '../components/purchase-orders/ConfirmationModal';
 import EditPurchaseOrderModal from '../components/purchase-orders/EditPurchaseOrderModal';
 import { cn, formatCurrency, formatDate } from '../lib/utils';
 
@@ -170,15 +170,22 @@ const PurchaseOrderDetailPage: React.FC = () => {
     if (!id || !purchaseOrder) return;
 
     try {
-      // Use simple confirmation format
-      const simpleConfirmation: PurchaseOrderConfirmation = {
+      // Use enhanced confirmation format with batch selection support
+      const enhancedConfirmation: PurchaseOrderConfirmation = {
         delivery_date: confirmation.confirmed_delivery_date || undefined,
         notes: confirmation.seller_notes || undefined,
         confirmed_quantity: confirmation.confirmed_quantity || undefined,
-        confirmed_unit: confirmation.confirmed_unit || undefined
+        confirmed_unit: confirmation.confirmed_unit || undefined,
+        confirmed_unit_price: confirmation.confirmed_unit_price || undefined,
+        delivery_location: confirmation.confirmed_delivery_location || undefined,
+        // Add batch selection support
+        stock_batches: confirmation.batch_id ? [{
+          batch_id: confirmation.batch_id,
+          quantity_to_use: confirmation.confirmed_quantity || purchaseOrder.quantity
+        }] : undefined
       };
 
-      const response: ConfirmationResponse = await purchaseOrderApi.confirmPurchaseOrder(id, simpleConfirmation);
+      const response: ConfirmationResponse = await purchaseOrderApi.confirmPurchaseOrder(id, enhancedConfirmation);
 
       showToast({
         type: 'success',
@@ -484,7 +491,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
       )}
 
       {showConfirmationModal && (
-        <SimpleConfirmationModal
+        <ConfirmationModal
           isOpen={showConfirmationModal}
           onClose={() => setShowConfirmationModal(false)}
           purchaseOrder={purchaseOrder}

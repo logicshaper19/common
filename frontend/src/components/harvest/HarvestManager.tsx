@@ -174,9 +174,9 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
         batch_id: harvestData.batch_number,
         product_type: harvestData.product_type,
         harvest_date: harvestData.harvest_date,
-        farm_name: harvestData.farm_information.farm_name,
-        farm_id: harvestData.farm_information.farm_id,
-        plantation_type: harvestData.farm_information.plantation_type,
+        farm_name: harvestData.farm_information?.farm_name || '',
+        farm_id: harvestData.farm_information?.farm_id || '',
+        plantation_type: harvestData.farm_information?.plantation_type || '',
         quantity: harvestData.quantity,
         unit: harvestData.unit,
         location_coordinates: harvestData.geographic_coordinates,
@@ -278,11 +278,11 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
       label: 'Certifications',
       render: (value: any, batch: HarvestBatch) => (
         <div className="flex flex-wrap gap-1">
-          {batch?.certifications?.slice(0, 2).map((cert) => (
+          {(batch?.certifications || []).slice(0, 2).map((cert) => (
             <Badge key={cert} variant="secondary" size="sm">
               {cert}
             </Badge>
-          )) || []}
+          ))}
           {batch?.certifications && batch.certifications.length > 2 && (
             <Badge variant="secondary" size="sm">
               +{batch.certifications.length - 2}

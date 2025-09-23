@@ -1,4 +1,25 @@
 import { apiClient } from '../lib/api';
+import axios from 'axios';
+
+// Create a separate client for harvest endpoints (no v1 prefix)
+const harvestApiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add auth interceptor
+harvestApiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+    console.log('🔑 Harvest API: Token attached to request', config.url);
+  } else {
+    console.log('❌ Harvest API: No token found in localStorage');
+  }
+  return config;
+});
 
 export interface HarvestBatch {
   id: string;
@@ -92,7 +113,7 @@ export interface HarvestBatchesResponse {
 export const harvestApi = {
   // Declare a new harvest
   declareHarvest: async (harvestData: HarvestDeclarationData): Promise<HarvestBatch> => {
-    const response = await apiClient.post('/harvest/declare', harvestData);
+    const response = await harvestApiClient.post('/api/harvest/declare', harvestData);
     return response.data;
   },
 
@@ -101,7 +122,7 @@ export const harvestApi = {
     page: number = 1,
     per_page: number = 20
   ): Promise<HarvestBatchesResponse> => {
-    const response = await apiClient.get('/harvest/batches', {
+    const response = await harvestApiClient.get('/api/harvest/batches', {
       params: { page, per_page }
     });
     return response.data;
@@ -109,7 +130,7 @@ export const harvestApi = {
 
   // Get a specific harvest batch
   getHarvestBatch: async (batchId: string): Promise<HarvestBatch> => {
-    const response = await apiClient.get(`/harvest/batches/${batchId}`);
+    const response = await harvestApiClient.get(`/api/harvest/batches/${batchId}`);
     return response.data;
   },
 
@@ -119,7 +140,7 @@ export const harvestApi = {
     requiredQuantity?: number,
     requiredUnit?: string
   ): Promise<HarvestBatch[]> => {
-    const response = await apiClient.get('/harvest/batches', {
+    const response = await harvestApiClient.get('/api/harvest/batches', {
       params: {
         product_id: productId,
         status: 'active',
@@ -127,13 +148,37 @@ export const harvestApi = {
       }
     });
     
-    // Filter batches that match the product and have available quantity
+    // Return all available batches - let the user select which ones to use
+    // The quantity filtering is handled in the UI where users can select partial quantities
     let batches = response.data.batches || [];
     
-    if (requiredQuantity && requiredUnit) {
+    // Only filter by unit if specified, but allow partial quantities
+    // Handle common unit variations (kg vs KGM, etc.)
+    if (requiredUnit) {
       batches = batches.filter((batch: HarvestBatch) => {
-        // Check if batch has enough quantity and matching unit
-        return batch.quantity >= requiredQuantity && batch.unit === requiredUnit;
+        const batchUnit = batch.unit?.toLowerCase();
+        const requiredUnitLower = requiredUnit.toLowerCase();
+        
+        // Direct match
+        if (batchUnit === requiredUnitLower) return true;
+        
+        // Common unit variations
+        const unitMappings: { [key: string]: string[] } = {
+          'kg': ['kgm', 'kilogram', 'kilograms'],
+          'kgm': ['kg', 'kilogram', 'kilograms'],
+          'ton': ['tonne', 'tons', 'tonnes'],
+          'tonne': ['ton', 'tons', 'tonnes'],
+          'lb': ['pound', 'pounds', 'lbs'],
+          'pound': ['lb', 'pounds', 'lbs']
+        };
+        
+        // Check if units are equivalent
+        for (const [baseUnit, variations] of Object.entries(unitMappings)) {
+          if (requiredUnitLower === baseUnit && variations.includes(batchUnit)) return true;
+          if (batchUnit === baseUnit && variations.includes(requiredUnitLower)) return true;
+        }
+        
+        return false;
       });
     }
     
