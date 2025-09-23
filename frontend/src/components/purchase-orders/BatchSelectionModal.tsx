@@ -37,6 +37,13 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
   const [selectedBatch, setSelectedBatch] = useState<HarvestBatch | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState<number>(0);
   const [showBatchDetails, setShowBatchDetails] = useState(false);
+  
+  // Multi-batch allocation state
+  const [allocatedBatches, setAllocatedBatches] = useState<Array<{
+    batch: HarvestBatch;
+    quantity: number;
+  }>>([]);
+  const [remainingQuantity, setRemainingQuantity] = useState<number>(requiredQuantity);
 
   // Load available harvest batches
   useEffect(() => {
@@ -100,24 +107,56 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
   // Handle batch selection
   const handleBatchSelect = (batch: HarvestBatch) => {
     setSelectedBatch(batch);
-    setSelectedQuantity(Math.min(requiredQuantity, batch.quantity));
+    setSelectedQuantity(Math.min(remainingQuantity, batch.quantity));
     setShowBatchDetails(true);
+  };
+
+  // Handle adding batch to allocation
+  const handleAddToAllocation = () => {
+    if (!selectedBatch || selectedQuantity <= 0) return;
+
+    const newAllocation = {
+      batch: selectedBatch,
+      quantity: selectedQuantity
+    };
+
+    setAllocatedBatches(prev => [...prev, newAllocation]);
+    setRemainingQuantity(prev => prev - selectedQuantity);
+    
+    // Remove the allocated batch from available batches
+    setHarvestBatches(prev => prev.filter(b => b.id !== selectedBatch.id));
+    
+    // Reset selection
+    setSelectedBatch(null);
+    setSelectedQuantity(0);
+    setShowBatchDetails(false);
+
+    showToast({
+      type: 'success',
+      title: 'Batch Added',
+      message: `Added ${selectedQuantity.toLocaleString()} ${requiredUnit} from ${selectedBatch.batch_id}`
+    });
   };
 
   // Handle quantity change
   const handleQuantityChange = (quantity: number) => {
     if (selectedBatch) {
-      const maxQuantity = Math.min(requiredQuantity, selectedBatch.quantity);
+      const maxQuantity = Math.min(remainingQuantity, selectedBatch.quantity);
       setSelectedQuantity(Math.min(quantity, maxQuantity));
     }
   };
 
-  // Handle batch confirmation
-  const handleConfirmBatch = () => {
-    if (selectedBatch && selectedQuantity > 0) {
-      onSelectBatch(selectedBatch, selectedQuantity);
-      onClose();
-    }
+  // Handle final confirmation of all allocations
+  const handleConfirmAllocation = () => {
+    if (allocatedBatches.length === 0) return;
+    
+    // For now, we'll use the first batch as the primary batch
+    // In a more sophisticated implementation, this would handle multiple batches
+    const primaryBatch = allocatedBatches[0];
+    const totalQuantity = allocatedBatches.reduce((sum, allocation) => sum + allocation.quantity, 0);
+    
+    onSelectBatch(primaryBatch.batch, totalQuantity);
+    onClose();
   };
 
   // Table columns
@@ -249,6 +288,65 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
               </div>
             </div>
 
+            {/* Allocation Progress */}
+            {allocatedBatches.length > 0 && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-900">Allocation Progress</h3>
+                  <span className="text-sm text-gray-600">
+                    {((requiredQuantity - remainingQuantity) / requiredQuantity * 100).toFixed(0)}% Complete
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${((requiredQuantity - remainingQuantity) / requiredQuantity) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Allocated: {(requiredQuantity - remainingQuantity).toLocaleString()} {requiredUnit}</span>
+                  <span>Remaining: {remainingQuantity.toLocaleString()} {requiredUnit}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Allocated Batches */}
+            {allocatedBatches.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Allocated Batches</h3>
+                <div className="space-y-2">
+                  {allocatedBatches.map((allocation, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{allocation.batch.batch_id}</p>
+                          <p className="text-xs text-gray-600">
+                            {allocation.batch.origin_data?.farm_information?.farm_name || allocation.batch.location_name || 'Unknown Farm'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">
+                          {allocation.quantity.toLocaleString()} {requiredUnit}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setAllocatedBatches(prev => prev.filter((_, i) => i !== index));
+                            setRemainingQuantity(prev => prev + allocation.quantity);
+                            setHarvestBatches(prev => [...prev, allocation.batch]);
+                          }}
+                          className="text-xs text-red-600 hover:text-red-800"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {showBatchDetails && selectedBatch ? (
               <div className="space-y-6">
                 {/* Selected Batch Details */}
@@ -269,21 +367,9 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                         <p className="text-gray-900">{selectedBatch ? `${(selectedBatch.quantity || 0).toLocaleString()} ${selectedBatch.unit || 'N/A'}` : 'N/A'}</p>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-gray-500">Required Quantity</label>
-                        <p className="text-gray-900">{requiredQuantity.toLocaleString()} {requiredUnit}</p>
+                        <label className="text-sm font-medium text-gray-500">Remaining to Allocate</label>
+                        <p className="text-gray-900 font-medium text-blue-600">{remainingQuantity.toLocaleString()} {requiredUnit}</p>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Selected Quantity</label>
-                        <p className="text-gray-900">{selectedQuantity.toLocaleString()} {requiredUnit}</p>
-                      </div>
-                      {selectedBatch && selectedBatch.quantity < requiredQuantity && (
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Remaining Balance</label>
-                          <p className="text-gray-900 font-medium text-amber-600">
-                            {(requiredQuantity - selectedQuantity).toLocaleString()} {requiredUnit}
-                          </p>
-                        </div>
-                      )}
                       <div>
                         <label className="text-sm font-medium text-gray-500">Certifications</label>
                         <div className="flex flex-wrap gap-1">
@@ -305,59 +391,57 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                         <input
                           type="number"
                           min="1"
-                          max={Math.min(requiredQuantity, selectedBatch.quantity)}
+                          max={Math.min(remainingQuantity, selectedBatch.quantity)}
                           value={selectedQuantity}
                           onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 0)}
                           className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-sm text-gray-500">
-                          of {Math.min(requiredQuantity || 0, selectedBatch.quantity || 0).toLocaleString()} {requiredUnit}
+                          of {Math.min(remainingQuantity, selectedBatch.quantity).toLocaleString()} {requiredUnit}
                         </span>
+                      </div>
+                      <div className="mt-2 flex space-x-2">
+                        <button
+                          onClick={() => setSelectedQuantity(Math.min(remainingQuantity, selectedBatch.quantity))}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Use All Available
+                        </button>
+                        <button
+                          onClick={() => setSelectedQuantity(remainingQuantity)}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Fill Remaining
+                        </button>
                       </div>
                     </div>
                   </CardBody>
                 </Card>
 
-                {/* Remaining Balance Options */}
-                {selectedBatch && selectedBatch.quantity < requiredQuantity && (
-                  <Card>
-                    <CardHeader title="Remaining Balance Options" />
-                    <CardBody>
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-600">
-                          You still need <span className="font-medium text-amber-600">{(requiredQuantity - selectedQuantity).toLocaleString()} {requiredUnit}</span> to fulfill this purchase order.
+                {/* Add to Allocation */}
+                <Card>
+                  <CardBody>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          Add {selectedQuantity.toLocaleString()} {requiredUnit} to allocation
                         </p>
-                        <div className="space-y-3">
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="radio"
-                              id="partial-fulfillment"
-                              name="balance-option"
-                              value="partial"
-                              defaultChecked
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                            />
-                            <label htmlFor="partial-fulfillment" className="text-sm text-gray-700">
-                              <span className="font-medium">Partial Fulfillment</span> - Confirm with available quantity only
-                            </label>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <input
-                              type="radio"
-                              id="create-new-batch"
-                              name="balance-option"
-                              value="create"
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                            />
-                            <label htmlFor="create-new-batch" className="text-sm text-gray-700">
-                              <span className="font-medium">Create New Batch</span> - Declare additional harvest for remaining quantity
-                            </label>
-                          </div>
-                        </div>
+                        {remainingQuantity - selectedQuantity > 0 && (
+                          <p className="text-xs text-gray-600">
+                            {remainingQuantity - selectedQuantity} {requiredUnit} still needed
+                          </p>
+                        )}
                       </div>
-                    </CardBody>
-                  </Card>
-                )}
+                      <Button
+                        onClick={handleAddToAllocation}
+                        variant="primary"
+                        disabled={selectedQuantity <= 0}
+                      >
+                        Add to Allocation
+                      </Button>
+                    </div>
+                  </CardBody>
+                </Card>
 
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-3">
@@ -367,35 +451,6 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                     disabled={isLoading}
                   >
                     Back to Selection
-                  </Button>
-                  {selectedBatch && selectedBatch.quantity < requiredQuantity && (
-                    <Button
-                      onClick={() => {
-                        // TODO: Navigate to harvest declaration form
-                        showToast({
-                          type: 'info',
-                          title: 'Create New Batch',
-                          message: 'This would open the harvest declaration form to create a new batch for the remaining quantity.'
-                        });
-                      }}
-                      variant="outline"
-                      disabled={isLoading}
-                    >
-                      <PlusIcon className="h-4 w-4 mr-2" />
-                      Create New Batch
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleConfirmBatch}
-                    variant="primary"
-                    disabled={isLoading || selectedQuantity <= 0}
-                    isLoading={isLoading}
-                  >
-                    <CheckIcon className="h-4 w-4 mr-2" />
-                    {selectedBatch && selectedBatch.quantity < requiredQuantity 
-                      ? 'Confirm Partial Fulfillment' 
-                      : 'Confirm Batch Selection'
-                    }
                   </Button>
                 </div>
               </div>
@@ -418,6 +473,75 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                     }
                   }}
                 />
+              </div>
+            )}
+
+            {/* Final Confirmation and Completion Options */}
+            {allocatedBatches.length > 0 && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-blue-900">Ready to Confirm</h3>
+                    <p className="text-sm text-blue-700">
+                      {allocatedBatches.length} batch{allocatedBatches.length > 1 ? 'es' : ''} allocated
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-blue-900">
+                      Total: {(requiredQuantity - remainingQuantity).toLocaleString()} {requiredUnit}
+                    </p>
+                    {remainingQuantity > 0 && (
+                      <p className="text-xs text-blue-600">
+                        {remainingQuantity.toLocaleString()} {requiredUnit} remaining
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex space-x-3">
+                    {remainingQuantity > 0 && (
+                      <Button
+                        onClick={() => {
+                          showToast({
+                            type: 'info',
+                            title: 'Create New Batch',
+                            message: `This would open the harvest declaration form to create a batch for the remaining ${remainingQuantity.toLocaleString()} ${requiredUnit}.`
+                          });
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <PlusIcon className="h-4 w-4 mr-2" />
+                        Create Batch for Remaining
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => {
+                        const totalAllocated = allocatedBatches.reduce((sum, allocation) => sum + allocation.quantity, 0);
+                        showToast({
+                          type: 'info',
+                          title: 'Use All Available',
+                          message: `This would allocate all remaining available inventory (${totalAllocated.toLocaleString()} ${requiredUnit} total).`
+                        });
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Use All Available
+                    </Button>
+                  </div>
+                  
+                  <Button
+                    onClick={handleConfirmAllocation}
+                    variant="primary"
+                    disabled={isLoading}
+                    isLoading={isLoading}
+                  >
+                    <CheckIcon className="h-4 w-4 mr-2" />
+                    {remainingQuantity > 0 ? 'Confirm Partial Fulfillment' : 'Confirm Complete Fulfillment'}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
