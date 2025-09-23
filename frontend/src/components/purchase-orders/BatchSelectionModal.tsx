@@ -48,12 +48,21 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
   const loadHarvestBatches = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Loading harvest batches with params:', {
+        productId,
+        requiredQuantity,
+        requiredUnit
+      });
+      
       // Get available harvest batches from the API
       const batches = await harvestApi.getAvailableHarvestBatches(
         productId,
         requiredQuantity,
         requiredUnit
       );
+      
+      console.log('📦 Received batches:', batches);
+      console.log('📦 Batch count:', batches.length);
       
       setHarvestBatches(batches);
       
@@ -63,6 +72,8 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
           title: 'No Harvest Batches Available',
           message: 'No harvest batches found for this product. Please create a harvest batch first.'
         });
+      } else {
+        console.log('✅ Successfully loaded', batches.length, 'harvest batches');
       }
     } catch (error) {
       console.error('Error loading harvest batches:', error);

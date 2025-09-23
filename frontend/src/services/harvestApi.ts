@@ -140,6 +140,7 @@ export const harvestApi = {
     requiredQuantity?: number,
     requiredUnit?: string
   ): Promise<HarvestBatch[]> => {
+    // First try to get batches for the specific product
     const response = await harvestApiClient.get('/api/harvest/batches', {
       params: {
         product_id: productId,
@@ -148,9 +149,20 @@ export const harvestApi = {
       }
     });
     
-    // Return all available batches - let the user select which ones to use
-    // The quantity filtering is handled in the UI where users can select partial quantities
     let batches = response.data.batches || [];
+    
+    // If no batches found for specific product, get all available batches
+    // This allows users to see what's available even if product doesn't match exactly
+    if (batches.length === 0) {
+      console.log(`No batches found for product ${productId}, fetching all available batches`);
+      const allBatchesResponse = await harvestApiClient.get('/api/harvest/batches', {
+        params: {
+          status: 'active',
+          per_page: 100
+        }
+      });
+      batches = allBatchesResponse.data.batches || [];
+    }
     
     // Only filter by unit if specified, but allow partial quantities
     // Handle common unit variations (kg vs KGM, etc.)
