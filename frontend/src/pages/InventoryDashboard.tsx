@@ -75,61 +75,102 @@ const InventoryDashboard: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      // TODO: Replace with actual API calls
-      // Simulated data for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Load real inventory data from API
+      const { harvestApi } = await import('../services/harvestApi');
+      const response = await harvestApi.getHarvestBatches(1, 100); // Get up to 100 batches
+      const batches = response.batches;
+      
+      // Calculate real metrics from actual data
+      const totalBatches = batches.length;
+      const activeBatches = batches.filter(batch => batch.status === 'active').length;
+      const totalValue = batches.reduce((sum, batch) => sum + (batch.quantity * 100), 0); // Estimate value at $100 per unit
+      
+      // Calculate alerts from real data
+      const now = new Date();
+      const lowStockAlerts = batches.filter(batch => batch.quantity < 100).length;
+      const expiringSoon = batches.filter(batch => {
+        if (!batch.expiry_date) return false;
+        const expiryDate = new Date(batch.expiry_date);
+        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return daysUntilExpiry <= 7 && daysUntilExpiry > 0;
+      }).length;
+      
+      // Calculate turnover rate (simplified)
+      const consumedThisMonth = batches.filter(batch => {
+        if (!batch.updated_at) return false;
+        const updatedDate = new Date(batch.updated_at);
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return updatedDate > monthAgo && batch.status === 'consumed';
+      }).length;
+      
+      const turnoverRate = totalBatches > 0 ? (consumedThisMonth / totalBatches) * 100 : 0;
       
       setMetrics({
-        total_batches: 156,
-        active_batches: 142,
-        total_value: 2450000,
-        low_stock_alerts: 8,
-        expiring_soon: 12,
-        consumed_this_month: 45,
-        turnover_rate: 85.2
+        total_batches: totalBatches,
+        active_batches: activeBatches,
+        total_value: totalValue,
+        low_stock_alerts: lowStockAlerts,
+        expiring_soon: expiringSoon,
+        consumed_this_month: consumedThisMonth,
+        turnover_rate: Math.round(turnoverRate * 10) / 10
       });
 
-      setAlerts([
-        {
-          id: '1',
-          batch_id: 'HARVEST-2024-001',
-          product_name: 'Fresh Fruit Bunches',
-          alert_type: 'expiring',
-          quantity: 500,
-          expiry_date: '2025-01-15',
-          days_until_expiry: 5,
-          location_name: 'Warehouse A'
-        },
-        {
-          id: '2',
-          batch_id: 'PROCESS-2024-045',
-          product_name: 'Crude Palm Oil',
-          alert_type: 'low_stock',
-          quantity: 50,
-          location_name: 'Storage Tank 3'
+      // Generate alerts from real data
+      const realAlerts: BatchAlert[] = [];
+      
+      // Add expiring alerts
+      batches.forEach(batch => {
+        if (batch.expiry_date) {
+          const expiryDate = new Date(batch.expiry_date);
+          const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+            realAlerts.push({
+              id: batch.id,
+              batch_id: batch.batch_id,
+              product_name: batch.product_name || 'Unknown Product',
+              alert_type: 'expiring',
+              quantity: batch.quantity,
+              expiry_date: batch.expiry_date,
+              days_until_expiry: daysUntilExpiry,
+              location_name: batch.location_name || 'Warehouse'
+            });
+          }
         }
-      ]);
+      });
+      
+      // Add low stock alerts
+      batches.forEach(batch => {
+        if (batch.quantity < 100) {
+          realAlerts.push({
+            id: batch.id,
+            batch_id: batch.batch_id,
+            product_name: batch.product_name || 'Unknown Product',
+            alert_type: 'low_stock',
+            quantity: batch.quantity,
+            location_name: batch.location_name || 'Warehouse'
+          });
+        }
+      });
+      
+      setAlerts(realAlerts.slice(0, 10)); // Limit to 10 alerts
 
-      setRecentActivity([
-        {
-          id: '1',
-          type: 'created',
-          batch_id: 'HARVEST-2025-001',
-          product_name: 'Fresh Fruit Bunches',
-          quantity: 1000,
-          timestamp: '2025-01-10T10:30:00Z',
-          user_name: 'John Doe'
-        },
-        {
-          id: '2',
-          type: 'consumed',
-          batch_id: 'PROCESS-2024-044',
-          product_name: 'Crude Palm Oil',
-          quantity: 750,
-          timestamp: '2025-01-10T09:15:00Z',
-          user_name: 'Jane Smith'
-        }
-      ]);
+      // Generate recent activity from real data
+      const recentActivity: RecentActivity[] = batches
+        .filter(batch => batch.updated_at)
+        .sort((a, b) => new Date(b.updated_at!).getTime() - new Date(a.updated_at!).getTime())
+        .slice(0, 5)
+        .map(batch => ({
+          id: batch.id,
+          type: batch.status === 'active' ? 'created' : 'consumed',
+          batch_id: batch.batch_id,
+          product_name: batch.product_name || 'Unknown Product',
+          quantity: batch.quantity,
+          timestamp: batch.updated_at!,
+          user_name: 'System'
+        }));
+      
+      setRecentActivity(recentActivity);
 
     } catch (err) {
       console.error('Error loading inventory dashboard:', err);
