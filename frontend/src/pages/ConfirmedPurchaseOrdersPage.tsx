@@ -77,13 +77,11 @@ const ConfirmedPurchaseOrdersPage: React.FC = () => {
     try {
       setLoading(true);
       const response = await purchaseOrderApi.getPurchaseOrders({
-        status: ['CONFIRMED', 'confirmed'],
-        per_page: 100,
-        sort_by: 'updated_at',
-        sort_order: 'desc'
+        status: 'confirmed',
+        per_page: 100
       });
       
-      setPurchaseOrders(response.data || []);
+      setPurchaseOrders(response.purchase_orders || []);
     } catch (error) {
       console.error('Error loading confirmed purchase orders:', error);
       showToast({
