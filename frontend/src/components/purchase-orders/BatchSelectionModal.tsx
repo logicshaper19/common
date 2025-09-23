@@ -110,7 +110,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       render: (batch: HarvestBatch) => (
         <div className="flex items-center space-x-2">
           <CalendarIcon className="h-4 w-4 text-gray-400" />
-          <span>{new Date(batch.origin_data?.harvest_date || batch.production_date).toLocaleDateString()}</span>
+          <span>{batch ? new Date(batch.origin_data?.harvest_date || batch.production_date || batch.created_at).toLocaleDateString() : 'N/A'}</span>
         </div>
       )
     },
@@ -119,8 +119,8 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       label: 'Farm',
       render: (batch: HarvestBatch) => (
         <div>
-          <div className="font-medium text-gray-900">{batch.origin_data?.farm_information?.farm_name || batch.location_name || 'N/A'}</div>
-          <div className="text-sm text-gray-500">ID: {batch.origin_data?.farm_information?.farm_id || batch.facility_code || 'N/A'}</div>
+          <div className="font-medium text-gray-900">{batch ? (batch.origin_data?.farm_information?.farm_name || batch.location_name || 'N/A') : 'N/A'}</div>
+          <div className="text-sm text-gray-500">ID: {batch ? (batch.origin_data?.farm_information?.farm_id || batch.facility_code || batch.batch_id || 'N/A') : 'N/A'}</div>
         </div>
       )
     },
@@ -131,7 +131,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
         <div className="flex items-center space-x-2">
           <MapPinIcon className="h-4 w-4 text-gray-400" />
           <span className="text-sm">
-            {batch.origin_data?.farm_information?.farm_name || batch.location_name || 'N/A'}
+            {batch ? (batch.origin_data?.farm_information?.farm_name || batch.location_name || 'N/A') : 'N/A'}
           </span>
         </div>
       )
@@ -151,15 +151,21 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       label: 'Certifications',
       render: (batch: HarvestBatch) => (
         <div className="flex flex-wrap gap-1">
-          {batch.certifications?.slice(0, 2).map((cert) => (
-            <Badge key={cert} variant="secondary" size="sm">
-              {cert}
-            </Badge>
-          )) || []}
-          {batch.certifications && batch.certifications.length > 2 && (
-            <Badge variant="secondary" size="sm">
-              +{batch.certifications.length - 2}
-            </Badge>
+          {batch ? (
+            <>
+              {(batch.certifications || []).slice(0, 2).map((cert) => (
+                <Badge key={cert} variant="secondary" size="sm">
+                  {cert}
+                </Badge>
+              ))}
+              {batch.certifications && batch.certifications.length > 2 && (
+                <Badge variant="secondary" size="sm">
+                  +{batch.certifications.length - 2}
+                </Badge>
+              )}
+            </>
+          ) : (
+            <span className="text-gray-500">N/A</span>
           )}
         </div>
       )
@@ -169,10 +175,10 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
       label: 'Actions',
       render: (batch: HarvestBatch) => (
         <Button
-          onClick={() => handleBatchSelect(batch)}
+          onClick={() => batch && handleBatchSelect(batch)}
           variant="outline"
           size="sm"
-          disabled={batch.quantity < requiredQuantity}
+          disabled={!batch || batch.quantity < requiredQuantity}
         >
           Select Batch
         </Button>
@@ -219,25 +225,25 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
               <div className="space-y-6">
                 {/* Selected Batch Details */}
                 <Card>
-                  <CardHeader title={`Selected Batch: ${selectedBatch.batch_id}`} />
+                  <CardHeader title={`Selected Batch: ${selectedBatch?.batch_id || 'N/A'}`} />
                   <CardBody className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium text-gray-500">Farm Name</label>
-                        <p className="text-gray-900">{selectedBatch.origin_data?.farm_information?.farm_name || selectedBatch.location_name || 'N/A'}</p>
+                        <p className="text-gray-900">{selectedBatch?.origin_data?.farm_information?.farm_name || selectedBatch?.location_name || 'N/A'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Harvest Date</label>
-                        <p className="text-gray-900">{new Date(selectedBatch.origin_data?.harvest_date || selectedBatch.production_date).toLocaleDateString()}</p>
+                        <p className="text-gray-900">{selectedBatch ? new Date(selectedBatch.origin_data?.harvest_date || selectedBatch.production_date || selectedBatch.created_at).toLocaleDateString() : 'N/A'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Available Quantity</label>
-                        <p className="text-gray-900">{selectedBatch.quantity.toLocaleString()} {selectedBatch.unit}</p>
+                        <p className="text-gray-900">{selectedBatch ? `${selectedBatch.quantity.toLocaleString()} ${selectedBatch.unit}` : 'N/A'}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Certifications</label>
                         <div className="flex flex-wrap gap-1">
-                          {(selectedBatch.certifications || []).map((cert) => (
+                          {(selectedBatch?.certifications || []).map((cert) => (
                             <Badge key={cert} variant="primary" size="sm">
                               {cert}
                             </Badge>
