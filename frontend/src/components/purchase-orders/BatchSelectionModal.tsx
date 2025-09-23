@@ -206,9 +206,9 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
           onClick={() => batch && handleBatchSelect(batch)}
           variant="outline"
           size="sm"
-          disabled={!batch || batch.quantity < requiredQuantity}
+          disabled={!batch || batch.quantity <= 0}
         >
-          Select Batch
+          {batch && batch.quantity < requiredQuantity ? 'Select (Partial)' : 'Select Batch'}
         </Button>
       )
     }
@@ -267,6 +267,11 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                       <div>
                         <label className="text-sm font-medium text-gray-500">Available Quantity</label>
                         <p className="text-gray-900">{selectedBatch ? `${(selectedBatch.quantity || 0).toLocaleString()} ${selectedBatch.unit || 'N/A'}` : 'N/A'}</p>
+                        {selectedBatch && selectedBatch.quantity < requiredQuantity && (
+                          <p className="text-sm text-amber-600 mt-1">
+                            ⚠️ This batch has less quantity than required ({requiredQuantity.toLocaleString()} {requiredUnit})
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="text-sm font-medium text-gray-500">Certifications</label>
