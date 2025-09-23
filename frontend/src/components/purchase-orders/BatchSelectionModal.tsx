@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckIcon, MapPinIcon, CalendarIcon, DocumentTextIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, MapPinIcon, CalendarIcon, DocumentTextIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import DataTable from '../ui/DataTable';
@@ -208,7 +208,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
           size="sm"
           disabled={!batch || batch.quantity <= 0}
         >
-          {batch && batch.quantity < requiredQuantity ? 'Select (Partial)' : 'Select Batch'}
+          Select Batch
         </Button>
       )
     }
@@ -267,12 +267,23 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                       <div>
                         <label className="text-sm font-medium text-gray-500">Available Quantity</label>
                         <p className="text-gray-900">{selectedBatch ? `${(selectedBatch.quantity || 0).toLocaleString()} ${selectedBatch.unit || 'N/A'}` : 'N/A'}</p>
-                        {selectedBatch && selectedBatch.quantity < requiredQuantity && (
-                          <p className="text-sm text-amber-600 mt-1">
-                            ⚠️ This batch has less quantity than required ({requiredQuantity.toLocaleString()} {requiredUnit})
-                          </p>
-                        )}
                       </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Required Quantity</label>
+                        <p className="text-gray-900">{requiredQuantity.toLocaleString()} {requiredUnit}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Selected Quantity</label>
+                        <p className="text-gray-900">{selectedQuantity.toLocaleString()} {requiredUnit}</p>
+                      </div>
+                      {selectedBatch && selectedBatch.quantity < requiredQuantity && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Remaining Balance</label>
+                          <p className="text-gray-900 font-medium text-amber-600">
+                            {(requiredQuantity - selectedQuantity).toLocaleString()} {requiredUnit}
+                          </p>
+                        </div>
+                      )}
                       <div>
                         <label className="text-sm font-medium text-gray-500">Certifications</label>
                         <div className="flex flex-wrap gap-1">
@@ -307,6 +318,47 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                   </CardBody>
                 </Card>
 
+                {/* Remaining Balance Options */}
+                {selectedBatch && selectedBatch.quantity < requiredQuantity && (
+                  <Card>
+                    <CardHeader title="Remaining Balance Options" />
+                    <CardBody>
+                      <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                          You still need <span className="font-medium text-amber-600">{(requiredQuantity - selectedQuantity).toLocaleString()} {requiredUnit}</span> to fulfill this purchase order.
+                        </p>
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="radio"
+                              id="partial-fulfillment"
+                              name="balance-option"
+                              value="partial"
+                              defaultChecked
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                            />
+                            <label htmlFor="partial-fulfillment" className="text-sm text-gray-700">
+                              <span className="font-medium">Partial Fulfillment</span> - Confirm with available quantity only
+                            </label>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="radio"
+                              id="create-new-batch"
+                              name="balance-option"
+                              value="create"
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                            />
+                            <label htmlFor="create-new-batch" className="text-sm text-gray-700">
+                              <span className="font-medium">Create New Batch</span> - Declare additional harvest for remaining quantity
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </CardBody>
+                  </Card>
+                )}
+
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-3">
                   <Button
@@ -316,6 +368,23 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                   >
                     Back to Selection
                   </Button>
+                  {selectedBatch && selectedBatch.quantity < requiredQuantity && (
+                    <Button
+                      onClick={() => {
+                        // TODO: Navigate to harvest declaration form
+                        showToast({
+                          type: 'info',
+                          title: 'Create New Batch',
+                          message: 'This would open the harvest declaration form to create a new batch for the remaining quantity.'
+                        });
+                      }}
+                      variant="outline"
+                      disabled={isLoading}
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Create New Batch
+                    </Button>
+                  )}
                   <Button
                     onClick={handleConfirmBatch}
                     variant="primary"
@@ -323,7 +392,10 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                     isLoading={isLoading}
                   >
                     <CheckIcon className="h-4 w-4 mr-2" />
-                    Confirm Batch Selection
+                    {selectedBatch && selectedBatch.quantity < requiredQuantity 
+                      ? 'Confirm Partial Fulfillment' 
+                      : 'Confirm Batch Selection'
+                    }
                   </Button>
                 </div>
               </div>
