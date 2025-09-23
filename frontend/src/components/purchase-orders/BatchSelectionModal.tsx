@@ -7,6 +7,7 @@ import Modal from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { useToast } from '../../contexts/ToastContext';
 import { harvestApi, HarvestBatch } from '../../services/harvestApi';
+import HarvestDeclarationForm from '../harvest/HarvestDeclarationForm';
 
 // Using HarvestBatch from harvestApi service
 
@@ -44,6 +45,9 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
     quantity: number;
   }>>([]);
   const [remainingQuantity, setRemainingQuantity] = useState<number>(requiredQuantity);
+  
+  // Harvest declaration modal state
+  const [showHarvestModal, setShowHarvestModal] = useState(false);
 
   // Load available harvest batches
   useEffect(() => {
@@ -157,6 +161,41 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
     
     onSelectBatch(primaryBatch.batch, totalQuantity);
     onClose();
+  };
+
+  // Handle harvest declaration submission
+  const handleHarvestSubmit = async (harvestData: any) => {
+    try {
+      setLoading(true);
+      
+      // Import harvestApi to declare the harvest
+      const { harvestApi } = await import('../../services/harvestApi');
+      
+      // Declare the harvest
+      const newBatch = await harvestApi.declareHarvest(harvestData);
+      
+      showToast({
+        type: 'success',
+        title: 'Harvest Declared',
+        message: `New batch ${newBatch.batch_id} created successfully`
+      });
+      
+      // Close the harvest modal
+      setShowHarvestModal(false);
+      
+      // Reload harvest batches to include the new one
+      await loadHarvestBatches();
+      
+    } catch (error) {
+      console.error('Error declaring harvest:', error);
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to declare harvest. Please try again.'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Table columns
@@ -467,10 +506,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                     title: 'No harvest batches available',
                     description: 'No harvest batches are available for this product. Declare a harvest first.',
                     actionLabel: 'Declare New Harvest',
-                    onAction: () => {
-                      // This would navigate to harvest declaration
-                      console.log('Navigate to harvest declaration');
-                    }
+                    onAction: () => setShowHarvestModal(true)
                   }}
                 />
               </div>
@@ -502,13 +538,7 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
                   <div className="flex space-x-3">
                     {remainingQuantity > 0 && (
                       <Button
-                        onClick={() => {
-                          showToast({
-                            type: 'info',
-                            title: 'Create New Batch',
-                            message: `This would open the harvest declaration form to create a batch for the remaining ${remainingQuantity.toLocaleString()} ${requiredUnit}.`
-                          });
-                        }}
+                        onClick={() => setShowHarvestModal(true)}
                         variant="outline"
                         size="sm"
                       >
@@ -547,6 +577,23 @@ const BatchSelectionModal: React.FC<BatchSelectionModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Harvest Declaration Modal */}
+      {showHarvestModal && (
+        <Modal
+          isOpen={showHarvestModal}
+          onClose={() => setShowHarvestModal(false)}
+          title="Declare New Harvest"
+          size="xl"
+        >
+          <HarvestDeclarationForm
+            productType="fresh_fruit_bunches"
+            onSubmit={handleHarvestSubmit}
+            onCancel={() => setShowHarvestModal(false)}
+            isLoading={loading}
+          />
+        </Modal>
+      )}
     </div>
   );
 };
