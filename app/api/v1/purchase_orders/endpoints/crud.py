@@ -103,3 +103,38 @@ def delete_purchase_order(
     """Delete a purchase order."""
     po_service.delete_purchase_order(str(po_id), current_user.company_id)
     return {"message": "Purchase order deleted successfully"}
+
+@router.post("/{po_id}/confirm-delivery", response_model=PurchaseOrderResponse)
+def confirm_delivery(
+    po_id: UUID,
+    delivery_notes: Optional[str] = None,
+    po_service: PurchaseOrderService = Depends(get_po_service),
+    current_user: User = Depends(get_current_user_sync),
+    _: None = Depends(validate_po_access)
+):
+    """Confirm delivery and transfer batch ownership."""
+    try:
+        updated_po = po_service.confirm_delivery(
+            str(po_id),
+            current_user.id,
+            delivery_notes
+        )
+        
+        logger.info(
+            "Delivery confirmed",
+            po_id=str(po_id),
+            user_id=str(current_user.id),
+            delivery_notes=delivery_notes
+        )
+        
+        return updated_po
+        
+    except Exception as e:
+        logger.error(
+            "Error confirming delivery",
+            po_id=str(po_id),
+            user_id=str(current_user.id),
+            error=str(e),
+            exc_info=True
+        )
+        raise

@@ -103,6 +103,12 @@ class PurchaseOrder(Base):
     # Transparency is now calculated in real-time from supply_chain_traceability materialized view
     # No stored transparency scores needed - deterministic calculation is the single source of truth
 
+    # Delivery tracking
+    delivery_status = Column(String(20), default='pending')  # 'pending', 'in_transit', 'delivered', 'failed'
+    delivered_at = Column(DateTime(timezone=True))
+    delivery_confirmed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    delivery_notes = Column(Text)
+
     # Timeline
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -115,6 +121,7 @@ class PurchaseOrder(Base):
     product = relationship("Product")
     amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
     batch = relationship("Batch", foreign_keys=[batch_id])  # Batch created on PO confirmation
+    delivery_confirmed_by_user = relationship("User", foreign_keys=[delivery_confirmed_by])
     # confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])  # TODO: Add when column exists
     
     # Commercial Chaining Relationships

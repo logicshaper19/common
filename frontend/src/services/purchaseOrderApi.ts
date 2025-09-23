@@ -38,6 +38,12 @@ export interface PurchaseOrder {
   amendment_count?: number;
   last_amended_at?: string;
 
+  // Delivery tracking fields
+  delivery_status?: 'pending' | 'in_transit' | 'delivered' | 'failed';
+  delivered_at?: string;
+  delivery_confirmed_by?: string;
+  delivery_notes?: string;
+
   // ERP integration fields (Phase 2)
   erp_integration_enabled?: boolean;
   erp_sync_status?: 'not_required' | 'pending' | 'synced' | 'failed';
