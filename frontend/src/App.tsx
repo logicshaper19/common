@@ -22,6 +22,7 @@ import TeamManagement from './pages/TeamManagement';
 import PurchaseOrderDetailPage from './pages/PurchaseOrderDetailPage';
 import IncomingPurchaseOrdersPage from './pages/IncomingPurchaseOrdersPage';
 import OutgoingPurchaseOrdersPage from './pages/OutgoingPurchaseOrdersPage';
+import ConfirmedPurchaseOrdersPage from './pages/ConfirmedPurchaseOrdersPage';
 import ProductsRouter from './components/products/ProductsRouter';
 import InventoryRouter from './components/inventory/InventoryRouter';
 import OriginatorRouter from './components/origin/OriginatorRouter';
@@ -74,6 +75,12 @@ function App() {
             <Route path="purchase-orders/outgoing" element={
               <ProtectedRoute>
                 <OutgoingPurchaseOrdersPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="purchase-orders/confirmed" element={
+              <ProtectedRoute>
+                <ConfirmedPurchaseOrdersPage />
               </ProtectedRoute>
             } />
 
