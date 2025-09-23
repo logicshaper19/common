@@ -100,57 +100,41 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
   const loadHarvestBatches = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // const response = await harvestApi.getHarvestBatches(companyId);
-      // setHarvestBatches(response.data);
       
-      // Load initial mock data
-      setHarvestBatches([
-        {
-          id: '1',
-          batch_id: 'H-20241201-001',
-          product_type: 'fresh_fruit_bunches',
-          harvest_date: '2024-12-01',
-          farm_name: 'Sumatra Smallholder Farm A',
-          farm_id: 'FARM-001',
-          plantation_type: 'smallholder',
-          quantity: 1000,
-          unit: 'KGM',
-          location_coordinates: {
-            latitude: -0.7893,
-            longitude: 100.3491
-          },
-          certifications: ['RSPO', 'NDPE'],
-          quality_parameters: {
-            oil_content: 22.5,
-            moisture_content: 18.2
-          },
-          status: 'active',
-          created_at: '2024-12-01T08:00:00Z'
-        },
-        {
-          id: '2',
-          batch_id: 'H-20241128-002',
-          product_type: 'fresh_fruit_bunches',
-          harvest_date: '2024-11-28',
-          farm_name: 'Sumatra Smallholder Farm B',
-          farm_id: 'FARM-002',
-          plantation_type: 'smallholder',
-          quantity: 750,
-          unit: 'KGM',
-          location_coordinates: {
-            latitude: -0.8123,
-            longitude: 100.3123
-          },
-          certifications: ['RSPO', 'Organic'],
-          quality_parameters: {
-            oil_content: 24.1,
-            moisture_content: 16.8
-          },
-          status: 'active',
-          created_at: '2024-11-28T10:30:00Z'
-        }
-      ]);
+      // Import harvestApi to use real API
+      const { harvestApi } = await import('../../services/harvestApi');
+      
+      // Get harvest batches from the real API
+      const response = await harvestApi.getHarvestBatches(1, 100); // Get first 100 batches
+      const apiBatches = response.batches || [];
+      
+      // Transform API data to match the expected interface
+      const transformedBatches = apiBatches.map((batch: any) => ({
+        id: batch.id,
+        batch_id: batch.batch_id,
+        product_type: batch.product_name || 'Fresh Fruit Bunches',
+        harvest_date: batch.origin_data?.harvest_date || batch.production_date,
+        farm_name: batch.origin_data?.farm_information?.farm_name || batch.location_name || 'Unknown Farm',
+        farm_id: batch.origin_data?.farm_information?.farm_id || batch.facility_code || 'N/A',
+        plantation_type: batch.origin_data?.farm_information?.plantation_type || 'smallholder',
+        quantity: batch.quantity || 0,
+        unit: batch.unit || 'KGM',
+        location_coordinates: batch.origin_data?.geographic_coordinates || batch.location_coordinates,
+        certifications: batch.certifications || [],
+        quality_parameters: batch.quality_metrics || {},
+        status: batch.status || 'active',
+        created_at: batch.created_at
+      }));
+      
+      setHarvestBatches(transformedBatches);
+      
+      if (transformedBatches.length === 0) {
+        showToast({
+          type: 'info',
+          title: 'No Harvest Batches',
+          message: 'No harvest batches found. Create a harvest declaration to get started.'
+        });
+      }
     } catch (error) {
       console.error('Error loading harvest batches:', error);
       showToast({ title: 'Error', message: 'Failed to load harvest batches', type: 'error' });
