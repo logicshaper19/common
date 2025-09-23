@@ -44,6 +44,16 @@ const PurchaseOrderTraceability: React.FC<PurchaseOrderTraceabilityProps> = ({
       console.log('Loading traceability data for PO:', poId);
       const data = await traceabilityApi.getSupplyChainTrace(poId);
       console.log('Received traceability data:', data);
+      
+      if (!data) {
+        // No traceability data available - this is normal for unconfirmed orders
+        console.log('No traceability data available for PO:', poId);
+        setTraceData(null);
+        setCompanyDetails({});
+        setBatchDetails(null);
+        return;
+      }
+      
       setTraceData(data);
 
       // Fetch company details for all companies in the path
@@ -85,11 +95,14 @@ const PurchaseOrderTraceability: React.FC<PurchaseOrderTraceabilityProps> = ({
       console.error('Error loading traceability data:', err);
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to load traceability data';
       setError(errorMessage);
-      showToast({
-        type: 'error',
-        title: 'Error',
-        message: errorMessage
-      });
+      // Only show toast for actual errors, not for missing data
+      if (!errorMessage.includes('No supply chain trace found')) {
+        showToast({
+          type: 'error',
+          title: 'Error',
+          message: errorMessage
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -145,10 +158,19 @@ const PurchaseOrderTraceability: React.FC<PurchaseOrderTraceabilityProps> = ({
         <CardBody>
           <div className="text-center py-8">
             <MapIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Traceability Data</h3>
-            <p className="text-gray-600 mb-4">
-              No traceability information available for this purchase order.
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Traceability Data Available</h3>
+            <p className="text-gray-600 mb-4 max-w-md mx-auto">
+              Supply chain traceability information is not yet available for this purchase order. 
+              This is normal for pending orders that haven't been confirmed or don't have batch relationships established.
             </p>
+            <div className="text-sm text-gray-500 mb-4">
+              <p>Traceability data becomes available when:</p>
+              <ul className="text-left max-w-sm mx-auto mt-2 space-y-1">
+                <li>• The purchase order is confirmed</li>
+                <li>• Batch relationships are established</li>
+                <li>• Supply chain data is linked</li>
+              </ul>
+            </div>
             <Button onClick={handleRefresh} variant="outline" size="sm">
               <ArrowPathIcon className="h-4 w-4 mr-2" />
               Refresh

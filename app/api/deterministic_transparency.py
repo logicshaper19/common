@@ -243,7 +243,9 @@ def get_supply_chain_trace(
                 detail="Purchase order not found"
             )
         
+        # Allow access to both buyer and seller companies, plus admins
         if (current_user.company_id != po.buyer_company_id and 
+            current_user.company_id != po.seller_company_id and
             current_user.role not in ["admin", "super_admin"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

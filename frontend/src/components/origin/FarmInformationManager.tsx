@@ -40,7 +40,7 @@ interface FarmInformation {
   establishment_year: number;
   owner_name: string;
   owner_contact: string;
-  plantation_type: 'own_estate' | 'smallholder' | 'mixed';
+  plantation_type: 'own_estate' | 'smallholder' | 'mixed' | 'palm_plantation' | 'coffee_farm' | 'cocoa_farm' | 'rubber_plantation' | 'other';
   cultivation_methods: string[];
   gps_coordinates: {
     latitude: number;
@@ -50,8 +50,26 @@ interface FarmInformation {
   irrigation_system?: string;
   annual_production_capacity?: number;
   certification_status: string[];
+  compliance_status: 'pending' | 'verified' | 'failed' | 'exempt';
   last_updated: string;
   is_active: boolean;
+  // Additional fields for enhanced farm management
+  registration_number?: string;
+  specialization?: string;
+  farm_owner_name?: string;
+  farm_contact_info?: {
+    phone?: string;
+    email?: string;
+    address?: string;
+  };
+  address?: string;
+  city?: string;
+  state_province?: string;
+  country?: string;
+  postal_code?: string;
+  accuracy_meters?: number;
+  elevation_meters?: number;
+  notes?: string;
 }
 
 interface FarmInformationManagerProps {
@@ -132,6 +150,23 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
     irrigation_system: '',
     annual_production_capacity: 0,
     certification_status: [],
+    compliance_status: 'pending',
+    registration_number: '',
+    specialization: '',
+    farm_owner_name: '',
+    farm_contact_info: {
+      phone: '',
+      email: '',
+      address: ''
+    },
+    address: '',
+    city: '',
+    state_province: '',
+    country: '',
+    postal_code: '',
+    accuracy_meters: 0,
+    elevation_meters: 0,
+    notes: '',
     is_active: true
   });
 
@@ -139,7 +174,12 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
   const plantationTypes = [
     { value: 'smallholder', label: 'Smallholder Farm' },
     { value: 'own_estate', label: 'Own Estate' },
-    { value: 'mixed', label: 'Mixed Operations' }
+    { value: 'mixed', label: 'Mixed Operations' },
+    { value: 'palm_plantation', label: 'Palm Plantation' },
+    { value: 'coffee_farm', label: 'Coffee Farm' },
+    { value: 'cocoa_farm', label: 'Cocoa Farm' },
+    { value: 'rubber_plantation', label: 'Rubber Plantation' },
+    { value: 'other', label: 'Other' }
   ];
 
   const cultivationMethods = [
@@ -154,13 +194,27 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
   ];
 
   const certificationOptions = [
-    { value: 'RSPO', label: 'RSPO' },
-    { value: 'NDPE', label: 'NDPE' },
-    { value: 'ISPO', label: 'ISPO' },
-    { value: 'MSPO', label: 'MSPO' },
+    { value: 'RSPO', label: 'RSPO (Roundtable on Sustainable Palm Oil)' },
+    { value: 'NDPE', label: 'NDPE (No Deforestation, No Peat, No Exploitation)' },
+    { value: 'ISPO', label: 'ISPO (Indonesian Sustainable Palm Oil)' },
+    { value: 'MSPO', label: 'MSPO (Malaysian Sustainable Palm Oil)' },
     { value: 'Rainforest Alliance', label: 'Rainforest Alliance' },
-    { value: 'Organic', label: 'Organic' },
-    { value: 'Fair Trade', label: 'Fair Trade' }
+    { value: 'ISCC', label: 'ISCC (International Sustainability & Carbon Certification)' },
+    { value: 'Organic', label: 'Organic Certification' },
+    { value: 'Fair Trade', label: 'Fair Trade Certified' },
+    { value: 'UTZ', label: 'UTZ Certified' },
+    { value: '4C', label: '4C Association' },
+    { value: 'C.A.F.E. Practices', label: 'C.A.F.E. Practices (Starbucks)' },
+    { value: 'Bird Friendly', label: 'Bird Friendly (Smithsonian)' },
+    { value: 'FSC', label: 'FSC (Forest Stewardship Council)' },
+    { value: 'PEFC', label: 'PEFC (Programme for the Endorsement of Forest Certification)' }
+  ];
+
+  const complianceStatuses = [
+    { value: 'pending', label: 'Pending Review' },
+    { value: 'verified', label: 'Verified' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'exempt', label: 'Exempt' }
   ];
 
   // Load farms data
@@ -193,6 +247,7 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
           irrigation_system: 'Drip irrigation',
           annual_production_capacity: 5000,
           certification_status: ['RSPO', 'NDPE'],
+          compliance_status: 'verified',
           last_updated: '2025-01-10T10:30:00Z',
           is_active: true
         },
@@ -211,6 +266,7 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
           irrigation_system: 'Rain-fed',
           annual_production_capacity: 2500,
           certification_status: ['ISPO', 'Rainforest Alliance'],
+          compliance_status: 'verified',
           last_updated: '2025-01-09T14:20:00Z',
           is_active: true
         },
@@ -229,6 +285,7 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
           irrigation_system: 'Sprinkler system',
           annual_production_capacity: 3600,
           certification_status: ['RSPO'],
+          compliance_status: 'pending',
           last_updated: '2025-01-08T09:15:00Z',
           is_active: false
         }
@@ -404,9 +461,58 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
     e.preventDefault();
     
     try {
-      // TODO: Implement actual API call
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        showToast({
+          type: 'error',
+          title: 'Authentication Error',
+          message: 'Please log in to create farms.'
+        });
+        return;
+      }
+
+      const farmData = {
+        farm_id: formData.farm_id,
+        farm_name: formData.farm_name,
+        farm_size_hectares: formData.farm_size_hectares,
+        establishment_year: formData.establishment_year,
+        owner_name: formData.owner_name,
+        plantation_type: formData.plantation_type,
+        registration_number: formData.registration_number,
+        specialization: formData.specialization,
+        farm_owner_name: formData.farm_owner_name,
+        gps_coordinates: formData.gps_coordinates,
+        accuracy_meters: formData.accuracy_meters,
+        elevation_meters: formData.elevation_meters,
+        address: formData.address,
+        city: formData.city,
+        state_province: formData.state_province,
+        country: formData.country,
+        postal_code: formData.postal_code,
+        farm_contact_info: formData.farm_contact_info,
+        certification_status: formData.certification_status,
+        compliance_status: formData.compliance_status,
+        is_active: formData.is_active,
+        notes: formData.notes
+      };
+
       if (selectedFarm) {
         // Update existing farm
+        const response = await fetch(`${API_BASE_URL}/api/v1/farm-management/farms/${selectedFarm.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(farmData)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         showToast({
           type: 'success',
           title: 'Farm Updated',
@@ -414,6 +520,20 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
         });
       } else {
         // Create new farm
+        const response = await fetch(`${API_BASE_URL}/api/v1/farm-management/farms`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(farmData)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
         showToast({
           type: 'success',
           title: 'Farm Created',
@@ -426,6 +546,7 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
       loadFarms();
       
     } catch (error) {
+      console.error('Error saving farm:', error);
       showToast({
         type: 'error',
         title: 'Error',
@@ -457,6 +578,7 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
 
   // Open modals
   const openCreateModal = () => {
+    console.log('🚀 Opening enhanced farm creation modal');
     setFormData({
       farm_id: '',
       farm_name: '',
@@ -471,6 +593,23 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
       irrigation_system: '',
       annual_production_capacity: 0,
       certification_status: [],
+      compliance_status: 'pending',
+      registration_number: '',
+      specialization: '',
+      farm_owner_name: '',
+      farm_contact_info: {
+        phone: '',
+        email: '',
+        address: ''
+      },
+      address: '',
+      city: '',
+      state_province: '',
+      country: '',
+      postal_code: '',
+      accuracy_meters: 0,
+      elevation_meters: 0,
+      notes: '',
       is_active: true
     });
     setSelectedFarm(null);
@@ -605,12 +744,20 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
             setShowCreateModal(false);
             setShowEditModal(false);
           }}
-          title={selectedFarm ? `Edit Farm - ${selectedFarm.farm_name}` : 'Create New Farm'}
+          title={selectedFarm ? `Edit Farm - ${selectedFarm.farm_name}` : 'Create New Farm - Enhanced'}
+          size="xl"
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto">
+            {/* Basic Information Section */}
+            <div className="border-b border-gray-200 pb-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <BuildingOfficeIcon className="h-5 w-5 mr-2" />
+                Basic Information
+              </h3>
+              
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
-                label="Farm ID"
+                  label="Farm ID *"
                 type="text"
                 value={formData.farm_id || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, farm_id: e.target.value }))}
@@ -618,7 +765,7 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
                 placeholder="FARM-XXX-001"
               />
               <Input
-                label="Farm Name"
+                  label="Farm Name *"
                 type="text"
                 value={formData.farm_name || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, farm_name: e.target.value }))}
@@ -627,9 +774,34 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
               />
             </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <Input
+                  label="Registration Number"
+                  type="text"
+                  value={formData.registration_number || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, registration_number: e.target.value }))}
+                  placeholder="Official registration number"
+                />
+                <Input
+                  label="Specialization"
+                  type="text"
+                  value={formData.specialization || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, specialization: e.target.value }))}
+                  placeholder="e.g., Arabica Coffee, Palm Oil, etc."
+                />
+              </div>
+            </div>
+
+            {/* Farm Details Section */}
+            <div className="border-b border-gray-200 pb-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <ChartBarIcon className="h-5 w-5 mr-2" />
+                Farm Details
+              </h3>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
-                label="Farm Size (Hectares)"
+                  label="Farm Size (Hectares) *"
                 type="number"
                 step="0.1"
                 value={formData.farm_size_hectares || ''}
@@ -637,7 +809,7 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
                 required
               />
               <Input
-                label="Establishment Year"
+                  label="Establishment Year *"
                 type="number"
                 value={formData.establishment_year || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, establishment_year: parseInt(e.target.value) }))}
@@ -645,33 +817,260 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
                 min="1900"
                 max={new Date().getFullYear()}
               />
+                <Input
+                  label="Annual Capacity (MT)"
+                  type="number"
+                  step="0.1"
+                  value={formData.annual_production_capacity || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, annual_production_capacity: parseFloat(e.target.value) }))}
+                  placeholder="Annual production capacity"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <Select
-                label="Plantation Type"
+                  label="Farm Type *"
                 value={formData.plantation_type || 'smallholder'}
                 onChange={(e) => setFormData(prev => ({ ...prev, plantation_type: e.target.value as any }))}
                 options={plantationTypes}
                 required
               />
+                <Select
+                  label="Compliance Status"
+                  value={formData.compliance_status || 'pending'}
+                  onChange={(e) => setFormData(prev => ({ ...prev, compliance_status: e.target.value as any }))}
+                  options={complianceStatuses}
+                />
+              </div>
             </div>
+
+            {/* Owner Information Section */}
+            <div className="border-b border-gray-200 pb-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <UserIcon className="h-5 w-5 mr-2" />
+                Owner Information
+              </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
-                label="Owner Name"
+                  label="Owner Name *"
                 type="text"
                 value={formData.owner_name || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, owner_name: e.target.value }))}
                 required
               />
               <Input
-                label="Owner Contact"
+                  label="Farm Owner Name"
                 type="text"
-                value={formData.owner_contact || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, owner_contact: e.target.value }))}
+                  value={formData.farm_owner_name || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, farm_owner_name: e.target.value }))}
+                  placeholder="If different from owner"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <Input
+                  label="Phone"
+                  type="tel"
+                  value={formData.farm_contact_info?.phone || ''}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    farm_contact_info: { 
+                      ...prev.farm_contact_info, 
+                      phone: e.target.value 
+                    } 
+                  }))}
                 placeholder="+62-xxx-xxx-xxxx"
               />
+                <Input
+                  label="Email"
+                  type="email"
+                  value={formData.farm_contact_info?.email || ''}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    farm_contact_info: { 
+                      ...prev.farm_contact_info, 
+                      email: e.target.value 
+                    } 
+                  }))}
+                  placeholder="owner@farm.com"
+                />
+              </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4">
+            {/* Location Information Section */}
+            <div className="border-b border-gray-200 pb-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <MapPinIcon className="h-5 w-5 mr-2" />
+                Location Information
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Address"
+                  type="text"
+                  value={formData.address || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Street address"
+                />
+                <Input
+                  label="City"
+                  type="text"
+                  value={formData.city || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                  placeholder="City"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <Input
+                  label="State/Province"
+                  type="text"
+                  value={formData.state_province || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, state_province: e.target.value }))}
+                  placeholder="State or Province"
+                />
+                <Input
+                  label="Country"
+                  type="text"
+                  value={formData.country || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                  placeholder="Country"
+                />
+                <Input
+                  label="Postal Code"
+                  type="text"
+                  value={formData.postal_code || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, postal_code: e.target.value }))}
+                  placeholder="Postal code"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <Input
+                  label="Latitude *"
+                  type="number"
+                  step="0.000001"
+                  value={formData.gps_coordinates?.latitude || ''}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    gps_coordinates: { 
+                      latitude: parseFloat(e.target.value) || 0, 
+                      longitude: prev.gps_coordinates?.longitude || 0
+                    } 
+                  }))}
+                  required
+                  placeholder="GPS latitude"
+                />
+                <Input
+                  label="Longitude *"
+                  type="number"
+                  step="0.000001"
+                  value={formData.gps_coordinates?.longitude || ''}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    gps_coordinates: { 
+                      latitude: prev.gps_coordinates?.latitude || 0, 
+                      longitude: parseFloat(e.target.value) || 0
+                    } 
+                  }))}
+                  required
+                  placeholder="GPS longitude"
+                />
+                <Input
+                  label="GPS Accuracy (meters)"
+                  type="number"
+                  step="0.1"
+                  value={formData.accuracy_meters || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, accuracy_meters: parseFloat(e.target.value) }))}
+                  placeholder="GPS accuracy"
+                />
+              </div>
+            </div>
+
+            {/* Certifications Section */}
+            <div className="border-b border-gray-200 pb-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <ShieldCheckIcon className="h-5 w-5 mr-2" />
+                Certifications
+              </h3>
+              
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Select Certifications
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3">
+                  {certificationOptions.map((cert) => (
+                    <label key={cert.value} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.certification_status?.includes(cert.value) || false}
+                        onChange={(e) => {
+                          const currentCerts = formData.certification_status || [];
+                          const newCerts = e.target.checked
+                            ? [...currentCerts, cert.value]
+                            : currentCerts.filter(c => c !== cert.value);
+                          setFormData(prev => ({ ...prev, certification_status: newCerts }));
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{cert.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Information Section */}
+            <div className="pb-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <DocumentTextIcon className="h-5 w-5 mr-2" />
+                Additional Information
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Farm Status
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="is_active"
+                        checked={formData.is_active === true}
+                        onChange={() => setFormData(prev => ({ ...prev, is_active: true }))}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-green-600">Active</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="is_active"
+                        checked={formData.is_active === false}
+                        onChange={() => setFormData(prev => ({ ...prev, is_active: false }))}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-red-600">Inactive</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <TextArea
+                  label="Notes"
+                  value={formData.notes || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  placeholder="Additional notes about the farm..."
+                />
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
               <Button
                 type="button"
                 variant="outline"

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { MapPinIcon, CalendarIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon, BeakerIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, CalendarIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon, BeakerIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import { Card, CardHeader, CardBody } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
-import MapInput from '../origin/MapInput';
+import Select from '../ui/Select';
 import { useToast } from '../../contexts/ToastContext';
+import { apiClient } from '../../lib/api';
 
 interface GeographicCoordinates {
   latitude: number;
@@ -14,17 +15,29 @@ interface GeographicCoordinates {
   timestamp?: string;
 }
 
+interface FarmLocation {
+  id: string;
+  name: string;
+  registration_number: string;
+  farm_type: string;
+  farm_size_hectares: number;
+  latitude: number;
+  longitude: number;
+  accuracy_meters: number;
+  address: string;
+  city: string;
+  state_province: string;
+  country: string;
+  certifications: string[];
+  compliance_data: any;
+  farm_contact_info: any;
+}
+
 interface HarvestData {
-  product_type: string;
-  geographic_coordinates: GeographicCoordinates;
+  product_id: string;
+  selected_farm_id: string;
   certifications: string[];
   harvest_date: string;
-  farm_information: {
-    farm_id: string;
-    farm_name: string;
-    plantation_type: 'smallholder' | 'estate' | 'cooperative';
-    cultivation_methods: string[];
-  };
   batch_number: string;
   quantity: number;
   unit: string;
@@ -56,6 +69,12 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
   disabled = false
 }) => {
   const { showToast } = useToast();
+  
+  // State for farms and products
+  const [farms, setFarms] = useState<FarmLocation[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loadingFarms, setLoadingFarms] = useState(true);
+  const [selectedFarm, setSelectedFarm] = useState<FarmLocation | null>(null);
 
   // Product type options
   const productTypeOptions = [
@@ -75,16 +94,10 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
 
   // Form state
   const [harvestData, setHarvestData] = useState<HarvestData>({
-    product_type: initialData?.product_type || selectedProductType,
-    geographic_coordinates: initialData?.geographic_coordinates || { latitude: 0, longitude: 0 },
+    product_id: initialData?.product_id || '',
+    selected_farm_id: initialData?.selected_farm_id || '',
     certifications: initialData?.certifications || [],
     harvest_date: initialData?.harvest_date || '',
-    farm_information: initialData?.farm_information || {
-      farm_id: '',
-      farm_name: '',
-      plantation_type: 'smallholder',
-      cultivation_methods: []
-    },
     batch_number: initialData?.batch_number || '',
     quantity: initialData?.quantity || 0,
     unit: initialData?.unit || 'KGM',
@@ -101,21 +114,98 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isValidating, setIsValidating] = useState(false);
 
-  // Update harvestData when product type changes
+  // Load farms and products on component mount
   useEffect(() => {
-    setHarvestData(prev => ({
-      ...prev,
-      product_type: selectedProductType
-    }));
-  }, [selectedProductType]);
+    loadFarms();
+    loadProducts();
+  }, []);
+
+  // Load farms from the database
+  const loadFarms = async () => {
+    try {
+      setLoadingFarms(true);
+      // Use direct API call with full URL since harvest router is mounted at /api, not /api/v1
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/api/harvest/farms`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Loaded farms:', data.farms?.length || 0, 'farms');
+      setFarms(data.farms || []);
+    } catch (error) {
+      console.error('Error loading farms:', error);
+      showToast({ 
+        title: 'Error', 
+        message: 'Failed to load farms. Please try again.', 
+        type: 'error' 
+      });
+    } finally {
+      setLoadingFarms(false);
+    }
+  };
+
+  // Load products from the database
+  const loadProducts = async () => {
+    try {
+      const response = await apiClient.get('/products');
+      const data = response.data;
+      
+      // Handle the complex nested response format from the products API
+      let productsArray = [];
+      if (data && data.status === 'success' && data.data && Array.isArray(data.data)) {
+        // Find the products array in the nested data structure
+        for (const item of data.data) {
+          if (Array.isArray(item) && item.length >= 2 && item[0] === 'products' && Array.isArray(item[1])) {
+            productsArray = item[1];
+            break;
+          }
+        }
+      } else if (Array.isArray(data)) {
+        productsArray = data;
+      } else if (data && Array.isArray(data.data)) {
+        productsArray = data.data;
+      } else if (data && Array.isArray(data.products)) {
+        productsArray = data.products;
+      }
+      
+      console.log('Loaded products:', productsArray.length, 'products');
+      setProducts(productsArray);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setProducts([]); // Ensure products is always an array
+      showToast({ 
+        title: 'Error', 
+        message: 'Failed to load products. Please try again.', 
+        type: 'error' 
+      });
+    }
+  };
+
+  // Update selected farm when farm selection changes
+  useEffect(() => {
+    if (harvestData.selected_farm_id) {
+      const farm = farms.find(f => f.id === harvestData.selected_farm_id);
+      setSelectedFarm(farm || null);
+    } else {
+      setSelectedFarm(null);
+    }
+  }, [harvestData.selected_farm_id, farms]);
 
   // Update harvestData when initialData changes
   useEffect(() => {
     if (initialData) {
-      setHarvestData(prev => ({
-        ...prev,
+    setHarvestData(prev => ({
+      ...prev,
         ...initialData
-      }));
+    }));
     }
   }, [initialData]);
 
@@ -141,18 +231,24 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
     { value: 'biodiversity', label: 'Biodiversity Protection' }
   ];
 
-  // Generate batch number
+  // Generate batch number automatically
   useEffect(() => {
     if (!harvestData.batch_number) {
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
-      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const hours = String(today.getHours()).padStart(2, '0');
+      const minutes = String(today.getMinutes()).padStart(2, '0');
+      const seconds = String(today.getSeconds()).padStart(2, '0');
+      const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+      
+      // Generate a more unique batch ID: H-YYYYMMDD-HHMMSS-XX
+      const batchNumber = `H-${year}${month}${day}-${hours}${minutes}${seconds}-${random}`;
       
       setHarvestData(prev => ({
         ...prev,
-        batch_number: `H-${year}${month}${day}-${random}`
+        batch_number: batchNumber
       }));
     }
   }, [harvestData.batch_number]);
@@ -174,15 +270,9 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
     }
   };
 
-  // Update nested farm information
-  const updateFarmInfo = (field: string, value: any) => {
-    setHarvestData(prev => ({
-      ...prev,
-      farm_information: {
-        ...prev.farm_information,
-        [field]: value
-      }
-    }));
+  // Handle farm selection
+  const handleFarmSelection = (farmId: string) => {
+    updateHarvestData('selected_farm_id', farmId);
   };
 
   // Handle certification changes
@@ -203,37 +293,24 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
     }
   };
 
-  // Handle cultivation method changes
-  const handleCultivationMethodChange = (method: string, checked: boolean) => {
-    const currentMethods = harvestData.farm_information?.cultivation_methods || [];
-    const newMethods = checked
-      ? [...currentMethods, method]
-      : currentMethods.filter(m => m !== method);
-    
-    updateFarmInfo('cultivation_methods', newMethods);
-  };
 
   // Validate form
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Validate coordinates
-    if (!harvestData.geographic_coordinates.latitude || !harvestData.geographic_coordinates.longitude) {
-      newErrors.coordinates = 'GPS coordinates are required';
+    // Validate product selection
+    if (!harvestData.product_id) {
+      newErrors.product_id = 'Product selection is required';
+    }
+
+    // Validate farm selection
+    if (!harvestData.selected_farm_id) {
+      newErrors.selected_farm_id = 'Farm selection is required';
     }
 
     // Validate harvest date
     if (!harvestData.harvest_date) {
       newErrors.harvest_date = 'Harvest date is required';
-    }
-
-    // Validate farm information
-    if (!harvestData.farm_information?.farm_name?.trim()) {
-      newErrors.farm_name = 'Farm name is required';
-    }
-
-    if (!harvestData.farm_information?.farm_id?.trim()) {
-      newErrors.farm_id = 'Farm ID is required';
     }
 
     // Validate batch number
@@ -271,16 +348,10 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
       
       // Reset form after successful submission
       setHarvestData({
-        product_type: selectedProductType,
-        geographic_coordinates: { latitude: 0, longitude: 0 },
+        product_id: '',
+        selected_farm_id: '',
         certifications: [],
         harvest_date: '',
-        farm_information: {
-          farm_id: '',
-          farm_name: '',
-          plantation_type: 'smallholder',
-          cultivation_methods: []
-        },
         batch_number: '',
         quantity: 0,
         unit: 'KGM',
@@ -293,6 +364,7 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
         },
         processing_notes: ''
       });
+      setSelectedFarm(null);
       setErrors({});
       
       showToast({ title: 'Success', message: 'Harvest declaration submitted successfully', type: 'success' });
@@ -315,50 +387,120 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
           Record a new harvest event to create a batch with origin data
         </p>
         
-        {/* Product Type Selection */}
+        {/* Product Selection */}
         <div className="max-w-md mx-auto">
-          <label htmlFor="product-type" className="block text-sm font-medium text-gray-700 mb-2">
-            Select Product Type
+          <label htmlFor="product-selection" className="block text-sm font-medium text-gray-700 mb-2">
+            Select Product
           </label>
           <select
-            id="product-type"
-            value={selectedProductType}
-            onChange={(e) => setSelectedProductType(e.target.value)}
+            id="product-selection"
+            value={harvestData.product_id}
+            onChange={(e) => updateHarvestData('product_id', e.target.value)}
             disabled={disabled}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
-            {productTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            <option value="">Select a product...</option>
+            {Array.isArray(products) && products.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name} ({product.category})
               </option>
             ))}
           </select>
+          {errors.product_id && (
+            <div className="mt-1 flex items-center space-x-2 text-red-600">
+              <ExclamationTriangleIcon className="h-4 w-4" />
+              <span className="text-sm">{errors.product_id}</span>
+            </div>
+          )}
         </div>
         
         <Badge variant="primary" className="mt-3">
-          {productTypeOptions.find(opt => opt.value === selectedProductType)?.label} - Harvest Declaration
+          Harvest Declaration
         </Badge>
       </div>
 
-      {/* GPS Coordinates */}
+      {/* Farm Selection */}
       <Card>
         <CardHeader 
-          title="Geographic Location" 
-          subtitle="Precise GPS coordinates of harvest location"
-          icon={<MapPinIcon className="h-5 w-5" />}
+          title="Farm Selection" 
+          subtitle="Select the farm where this harvest took place"
+          icon={<BuildingOfficeIcon className="h-5 w-5" />}
         />
         <CardBody>
-          <MapInput
-            value={harvestData.geographic_coordinates}
-            onChange={(coords) => updateHarvestData('geographic_coordinates', coords)}
-            required
+          {loadingFarms ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600">Loading farms...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Farm *
+                </label>
+                <select
+                  value={harvestData.selected_farm_id}
+                  onChange={(e) => handleFarmSelection(e.target.value)}
             disabled={disabled}
-            validationRegion="southeast_asia"
-          />
-          {errors.coordinates && (
-            <div className="mt-2 flex items-center space-x-2 text-red-600">
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="">Select a farm...</option>
+                  {Array.isArray(farms) && farms.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name} ({farm.registration_number}) - {farm.farm_size_hectares} hectares
+                    </option>
+                  ))}
+                </select>
+                {errors.selected_farm_id && (
+                  <div className="mt-1 flex items-center space-x-2 text-red-600">
               <ExclamationTriangleIcon className="h-4 w-4" />
-              <span className="text-sm">{errors.coordinates}</span>
+                    <span className="text-sm">{errors.selected_farm_id}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Selected Farm Details */}
+              {selectedFarm && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Selected Farm Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700">Farm Name:</span>
+                      <p className="text-gray-600">{selectedFarm.name}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Registration:</span>
+                      <p className="text-gray-600">{selectedFarm.registration_number}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Size:</span>
+                      <p className="text-gray-600">{selectedFarm.farm_size_hectares} hectares</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Type:</span>
+                      <p className="text-gray-600 capitalize">{selectedFarm.farm_type.replace('_', ' ')}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Location:</span>
+                      <p className="text-gray-600">{selectedFarm.city}, {selectedFarm.state_province}, {selectedFarm.country}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Coordinates:</span>
+                      <p className="text-gray-600">{selectedFarm.latitude}, {selectedFarm.longitude}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <span className="font-medium text-gray-700">Certifications:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {selectedFarm.certifications.map((cert) => (
+                          <Badge key={cert} variant="secondary" size="sm">
+                            {cert}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardBody>
@@ -396,22 +538,19 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
           {/* Batch Number */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Batch Number *
+              Batch Number * (Auto-generated)
             </label>
             <input
               type="text"
               value={harvestData.batch_number}
-              onChange={(e) => updateHarvestData('batch_number', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
               required
-              disabled={disabled}
+              disabled={true}
+              readOnly
             />
-            {errors.batch_number && (
-              <div className="mt-1 flex items-center space-x-2 text-red-600">
-                <ExclamationTriangleIcon className="h-4 w-4" />
-                <span className="text-sm">{errors.batch_number}</span>
-              </div>
-            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Batch number is automatically generated for traceability
+            </p>
           </div>
 
           {/* Quantity and Unit */}
@@ -460,95 +599,6 @@ const HarvestDeclarationForm: React.FC<HarvestDeclarationFormProps> = ({
         </CardBody>
       </Card>
 
-      {/* Farm Information */}
-      <Card>
-        <CardHeader 
-          title="Farm Information" 
-          subtitle="Details about the farm and cultivation practices"
-          icon={<DocumentTextIcon className="h-5 w-5" />}
-        />
-        <CardBody className="space-y-4">
-          {/* Farm Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Farm Name *
-            </label>
-            <input
-              type="text"
-              value={harvestData.farm_information?.farm_name || ''}
-              onChange={(e) => updateFarmInfo('farm_name', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={disabled}
-            />
-            {errors.farm_name && (
-              <div className="mt-1 flex items-center space-x-2 text-red-600">
-                <ExclamationTriangleIcon className="h-4 w-4" />
-                <span className="text-sm">{errors.farm_name}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Farm ID */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Farm ID *
-            </label>
-            <input
-              type="text"
-              value={harvestData.farm_information?.farm_id || ''}
-              onChange={(e) => updateFarmInfo('farm_id', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              disabled={disabled}
-            />
-            {errors.farm_id && (
-              <div className="mt-1 flex items-center space-x-2 text-red-600">
-                <ExclamationTriangleIcon className="h-4 w-4" />
-                <span className="text-sm">{errors.farm_id}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Plantation Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Plantation Type
-            </label>
-            <select
-              value={harvestData.farm_information?.plantation_type || ''}
-              onChange={(e) => updateFarmInfo('plantation_type', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={disabled}
-            >
-              <option value="smallholder">Smallholder</option>
-              <option value="estate">Estate</option>
-              <option value="cooperative">Cooperative</option>
-            </select>
-          </div>
-
-          {/* Cultivation Methods */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cultivation Methods
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {cultivationMethods.map((method) => (
-                <label key={method.value} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={harvestData.farm_information?.cultivation_methods?.includes(method.value) || false}
-                    onChange={(e) => handleCultivationMethodChange(method.value, e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    disabled={disabled}
-                  />
-                  <span className="text-sm text-gray-700">{method.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </CardBody>
-      </Card>
 
       {/* Certifications */}
       <Card>

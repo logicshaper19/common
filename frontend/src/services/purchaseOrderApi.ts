@@ -178,9 +178,12 @@ export interface PurchaseOrderUpdate {
 
 // Amendment interfaces
 export interface ProposeChangesRequest {
-  proposed_quantity: number;
-  proposed_quantity_unit: string;
+  proposed_quantity?: number;
+  proposed_quantity_unit?: string;
+  proposed_delivery_date?: string;
+  proposed_delivery_location?: string;
   amendment_reason: string;
+  amendment_type?: 'quantity_change' | 'delivery_date_change' | 'delivery_location_change';
 }
 
 export interface ApproveChangesRequest {

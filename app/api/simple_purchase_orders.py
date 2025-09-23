@@ -418,11 +418,56 @@ def confirm_purchase_order(
         log_po_confirmed(db, po.id, current_user.id, current_user.company_id)
         
         # NEW: Create batch automatically after PO confirmation
-        integration_service = POBatchIntegrationService(db)
-        created_batch = integration_service.create_batch_from_po_confirmation(
-            po_id=po_id,
-            confirming_user_id=current_user.id
-        )
+        try:
+            integration_service = POBatchIntegrationService(db)
+            created_batch = integration_service.create_batch_from_po_confirmation(
+                po_id=po_id,
+                confirming_user_id=current_user.id
+            )
+            print(f"🔧 Batch creation result: {created_batch is not None}")
+            if created_batch:
+                print(f"🔧 Created batch: {created_batch.batch_id} for company {created_batch.company_id}")
+            else:
+                print(f"🔧 Batch creation failed - creating manually")
+                # Fallback: Create batch manually if service fails
+                from app.services.batch import BatchTrackingService
+                from app.schemas.batch import BatchCreate, BatchType
+                from datetime import datetime, date
+                from uuid import uuid4
+                
+                batch_service = BatchTrackingService(db)
+                timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+                batch_id = f"PO-{str(po_id)[:8]}-BATCH-{timestamp}"
+                
+                batch_data = BatchCreate(
+                    batch_id=batch_id,
+                    batch_type=BatchType.PROCESSING,
+                    product_id=po.product_id,
+                    quantity=po.quantity,
+                    unit=po.unit,
+                    production_date=date.today(),
+                    location_name="Warehouse",
+                    batch_metadata={
+                        "purchase_order_id": str(po.id),
+                        "seller_company_id": str(po.seller_company_id),
+                        "buyer_company_id": str(po.buyer_company_id),
+                        "created_from_po_confirmation": True
+                    }
+                )
+                
+                created_batch = batch_service.create_batch(
+                    batch_data=batch_data,
+                    company_id=po.buyer_company_id,  # Buyer gets the batch
+                    user_id=current_user.id
+                )
+                
+                # Link PO to batch
+                po.batch_id = created_batch.id
+                db.commit()
+                print(f"🔧 Manually created batch: {created_batch.batch_id}")
+        except Exception as batch_error:
+            print(f"🔧 Batch creation error: {str(batch_error)}")
+            created_batch = None
         
         response_data = {
             "message": "Purchase order confirmed successfully",
