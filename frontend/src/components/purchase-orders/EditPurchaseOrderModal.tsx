@@ -75,7 +75,9 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
         quantity: po.quantity || 0,
         unit_price: po.unit_price || 0,
         unit: po.unit || '',
-        delivery_date: po.delivery_date ? new Date(po.delivery_date).toISOString().split('T')[0] : '',
+        delivery_date: (po.status === 'confirmed' && po.confirmed_delivery_date) 
+          ? new Date(po.confirmed_delivery_date).toISOString().split('T')[0] 
+          : (po.delivery_date ? new Date(po.delivery_date).toISOString().split('T')[0] : ''),
         delivery_location: po.delivery_location || '',
         notes: po.notes || '',
         product_id: po.product_id || '',
@@ -164,7 +166,12 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
         if (formData.unit_price !== po.unit_price) editData.unit_price = formData.unit_price;
         if (formData.unit !== po.unit) editData.unit = formData.unit;
         if (formData.delivery_date !== (po.delivery_date ? new Date(po.delivery_date).toISOString().split('T')[0] : '')) {
-          editData.delivery_date = formData.delivery_date;
+          // For confirmed orders, update confirmed_delivery_date; for pending orders, update delivery_date
+          if (po.status === 'confirmed') {
+            editData.confirmed_delivery_date = formData.delivery_date;
+          } else {
+            editData.delivery_date = formData.delivery_date;
+          }
         }
         if (formData.delivery_location !== po.delivery_location) editData.delivery_location = formData.delivery_location;
         if (formData.notes !== po.notes) editData.notes = formData.notes;

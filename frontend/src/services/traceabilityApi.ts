@@ -62,12 +62,13 @@ export const traceabilityApi = {
   /**
    * Get supply chain trace for a specific purchase order
    */
-  getSupplyChainTrace: async (poId: string): Promise<SupplyChainTraceData> => {
+  getSupplyChainTrace: async (poId: string): Promise<SupplyChainTraceData | null> => {
     const response = await apiClient.get(`/transparency/v2/purchase-orders/${poId}/trace`);
     const traceResponse: SupplyChainTraceResponse = response.data;
     
     if (!traceResponse.success || !traceResponse.data) {
-      throw new Error(traceResponse.message || 'Failed to get traceability data');
+      console.warn('No supply chain trace found for PO:', poId, traceResponse.message);
+      return null;
     }
     
     return traceResponse.data;

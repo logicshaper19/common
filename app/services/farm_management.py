@@ -102,6 +102,88 @@ class FarmManagementService:
             for farm in farms
         ]
     
+    def create_farm(
+        self, 
+        farm_data: Dict[str, Any], 
+        company_id: UUID, 
+        user_id: UUID
+    ) -> Location:
+        """
+        Create a new farm/plantation location
+        
+        Args:
+            farm_data: Farm information from the form
+            company_id: ID of the company creating the farm
+            user_id: ID of the user creating the farm
+            
+        Returns:
+            Created Location object
+        """
+        # Validate required fields
+        required_fields = ['farm_name', 'farm_size_hectares', 'establishment_year', 'owner_name']
+        for field in required_fields:
+            if not farm_data.get(field):
+                raise ValueError(f"Required field '{field}' is missing")
+        
+        # Create the farm location
+        farm = Location(
+            name=farm_data['farm_name'],
+            location_type='farm',
+            is_farm_location=True,
+            company_id=company_id,
+            created_by_user_id=user_id,
+            
+            # Basic farm information
+            farm_type=farm_data.get('plantation_type', 'smallholder'),
+            farm_size_hectares=farm_data['farm_size_hectares'],
+            established_year=farm_data['establishment_year'],
+            registration_number=farm_data.get('registration_number'),
+            specialization=farm_data.get('specialization'),
+            farm_owner_name=farm_data.get('farm_owner_name') or farm_data['owner_name'],
+            
+            # Location information
+            address=farm_data.get('address'),
+            city=farm_data.get('city'),
+            state_province=farm_data.get('state_province'),
+            country=farm_data.get('country'),
+            postal_code=farm_data.get('postal_code'),
+            
+            # GPS coordinates
+            latitude=farm_data.get('gps_coordinates', {}).get('latitude'),
+            longitude=farm_data.get('gps_coordinates', {}).get('longitude'),
+            accuracy_meters=farm_data.get('accuracy_meters'),
+            elevation_meters=farm_data.get('elevation_meters'),
+            
+            # Contact information
+            farm_contact_info={
+                'phone': farm_data.get('farm_contact_info', {}).get('phone'),
+                'email': farm_data.get('farm_contact_info', {}).get('email'),
+                'address': farm_data.get('farm_contact_info', {}).get('address')
+            },
+            
+            # Certifications and compliance
+            certifications=farm_data.get('certification_status', []),
+            compliance_status=farm_data.get('compliance_status', 'pending'),
+            
+            # Status and notes
+            is_active=farm_data.get('is_active', True),
+            notes=farm_data.get('notes')
+        )
+        
+        self.db.add(farm)
+        self.db.commit()
+        self.db.refresh(farm)
+        
+        logger.info(
+            "Farm created successfully",
+            farm_id=str(farm.id),
+            farm_name=farm.name,
+            company_id=str(company_id),
+            user_id=str(user_id)
+        )
+        
+        return farm
+    
     def create_batch_with_farm_contributions(
         self, 
         batch_data: Dict[str, Any], 

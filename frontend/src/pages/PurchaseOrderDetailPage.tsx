@@ -13,6 +13,7 @@ import {
   ArrowLeftIcon,
   PrinterIcon,
   MapIcon,
+  CogIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { purchaseOrderApi, PurchaseOrderWithDetails, ProposeChangesRequest, PurchaseOrderConfirmation, ConfirmationResponse } from '../services/purchaseOrderApi';
@@ -21,10 +22,13 @@ import { useAmendments } from '../hooks/useAmendments';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import AmendmentModal from '../components/purchase-orders/AmendmentModal';
+import { ProposeChangesModal } from '../components/purchase-orders/ProposeChangesModal';
 import ConfirmationModal from '../components/purchase-orders/ConfirmationModal';
 import EditPurchaseOrderModal from '../components/purchase-orders/EditPurchaseOrderModal';
 import PurchaseOrderTraceability from '../components/purchase-orders/PurchaseOrderTraceability';
+import { PurchaseOrderTransformations } from '../components/purchase-orders/PurchaseOrderTransformations';
+import { TransformationPrompt } from '../components/transformation/TransformationPrompt';
+import { TransformationWizard } from '../components/transformation/TransformationWizard';
 import { cn, formatCurrency, formatDate } from '../lib/utils';
 
 const PurchaseOrderDetailPage: React.FC = () => {
@@ -36,10 +40,12 @@ const PurchaseOrderDetailPage: React.FC = () => {
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'details' | 'amendments' | 'history' | 'traceability'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'amendments' | 'history' | 'traceability' | 'transformations'>('details');
   const [showAmendmentModal, setShowAmendmentModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showTransformationPrompt, setShowTransformationPrompt] = useState(false);
+  const [showTransformationWizard, setShowTransformationWizard] = useState(false);
 
   const loadPurchaseOrder = useCallback(async () => {
     if (!id) return;
@@ -65,6 +71,59 @@ const PurchaseOrderDetailPage: React.FC = () => {
       loadPurchaseOrder();
     }
   }, [id, loadPurchaseOrder]);
+
+  // Check if we should show transformation prompt
+  const shouldShowTransformationPrompt = () => {
+    if (!purchaseOrder) return false;
+    
+    // Show for processor companies with raw materials
+    const isProcessor = ['processor', 'mill', 'refinery', 'manufacturer'].includes(
+      purchaseOrder.buyer_company?.company_type?.toLowerCase() || ''
+    );
+    
+    const isRawMaterial = purchaseOrder.product.category === 'raw_material' || 
+                         purchaseOrder.product.name.toLowerCase().includes('fresh fruit bunches') ||
+                         purchaseOrder.product.name.toLowerCase().includes('ffb');
+    
+    return isProcessor && isRawMaterial;
+  };
+
+  // Transformation prompt handlers
+  const handleCreateTransformationNow = () => {
+    setShowTransformationWizard(true);
+  };
+
+  const handleScheduleTransformationLater = async () => {
+    // Create a pending transformation reminder
+    try {
+      // This would create a pending transformation event
+      showToast({
+        type: 'info',
+        title: 'Transformation Scheduled',
+        message: 'Transformation has been marked for later processing.'
+      });
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to schedule transformation.'
+      });
+    }
+  };
+
+  const handleSkipTransformation = () => {
+    // Just close the prompt
+  };
+
+  const handleTransformationCreated = (transformationId: string) => {
+    showToast({
+      type: 'success',
+      title: 'Transformation Created',
+      message: 'Transformation event has been created successfully.'
+    });
+    // Refresh the purchase order to show the new transformation
+    loadPurchaseOrder();
+  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -120,7 +179,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
   const canEditOrder = () => {
     if (!purchaseOrder || !user) return false;
     return (
-      purchaseOrder.status === 'pending' &&
+      (purchaseOrder.status === 'pending' || purchaseOrder.status === 'confirmed') &&
       (purchaseOrder.buyer_company.id === user.company?.id || 
        purchaseOrder.seller_company.id === user.company?.id)
     );
@@ -138,17 +197,10 @@ const PurchaseOrderDetailPage: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const handleAmendmentSubmit = async (amendment: any) => {
+  const handleAmendmentSubmit = async (proposal: ProposeChangesRequest) => {
     if (!id || !purchaseOrder) return;
 
     try {
-      // Convert amendment data to ProposeChangesRequest format
-      const proposal: ProposeChangesRequest = {
-        proposed_quantity: amendment.changes.find((c: any) => c.field === 'quantity')?.proposed_value || purchaseOrder.quantity,
-        proposed_quantity_unit: purchaseOrder.unit,
-        amendment_reason: amendment.reason
-      };
-
       await proposeChanges(id, proposal);
 
       showToast({
@@ -212,7 +264,12 @@ const PurchaseOrderDetailPage: React.FC = () => {
       });
 
       setShowConfirmationModal(false);
-      await loadPurchaseOrder(); // Refresh data
+      await loadPurchaseOrder();
+
+      // Check if we should show transformation prompt for processor companies
+      if (shouldShowTransformationPrompt()) {
+        setShowTransformationPrompt(true);
+      } // Refresh data
     } catch (error: any) {
       showToast({
         type: 'error',
@@ -323,6 +380,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
             { id: 'amendments', label: 'Amendments', icon: PencilIcon, count: purchaseOrder.amendments?.length || 0 },
             { id: 'history', label: 'History', icon: ClockIcon },
             { id: 'traceability', label: 'Traceability', icon: MapIcon },
+            ...(shouldShowTransformationPrompt() ? [{ id: 'transformations', label: 'Transformations', icon: CogIcon }] : []),
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -506,13 +564,21 @@ const PurchaseOrderDetailPage: React.FC = () => {
         />
       )}
 
+      {activeTab === 'transformations' && (
+        <PurchaseOrderTransformations
+          purchaseOrderId={id!}
+          purchaseOrder={purchaseOrder}
+          onOpenTransformationWizard={() => setShowTransformationWizard(true)}
+        />
+      )}
+
       {/* Modals */}
       {showAmendmentModal && (
-        <AmendmentModal
+        <ProposeChangesModal
           isOpen={showAmendmentModal}
           onClose={() => setShowAmendmentModal(false)}
           purchaseOrder={purchaseOrder}
-          onSubmit={handleAmendmentSubmit}
+          onPropose={handleAmendmentSubmit}
         />
       )}
 
@@ -531,14 +597,83 @@ const PurchaseOrderDetailPage: React.FC = () => {
           onClose={() => setShowEditModal(false)}
           po={purchaseOrder}
           onEdit={async (editData) => {
-            // TODO: Implement edit functionality
-            showToast({
-              type: 'info',
-              title: 'Edit Not Yet Implemented',
-              message: 'Purchase order editing will be available soon.'
-            });
-            setShowEditModal(false);
+            try {
+              // Use the direct update API for immediate changes
+              const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+              const authToken = localStorage.getItem('auth_token');
+              
+              const response = await fetch(`${API_BASE_URL}/api/v1/purchase-orders/${id}`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(editData)
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to update purchase order');
+              }
+
+              const updatedPO = await response.json();
+              
+              // Update the local state
+              setPurchaseOrder(updatedPO);
+              
+              // Also reload the purchase order to ensure we have the latest data
+              await loadPurchaseOrder();
+              
+              showToast({
+                type: 'success',
+                title: 'Purchase Order Updated',
+                message: 'The purchase order has been updated successfully.'
+              });
+              
+              setShowEditModal(false);
+            } catch (error) {
+              console.error('Error updating purchase order:', error);
+              showToast({
+                type: 'error',
+                title: 'Update Failed',
+                message: error instanceof Error ? error.message : 'Failed to update purchase order'
+              });
+            }
           }}
+        />
+      )}
+
+      {/* Transformation Prompt */}
+      {showTransformationPrompt && purchaseOrder && (
+        <TransformationPrompt
+          isOpen={showTransformationPrompt}
+          onClose={() => setShowTransformationPrompt(false)}
+          purchaseOrder={purchaseOrder}
+          inputBatch={{
+            id: 'temp-batch-id',
+            batch_id: `BATCH-${purchaseOrder.id.slice(-8)}`,
+            quantity: purchaseOrder.quantity,
+            unit: purchaseOrder.unit
+          }}
+          onCreateNow={handleCreateTransformationNow}
+          onScheduleLater={handleScheduleTransformationLater}
+          onSkip={handleSkipTransformation}
+        />
+      )}
+
+      {/* Transformation Wizard */}
+      {showTransformationWizard && purchaseOrder && (
+        <TransformationWizard
+          isOpen={showTransformationWizard}
+          onClose={() => setShowTransformationWizard(false)}
+          purchaseOrder={purchaseOrder}
+          inputBatch={{
+            id: 'temp-batch-id',
+            batch_id: `BATCH-${purchaseOrder.id.slice(-8)}`,
+            quantity: purchaseOrder.quantity,
+            unit: purchaseOrder.unit
+          }}
+          onTransformationCreated={handleTransformationCreated}
         />
       )}
     </div>

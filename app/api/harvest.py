@@ -27,6 +27,77 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/harvest", tags=["harvest"])
 
 
+@router.get("/farms")
+def get_farm_locations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get farm locations for the current user's company.
+    
+    Returns all farm locations that the current user's company has access to.
+    """
+    try:
+        from app.models.location import Location
+        
+        # Get farm locations for the current user's company
+        farm_locations = db.query(Location).filter(
+            Location.company_id == current_user.company_id,
+            Location.is_farm_location == True,
+            Location.is_active == True
+        ).all()
+        
+        # Convert to response format
+        farms = []
+        for location in farm_locations:
+            farm_data = {
+                "id": str(location.id),
+                "name": location.name,
+                "registration_number": location.registration_number,
+                "farm_type": location.farm_type,
+                "farm_size_hectares": float(location.farm_size_hectares) if location.farm_size_hectares else 0,
+                "latitude": float(location.latitude) if location.latitude else 0,
+                "longitude": float(location.longitude) if location.longitude else 0,
+                "accuracy_meters": float(location.accuracy_meters) if location.accuracy_meters else None,
+                "address": location.address,
+                "city": location.city,
+                "state_province": location.state_province,
+                "country": location.country,
+                "certifications": location.certifications or [],
+                "compliance_data": location.compliance_data or {},
+                "farm_contact_info": location.farm_contact_info or {},
+                "specialization": location.specialization,
+                "established_year": location.established_year,
+                "compliance_status": location.compliance_status
+            }
+            farms.append(farm_data)
+        
+        logger.info(
+            "Farm locations retrieved",
+            company_id=str(current_user.company_id),
+            farm_count=len(farms),
+            user_id=str(current_user.id)
+        )
+        
+        return {
+            "farms": farms,
+            "total": len(farms),
+            "company_id": str(current_user.company_id)
+        }
+        
+    except Exception as e:
+        logger.error(
+            "Error retrieving farm locations",
+            error=str(e),
+            company_id=str(current_user.company_id),
+            user_id=str(current_user.id)
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve farm locations"
+        )
+
+
 @router.post("/declare", response_model=BatchResponse)
 def declare_harvest(
     harvest_data: dict,
@@ -52,9 +123,21 @@ def declare_harvest(
     
     try:
         # Extract harvest data
-        geographic_coords = harvest_data.get('geographic_coordinates', {})
-        farm_info = harvest_data.get('farm_information', {})
+        selected_farm_id = harvest_data.get('selected_farm_id', '')
         quality_params = harvest_data.get('quality_parameters', {})
+        
+        # Get farm details from database
+        from app.models.location import Location
+        farm_location = db.query(Location).filter(
+            Location.id == selected_farm_id,
+            Location.is_farm_location == True
+        ).first()
+        
+        if not farm_location:
+            raise HTTPException(
+                status_code=400,
+                detail="Selected farm not found or not a valid farm location"
+            )
         
         # Create batch data for harvest declaration
         batch_data = BatchCreate(
@@ -66,14 +149,14 @@ def declare_harvest(
             production_date=datetime.strptime(harvest_data.get('harvest_date', ''), '%Y-%m-%d').date(),
             expiry_date=None,  # Will be set based on product shelf life
             
-            # Location from harvest
-            location_name=farm_info.get('farm_name', ''),
+            # Location from selected farm
+            location_name=farm_location.name,
             location_coordinates={
-                'latitude': geographic_coords.get('latitude', 0),
-                'longitude': geographic_coords.get('longitude', 0),
-                'accuracy_meters': geographic_coords.get('accuracy_meters')
-            } if geographic_coords else None,
-            facility_code=farm_info.get('farm_id', ''),
+                'latitude': float(farm_location.latitude) if farm_location.latitude else 0,
+                'longitude': float(farm_location.longitude) if farm_location.longitude else 0,
+                'accuracy_meters': float(farm_location.accuracy_meters) if farm_location.accuracy_meters else None
+            },
+            facility_code=farm_location.registration_number,
             
             # Quality metrics from harvest
             quality_metrics=quality_params,
@@ -81,22 +164,45 @@ def declare_harvest(
             # Origin data - this is the key part!
             origin_data={
                 'harvest_date': harvest_data.get('harvest_date'),
-                'farm_information': farm_info,
-                'geographic_coordinates': geographic_coords,
-                'certifications': harvest_data.get('certifications', []),
-                'cultivation_methods': farm_info.get('cultivation_methods', []),
+                'farm_information': {
+                    'farm_id': farm_location.registration_number,
+                    'farm_name': farm_location.name,
+                    'farm_type': farm_location.farm_type,
+                    'farm_size_hectares': float(farm_location.farm_size_hectares) if farm_location.farm_size_hectares else 0,
+                    'established_year': farm_location.established_year,
+                    'specialization': farm_location.specialization,
+                    'farm_owner_name': farm_location.farm_owner_name,
+                    'farm_contact_info': farm_location.farm_contact_info
+                },
+                'geographic_coordinates': {
+                    'latitude': float(farm_location.latitude) if farm_location.latitude else 0,
+                    'longitude': float(farm_location.longitude) if farm_location.longitude else 0,
+                    'accuracy_meters': float(farm_location.accuracy_meters) if farm_location.accuracy_meters else None,
+                    'elevation_meters': float(farm_location.elevation_meters) if farm_location.elevation_meters else None
+                },
+                'location_details': {
+                    'address': farm_location.address,
+                    'city': farm_location.city,
+                    'state_province': farm_location.state_province,
+                    'country': farm_location.country,
+                    'postal_code': farm_location.postal_code
+                },
+                'certifications': farm_location.certifications or [],
+                'compliance_data': farm_location.compliance_data or {},
                 'processing_notes': harvest_data.get('processing_notes', ''),
-                'declared_by_user_id': str(current_user.id),
-                'declared_at': datetime.utcnow().isoformat()
+                'declared_at': datetime.utcnow().isoformat(),
+                'declared_by_user_id': str(current_user.id)
             },
-            certifications=harvest_data.get('certifications', []),
+            certifications=farm_location.certifications or [],
             
             # Metadata
             batch_metadata={
                 'harvest_declaration': True,
                 'declared_by': current_user.email,
                 'declaration_source': 'harvest_api',
-                'plantation_type': farm_info.get('plantation_type', 'smallholder')
+                'farm_location_id': str(farm_location.id),
+                'farm_type': farm_location.farm_type,
+                'compliance_status': farm_location.compliance_status
             }
         )
         
@@ -114,7 +220,9 @@ def declare_harvest(
             company_id=str(current_user.company_id),
             user_id=str(current_user.id),
             harvest_date=harvest_data.get('harvest_date'),
-            farm_name=farm_info.get('farm_name')
+            farm_name=farm_location.name,
+            farm_id=farm_location.registration_number,
+            farm_location_id=str(farm_location.id)
         )
         
         return batch

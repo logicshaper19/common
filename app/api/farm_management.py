@@ -88,6 +88,46 @@ def get_company_farms(
         )
 
 
+@router.post("/farms", response_model=dict)
+def create_farm(
+    farm_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a new farm/plantation for the current user's company
+    
+    Creates a new farm location with all the enhanced fields including
+    certifications, compliance status, and detailed location information.
+    """
+    farm_service = FarmManagementService(db)
+    
+    try:
+        # Create the farm location
+        farm = farm_service.create_farm(
+            farm_data=farm_data,
+            company_id=current_user.company_id,
+            user_id=current_user.id
+        )
+        
+        return {
+            "farm_id": str(farm.id),
+            "farm_name": farm.name,
+            "message": "Farm created successfully"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create farm: {str(e)}"
+        )
+
+
 @router.post("/batches", response_model=BatchCreationResponse)
 def create_batch_with_farm_contributions(
     batch_request: BatchCreationRequest,

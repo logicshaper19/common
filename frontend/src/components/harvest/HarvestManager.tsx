@@ -12,7 +12,8 @@ import HarvestDeclarationForm from './HarvestDeclarationForm';
 interface HarvestBatch {
   id: string;
   batch_id: string;
-  product_type: string;
+  product_id: string;
+  product_name?: string;
   harvest_date: string;
   farm_name: string;
   farm_id: string;
@@ -139,7 +140,8 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
         return {
           id: batch.id,
           batch_id: batch.batch_id,
-          product_type: batch.product_name || 'Fresh Fruit Bunches',
+          product_id: batch.product_id,
+          product_name: batch.product_name || 'Fresh Fruit Bunches',
           harvest_date: batch.origin_data?.harvest_date || batch.production_date,
           farm_name: batch.origin_data?.farm_information?.farm_name || batch.location_name || 'Unknown Farm',
           farm_id: batch.origin_data?.farm_information?.farm_id || batch.facility_code || 'N/A',
@@ -188,11 +190,12 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
       const newBatch: HarvestBatch = {
         id: Date.now().toString(),
         batch_id: harvestData.batch_number,
-        product_type: harvestData.product_type,
+        product_id: harvestData.product_id,
+        product_name: 'Fresh Fruit Bunches', // Default name
         harvest_date: harvestData.harvest_date,
-        farm_name: harvestData.farm_information?.farm_name || '',
-        farm_id: harvestData.farm_information?.farm_id || '',
-        plantation_type: harvestData.farm_information?.plantation_type || '',
+        farm_name: 'Selected Farm', // Will be updated from farm selection
+        farm_id: 'N/A', // Will be updated from farm selection
+        plantation_type: 'estate', // Default type
         quantity: harvestData.quantity,
         unit: harvestData.unit,
         location_coordinates: harvestData.geographic_coordinates,
@@ -288,7 +291,7 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
       render: (value: any, batch: HarvestBatch) => (
         <div className="text-sm">
           <Badge variant="secondary" size="sm">
-            {batch?.product_type ? batch.product_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'}
+            {batch?.product_name ? batch.product_name : 'N/A'}
           </Badge>
         </div>
       )
@@ -579,7 +582,7 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
                     <label className="text-sm font-medium text-gray-500">Product Type</label>
                     <p className="text-gray-900">
                       <Badge variant="secondary" size="sm">
-                        {selectedBatch.product_type ? selectedBatch.product_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'}
+                        {selectedBatch.product_name ? selectedBatch.product_name : 'N/A'}
                       </Badge>
                     </p>
                   </div>
@@ -690,18 +693,11 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
           size="xl"
         >
           <HarvestDeclarationForm
-            productType={selectedBatch.product_type}
             initialData={{
-              product_type: selectedBatch.product_type,
-              geographic_coordinates: selectedBatch.location_coordinates || { latitude: 0, longitude: 0 },
+              product_id: selectedBatch.product_id,
+              selected_farm_id: '', // We'll need to find the farm ID from the farm name
               certifications: selectedBatch.certifications,
               harvest_date: selectedBatch.harvest_date,
-              farm_information: {
-                farm_id: selectedBatch.farm_id,
-                farm_name: selectedBatch.farm_name,
-                plantation_type: selectedBatch.plantation_type as 'smallholder' | 'estate' | 'cooperative',
-                cultivation_methods: []
-              },
               batch_number: selectedBatch.batch_id,
               quantity: selectedBatch.quantity,
               unit: selectedBatch.unit,
