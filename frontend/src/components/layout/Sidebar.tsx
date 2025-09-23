@@ -22,6 +22,7 @@ import {
   SunIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
@@ -72,6 +73,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       name: 'Outgoing Purchase Orders',
       href: '/purchase-orders/outgoing',
       icon: ArrowRightIcon,
+    }] : []),
+    // Confirmed Purchase Orders - for all users who can view purchase orders
+    ...(dashboardConfig.can_create_po || dashboardConfig.can_confirm_po ? [{
+      name: 'Confirmed Orders',
+      href: '/purchase-orders/confirmed',
+      icon: CheckCircleIcon,
     }] : []),
     // Products - only for brands, manufacturers and processors (not originators)
     ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
