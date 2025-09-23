@@ -147,9 +147,10 @@ def get_harvest_batches(
     This returns only harvest-type batches (not processing or transformation batches).
     """
     try:
-        # Build query for harvest batches
+        # Build query for harvest batches - filter by current user's company
         query = db.query(Batch).filter(
-            Batch.batch_type == BatchType.HARVEST.value
+            Batch.batch_type == BatchType.HARVEST.value,
+            Batch.company_id == current_user.company_id
         )
         
         # Filter by status if provided
