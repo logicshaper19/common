@@ -54,19 +54,12 @@ else:
         connect_args.update({
             "channel_binding": "require",
         })
-        # Reduce pool size for Neon's connection limits with fallback
-        try:
-            engine_kwargs.update({
-                "pool_size": min(settings.database_pool_size, 5),
-                "max_overflow": min(settings.database_max_overflow, 10),
-            })
-            logger.info("Neon database pool configuration applied")
-        except Exception as e:
-            logger.warning(f"Failed to apply Neon pool configuration, using defaults: {e}")
-            engine_kwargs.update({
-                "pool_size": 3,  # Conservative fallback
-                "max_overflow": 5,  # Conservative fallback
-            })
+        # Reduce pool size for Neon's connection limits
+        engine_kwargs.update({
+            "pool_size": min(settings.database_pool_size, 5),
+            "max_overflow": min(settings.database_max_overflow, 10),
+        })
+        logger.info("Neon database pool configuration applied")
 
 engine = create_engine(
     settings.database_url,
