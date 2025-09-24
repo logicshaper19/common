@@ -83,6 +83,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       icon: ArrowLeftIcon,
       badge: pendingCount > 0 ? pendingCount : undefined,
     }] : []),
+    // Confirmed Orders - Show for users who can create or confirm POs
+    ...((permissions.can_create_po || permissions.can_confirm_po) ? [{
+      name: 'Confirmed Orders',
+      href: '/purchase-orders/confirmed',
+      icon: CheckCircleIcon,
+    }] : []),
     // Farm Management - Backend driven
     ...(permissions.can_report_farm_data ? [{
       name: 'Farm Management',
