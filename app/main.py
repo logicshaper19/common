@@ -310,7 +310,7 @@ app.include_router(farm_management_router, prefix="/api/v1", tags=["Farm Managem
 app.include_router(access_control_router, prefix="/api/v1/access-control", tags=["Access Control"])
 # Business relationships router removed - using simplified relationships instead
 app.include_router(batches_router, prefix="/api/v1", tags=["Batch Tracking"])
-app.include_router(performance_router, prefix="/api/v1", tags=["Performance"])
+app.include_router(performance_router, tags=["Performance"])
 app.include_router(sectors_router, prefix="/api/v1", tags=["Sectors"])
 app.include_router(documents_router, prefix="/api/v1", tags=["Documents"])
 app.include_router(compliance_router, prefix="/api/v1", tags=["Compliance"])
