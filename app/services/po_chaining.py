@@ -634,14 +634,25 @@ class POChainingService:
                 self._update_transparency_score(po, inherited_origin_data)
                 print("🌾 *** FINISHED _update_transparency_score METHOD ***")
                 
-                # ✅ FIX: Transfer batch ownership (3 lines)
-                print("🔄 Transferring batch ownership to buyer company")
-                for batch in harvest_batches:
-                    batch.company_id = po.buyer_company_id
-                    batch.status = 'transferred'
-                    batch.updated_at = datetime.utcnow()
-                    print(f"🔄 Transferred batch {batch.batch_id} to buyer company {po.buyer_company_id}")
-                    logger.info(f"Transferred batch {batch.batch_id} to buyer company {po.buyer_company_id}")
+                # ✅ ENHANCED: Transfer batch ownership with seller liability tracking
+                print("🔄 Transferring batch ownership with seller liability tracking")
+                from app.services.batch_ownership import BatchOwnershipService
+                ownership_service = BatchOwnershipService(self.db)
+                
+                batch_ids = [batch.id for batch in harvest_batches]
+                transfer_results = ownership_service.transfer_multiple_batches(
+                    batch_ids=batch_ids,
+                    new_company_id=po.buyer_company_id,
+                    seller_company_id=po.seller_company_id,
+                    po_id=po.id,
+                    reason="purchase_order_confirmation"
+                )
+                
+                print(f"🔄 Ownership transfer results: {len(transfer_results['successful_transfers'])} successful, {len(transfer_results['failed_transfers'])} failed")
+                logger.info(f"Ownership transfer results: {transfer_results}")
+                
+                if transfer_results['failed_transfers']:
+                    logger.warning(f"Failed to transfer {len(transfer_results['failed_transfers'])} batches: {transfer_results['failed_transfers']}")
             else:
                 print("❌ No origin data to inherit from harvest batches")
                 logger.warning("No origin data to inherit from harvest batches")
@@ -650,6 +661,78 @@ class POChainingService:
             logger.error(f"Error inheriting origin data from batches: {str(e)}")
             logger.error(f"Exception type: {type(e).__name__}")
             # Don't raise the exception - origin data inheritance is not critical for PO confirmation
+    
+    def _transfer_batch_ownership_for_po(self, po: PurchaseOrder, batch_ids: List[UUID]) -> bool:
+        """
+        Transfer batch ownership with seller liability until delivery.
+        
+        Args:
+            po: The purchase order
+            batch_ids: List of batch IDs to transfer
+            
+        Returns:
+            bool: True if all transfers successful, False otherwise
+        """
+        from app.services.batch_ownership import BatchOwnershipService
+        
+        ownership_service = BatchOwnershipService(self.db)
+        transfer_results = ownership_service.transfer_multiple_batches(
+            batch_ids=batch_ids,
+            new_company_id=po.buyer_company_id,
+            seller_company_id=po.seller_company_id,
+            po_id=po.id,
+            reason="purchase_order_confirmation"
+        )
+        
+        if transfer_results['failed_transfers']:
+            logger.warning(f"Failed to transfer {len(transfer_results['failed_transfers'])} batches for PO {po.id}")
+            return False
+        
+        logger.info(f"Successfully transferred {len(transfer_results['successful_transfers'])} batches for PO {po.id}")
+        return True
+
+    def _link_po_to_stock_batches(self, po: PurchaseOrder, stock_batches: List[dict]) -> bool:
+        """
+        Link PO to stock batches and transfer ownership with seller liability.
+        
+        Args:
+            po: The purchase order
+            stock_batches: List of stock batch information
+            
+        Returns:
+            bool: True if linking and transfer successful, False otherwise
+        """
+        from app.models.po_batch_linkage import POBatchLinkage
+        
+        batch_ids = []
+        
+        for stock_batch_info in stock_batches:
+            batch_id = stock_batch_info.get('batch_id')
+            if not batch_id:
+                continue
+                
+            batch = self.db.query(Batch).filter(Batch.id == batch_id).first()
+            
+            if batch:
+                # Create linkage record
+                linkage = POBatchLinkage(
+                    purchase_order_id=po.id,
+                    batch_id=batch.id,
+                    quantity_allocated=stock_batch_info.get('quantity_allocated', batch.quantity),
+                    unit=batch.unit,
+                    created_by_user_id=po.confirmed_by_user_id
+                )
+                self.db.add(linkage)
+                batch_ids.append(batch_id)
+                logger.info(f"Created linkage between PO {po.id} and batch {batch.batch_id}")
+            else:
+                logger.warning(f"Batch not found for linking: {batch_id}")
+        
+        # Transfer ownership with seller liability
+        if batch_ids:
+            return self._transfer_batch_ownership_for_po(po, batch_ids)
+        
+        return len(batch_ids) > 0
     
     def _merge_origin_data_from_batches(self, harvest_batches: List[Batch]) -> Dict[str, Any]:
         """
