@@ -48,6 +48,7 @@ from app.api.transparency_visualization import router as transparency_visualizat
 from app.api.transparency import router as transparency_router
 from app.api.origin_data import router as origin_data_router
 from app.api.harvest import router as harvest_router
+from app.api.cors_test import router as cors_test_router
 from app.api.farm_management import router as farm_management_router
 from app.api.v1.access_control import router as access_control_router # Universal access control
 from app.api.batches import router as batches_router
@@ -153,7 +154,7 @@ app.openapi = lambda: custom_openapi(app)
 # 1. CORS middleware (essential for frontend communication)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
+    allow_origins=settings.allowed_origins_list + ["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -271,6 +272,7 @@ app.include_router(transparency_visualization_router, prefix="/api/v1", tags=["T
 app.include_router(transparency_router, prefix="/api/v1", tags=["Transparency"])
 app.include_router(origin_data_router, prefix="/api/v1", tags=["Origin Data"])
 app.include_router(harvest_router, prefix="/api", tags=["Harvest"])
+app.include_router(cors_test_router, tags=["CORS Test"])
 app.include_router(farm_management_router, prefix="/api/v1", tags=["Farm Management"])
 app.include_router(access_control_router, prefix="/api/v1/access-control", tags=["Access Control"])
 app.include_router(batches_router, prefix="/api/v1", tags=["Batch Tracking"])
