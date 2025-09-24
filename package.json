@@ -1,0 +1,23 @@
+{
+  "name": "common-supply-chain",
+  "version": "1.0.0",
+  "description": "Common Supply Chain Platform - Full Stack Application",
+  "private": true,
+  "scripts": {
+    "vercel-build": "cd frontend && npm ci && npm run build",
+    "build": "cd frontend && npm run build",
+    "dev": "cd frontend && npm start",
+    "test": "cd frontend && npm test",
+    "lint": "cd frontend && npm run lint",
+    "type-check": "cd frontend && npm run type-check"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "workspaces": [
+    "frontend"
+  ],
+  "author": "Common Team",
+  "license": "MIT"
+}
