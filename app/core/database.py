@@ -16,9 +16,9 @@ logger = get_logger(__name__)
 
 # Database performance configuration
 DATABASE_CONFIG = {
-    "pool_size": 20,  # Number of connections to maintain in pool
-    "max_overflow": 30,  # Additional connections beyond pool_size
-    "pool_timeout": 30,  # Seconds to wait for connection
+    "pool_size": settings.database_pool_size,  # Number of connections to maintain in pool
+    "max_overflow": settings.database_max_overflow,  # Additional connections beyond pool_size
+    "pool_timeout": settings.database_pool_timeout,  # Seconds to wait for connection
     "pool_recycle": 3600,  # Recycle connections after 1 hour
     "pool_pre_ping": True,  # Validate connections before use
     "echo": settings.debug,  # Log SQL queries in debug mode

@@ -108,10 +108,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         finally:
             db.close()
         
-        # Initialize Redis (optional for development)
+        # Initialize Redis (optional for development, required for production)
         try:
-            await init_redis()
-            logger.info("Redis initialized")
+            redis_client = await init_redis()
+            if redis_client:
+                logger.info("Redis initialized successfully")
+            else:
+                logger.warning("Redis connection failed, continuing without caching")
         except Exception as e:
             logger.warning("Redis not available, continuing without caching", error=str(e))
 
