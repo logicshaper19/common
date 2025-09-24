@@ -75,24 +75,56 @@ export const useDashboardConfig = () => {
         throw new Error(`Failed to load dashboard config: ${response.status} ${response.statusText}`);
       }
 
-      const dashboardConfig = await response.json();
+      const backendResponse = await response.json();
+      
+      // Map backend response to frontend DashboardConfig structure
+      const dashboardConfig: DashboardConfig = {
+        // Map permissions based on user role and company type
+        can_create_po: backendResponse.user_info.role === 'buyer' || 
+                      (backendResponse.user_info.company_type === 'brand' && backendResponse.user_info.role === 'buyer') ||
+                      (backendResponse.user_info.company_type === 'trader' && backendResponse.user_info.role === 'trader'),
+        can_confirm_po: backendResponse.user_info.role === 'seller' || 
+                       backendResponse.user_info.role === 'originator' ||
+                       backendResponse.user_info.company_type === 'plantation_grower' ||
+                       backendResponse.user_info.company_type === 'processor',
+        can_manage_team: backendResponse.user_info.role === 'admin' || 
+                        backendResponse.user_info.role === 'originator' ||
+                        backendResponse.user_info.role === 'plantation_manager',
+        can_view_analytics: true, // Most users can view analytics
+        can_manage_settings: backendResponse.user_info.role === 'admin' || 
+                            backendResponse.user_info.role === 'originator' ||
+                            backendResponse.user_info.role === 'plantation_manager',
+        can_audit_companies: backendResponse.user_info.role === 'auditor',
+        can_regulate_platform: backendResponse.user_info.role === 'admin',
+        can_manage_trader_chain: backendResponse.user_info.company_type === 'trader',
+        can_view_margin_analysis: backendResponse.user_info.company_type === 'trader',
+        can_report_farm_data: backendResponse.user_info.company_type === 'originator' || 
+                             backendResponse.user_info.company_type === 'plantation_grower' ||
+                             backendResponse.user_info.company_type === 'smallholder_cooperative',
+        can_manage_certifications: backendResponse.user_info.company_type === 'originator' || 
+                                  backendResponse.user_info.company_type === 'plantation_grower' ||
+                                  backendResponse.user_info.company_type === 'smallholder_cooperative',
+        dashboard_type: backendResponse.dashboard_type,
+        should_use_v2: backendResponse.should_use_v2,
+        feature_flags: backendResponse.feature_flags,
+        user_info: backendResponse.user_info
+      };
+      
       setConfig(dashboardConfig);
     } catch (err) {
       console.error('Error loading dashboard config:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dashboard config');
       
-      // Fallback to basic config if API fails
+      // Fallback to frontend permissions if API fails
       if (user) {
+        // Import the frontend permissions function
+        const { getDashboardConfig } = await import('../utils/permissions');
+        const frontendConfig = getDashboardConfig(user);
+        
         setConfig({
-          can_create_po: false,
-          can_confirm_po: false,
-          can_manage_team: false,
-          can_view_analytics: true,
-          can_manage_settings: false,
-          can_audit_companies: false,
-          can_regulate_platform: false,
-          dashboard_type: 'default',
-          should_use_v2: false,
+          ...frontendConfig,
+          dashboard_type: user.company?.company_type || 'default',
+          should_use_v2: false, // Disable V2 if API fails
           feature_flags: {},
           user_info: {
             id: user.id,

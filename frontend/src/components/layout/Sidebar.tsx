@@ -47,12 +47,13 @@ interface NavigationItem {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const { pendingCount } = usePurchaseOrderCount();
-  const { config: backendConfig } = useDashboardConfig();
+  const { config: backendConfig, loading } = useDashboardConfig();
   
   if (!user) return null;
   
-  // Use backend config if available, otherwise fallback to local permissions
-  const dashboardConfig = backendConfig || getDashboardConfig(user);
+  // Use backend config if available and loaded, otherwise fallback to local permissions
+  // This prevents flashing by using frontend config during loading
+  const dashboardConfig = (backendConfig && !loading) ? backendConfig : getDashboardConfig(user);
 
   // Navigation items with permission-based visibility
   const navigation: NavigationItem[] = [
