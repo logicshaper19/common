@@ -52,7 +52,7 @@ class Batch(Base):
     transportation_method = Column(String(255))  # Transportation method
     
     # Status and lifecycle
-    status = Column(String(50), nullable=False, default='active')  # 'active', 'consumed', 'expired', 'recalled'
+    status = Column(String(50), nullable=False, default='active')  # 'active', 'transferred', 'delivered', 'consumed', 'expired', 'recalled'
     
     # Audit fields
     created_at = Column(DateTime(timezone=True), server_default=func.now())

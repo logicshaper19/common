@@ -43,7 +43,7 @@ class SimpleBatchOwnershipService:
                 return False
             
             # Validate batch is in transferable state
-            if batch.status in ['consumed', 'expired', 'recalled']:
+            if batch.status in ['transferred', 'delivered', 'consumed', 'expired', 'recalled']:
                 logger.error(f"Batch {batch_id} cannot be transferred in status: {batch.status}")
                 return False
             
@@ -58,7 +58,7 @@ class SimpleBatchOwnershipService:
             
             # Simple ownership transfer
             batch.company_id = new_company_id
-            batch.status = 'active'  # Use 'active' status instead of 'allocated'
+            batch.status = 'transferred'  # Clear status indicating ownership transfer
             batch.updated_at = datetime.utcnow()
             
             # Minimal liability note
@@ -122,7 +122,7 @@ class SimpleBatchOwnershipService:
 
     def complete_delivery(self, batch_id: UUID) -> bool:
         """
-        Mark batch as delivered (consumed).
+        Mark batch as delivered.
         
         Args:
             batch_id: ID of the batch to mark as delivered
@@ -136,8 +136,8 @@ class SimpleBatchOwnershipService:
                 logger.error(f"Batch not found: {batch_id}")
                 return False
             
-            # Use 'consumed' status to indicate delivery completion
-            batch.status = 'consumed'
+            # Use 'delivered' status to indicate delivery completion
+            batch.status = 'delivered'
             batch.updated_at = datetime.utcnow()
             
             # Update liability note
@@ -145,7 +145,7 @@ class SimpleBatchOwnershipService:
                 batch.batch_metadata['seller_liable_until_delivery'] = False
                 batch.batch_metadata['delivery_completed_at'] = datetime.utcnow().isoformat()
             
-            logger.info(f"Batch marked as delivered (consumed): {batch.batch_id}")
+            logger.info(f"Batch marked as delivered: {batch.batch_id}")
             return True
             
         except Exception as e:
