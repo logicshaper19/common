@@ -39,8 +39,8 @@ class Batch(Base):
     transformation_id = Column(String(100))  # For refineries: transformation events
     parent_batch_ids = Column(JSONType)  # List of input batch IDs for traceability
 
-    # Purchase Order Linkage - CRITICAL for automatic batch creation
-    source_purchase_order_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"))  # Links batch back to originating PO
+    # Purchase Order Linkage - REMOVED: Use audit trail for provenance tracking instead of direct FK
+    # source_purchase_order_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"))  # REMOVED: Circular reference
     
     # Origin and traceability data
     origin_data = Column(JSONType)  # Origin data for harvest batches
@@ -63,7 +63,7 @@ class Batch(Base):
     batch_metadata = Column(JSONType)  # Additional batch-specific metadata
     
     # Relationships
-    source_purchase_order = relationship("PurchaseOrder", foreign_keys=[source_purchase_order_id], uselist=False)  # Source PO that created this batch
+    # source_purchase_order relationship removed - use audit trail for provenance tracking
     po_linkages = relationship("POBatchLinkage", back_populates="batch")
     po_allocations = relationship("POFulfillmentAllocation", back_populates="source_batch")
     farm_contributions = relationship("BatchFarmContribution", back_populates="batch")
@@ -76,7 +76,7 @@ class Batch(Base):
         Index('idx_batch_production_date', 'production_date'),
         Index('idx_batch_status', 'status'),
         Index('idx_batch_transformation_id', 'transformation_id'),
-        Index('idx_batch_source_po', 'source_purchase_order_id'),  # Critical for PO-to-batch queries
+        # Index('idx_batch_source_po', 'source_purchase_order_id'),  # REMOVED: Field no longer exists
     )
 
 

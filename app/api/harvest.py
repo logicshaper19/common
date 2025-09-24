@@ -300,7 +300,7 @@ def get_harvest_batches(
                 "parent_batch_ids": batch.parent_batch_ids,
                 "origin_data": batch.origin_data,
                 "certifications": batch.certifications or [],
-                "source_purchase_order_id": batch.source_purchase_order_id,
+                "source_purchase_order_id": batch.batch_metadata.get("purchase_order_id") if batch.batch_metadata else None,
                 "created_at": batch.created_at.isoformat() if batch.created_at else None,
                 "updated_at": batch.updated_at.isoformat() if batch.updated_at else None,
                 "created_by_user_id": batch.created_by_user_id,
