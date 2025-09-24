@@ -38,10 +38,27 @@ if "sqlite" in settings.database_url:
         "echo_pool": settings.debug,
     }
 else:
-    # PostgreSQL-specific configuration
+    # PostgreSQL-specific configuration (including Neon)
+    connect_args = {
+        "sslmode": "require",
+        "connect_timeout": 10,
+    }
     engine_kwargs.update({
         "poolclass": QueuePool,
+        "pool_pre_ping": True,  # Validate connections before use
+        "pool_recycle": 3600,   # Recycle connections after 1 hour
     })
+    
+    # Neon-specific optimizations
+    if "neon.tech" in settings.database_url:
+        connect_args.update({
+            "channel_binding": "require",
+        })
+        # Reduce pool size for Neon's connection limits
+        engine_kwargs.update({
+            "pool_size": min(settings.database_pool_size, 5),
+            "max_overflow": min(settings.database_max_overflow, 10),
+        })
 
 engine = create_engine(
     settings.database_url,
