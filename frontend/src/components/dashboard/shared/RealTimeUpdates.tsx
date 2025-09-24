@@ -277,6 +277,89 @@ export const RealTimeProvider: React.FC<RealTimeProviderProps> = ({ children }) 
   const [updateCount, setUpdateCount] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<RealTimeUpdate | null>(null);
   const subscribersRef = useRef<Set<(update: RealTimeUpdate) => void>>(new Set());
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const connect = useCallback(() => {
+    try {
+      // Get authentication token
+      const token = localStorage.getItem('auth_token');
+      
+      // Build WebSocket URL with token as query parameter
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const wsProtocol = apiBaseUrl.startsWith('https') ? 'wss' : 'ws';
+      const wsHost = apiBaseUrl.replace(/^https?:\/\//, '');
+
+      const baseUrl = `${wsProtocol}://${wsHost}/ws/dashboard`;
+      const wsUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+
+      console.log('WebSocket connecting to:', wsUrl);
+      
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setConnected(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const update: RealTimeUpdate = JSON.parse(event.data);
+          setLastUpdate(update);
+          setUpdateCount(prev => prev + 1);
+          
+          // Notify all subscribers
+          subscribersRef.current.forEach(callback => {
+            try {
+              callback(update);
+            } catch (error) {
+              console.error('Error in real-time update subscriber:', error);
+            }
+          });
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        setConnected(false);
+        wsRef.current = null;
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setConnected(false);
+      };
+
+    } catch (error) {
+      console.error('Failed to connect WebSocket:', error);
+      setConnected(false);
+    }
+  }, []);
+
+  const disconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setConnected(false);
+  }, []);
+
+  // Connect on mount
+  useEffect(() => {
+    connect();
+    
+    return () => {
+      disconnect();
+    };
+  }, [connect, disconnect]);
 
   const handleUpdate = useCallback((update: RealTimeUpdate) => {
     setLastUpdate(update);
@@ -309,10 +392,6 @@ export const RealTimeProvider: React.FC<RealTimeProviderProps> = ({ children }) 
 
   return (
     <RealTimeContext.Provider value={contextValue}>
-      <RealTimeUpdates
-        onUpdate={handleUpdate}
-        onConnectionChange={setConnected}
-      />
       {children}
     </RealTimeContext.Provider>
   );
