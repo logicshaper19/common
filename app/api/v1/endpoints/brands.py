@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import require_admin
-from app.core.service_dependencies import get_brand_service, get_admin_service, get_service_bundle
 from app.core.events import publish_event, EventType
 from app.models.user import User
 from app.schemas.brand import BrandCreate, BrandUpdate, BrandResponse, BrandWithCompany
-from app.core.service_protocols import BrandServiceProtocol, AdminServiceProtocol
+from app.services.brand_service import BrandService
+from app.services.admin import AdminService
 
 router = APIRouter()
 
@@ -21,8 +21,7 @@ router = APIRouter()
 def create_brand(
     brand_data: BrandCreate,
     current_user: User = Depends(require_admin),
-    brand_service: BrandServiceProtocol = Depends(get_brand_service),
-    admin_service: AdminServiceProtocol = Depends(get_admin_service)
+    db: Session = Depends(get_db)
 ):
     """
     Create a new brand with proper dependency injection and event publishing.
@@ -32,6 +31,9 @@ def create_brand(
     - Event-driven architecture for notifications
     - Proper transaction management
     """
+    # Instantiate services
+    brand_service = BrandService(db)
+    admin_service = AdminService(db)
 
     # Verify company exists using injected admin service
     company = admin_service.get_company_by_id(brand_data.company_id)
@@ -164,12 +166,14 @@ def get_company_brands(
     company_id: UUID,
     active_only: bool = Query(True, description="Only return active brands"),
     current_user: User = Depends(require_admin),
-    brand_service: BrandServiceProtocol = Depends(get_brand_service),
-    admin_service: AdminServiceProtocol = Depends(get_admin_service)
+    db: Session = Depends(get_db)
 ):
     """
     Get all brands for a specific company with clean dependency injection.
     """
+    # Instantiate services
+    brand_service = BrandService(db)
+    admin_service = AdminService(db)
 
     # Verify company exists using injected admin service
     company = admin_service.get_company_by_id(company_id)

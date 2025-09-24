@@ -7,7 +7,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+# Removed TrustedHostMiddleware import - ghost architecture
 import time
 
 from app.core.config import settings
@@ -15,7 +15,7 @@ from app.core.database import init_db, get_db
 from app.core.logging import configure_logging, log_request, log_response, get_logger
 from app.core.redis import init_redis, close_redis
 from app.core.documentation import custom_openapi
-from app.core.api_versioning import setup_api_versioning, get_version_manager
+# Removed api_versioning import - ghost architecture
 from app.core.validation import validation_exception_handler
 from app.core.security_headers import SecurityHeadersMiddleware, CORSSecurityMiddleware
 from app.core.correlation_middleware import CorrelationIDMiddleware
@@ -73,9 +73,9 @@ from app.api.enhanced_transformations import router as enhanced_transformations_
 from app.api.transformation_enhanced_v2 import router as transformation_enhanced_v2_router
 from app.api.websocket import router as websocket_router
 from app.services.seed_data import SeedDataService
-from app.core.service_container import get_container, ServiceContainer
-from app.services.event_handlers import initialize_event_handlers
-from app.core.input_validation_middleware import InputValidationMiddleware, SecurityHeadersValidationMiddleware
+# Removed service_container import - ghost architecture
+# from app.services.event_handlers import initialize_event_handlers  # Disabled - ghost architecture
+# Removed InputValidationMiddleware import - ghost architecture
 
 # Configure logging
 configure_logging()
@@ -116,19 +116,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             logger.warning("Redis not available, continuing without caching", error=str(e))
 
-        # Initialize service container
-        try:
-            container = get_container()
-            logger.info("Service container initialized")
-        except Exception as e:
-            logger.warning("Service container initialization failed", error=str(e))
+        # Service container removed - ghost architecture
 
-        # Initialize event handlers
-        try:
-            initialize_event_handlers()
-            logger.info("Event handlers initialized")
-        except Exception as e:
-            logger.warning("Event handlers initialization failed", error=str(e))
+        # Event handlers disabled - ghost architecture
+        # try:
+        #     initialize_event_handlers()
+        #     logger.info("Event handlers initialized")
+        # except Exception as e:
+        #     logger.warning("Event handlers initialization failed", error=str(e))
 
         yield
         
@@ -152,32 +147,11 @@ app = FastAPI(
 # Set custom OpenAPI schema
 app.openapi = lambda: custom_openapi(app)
 
-# Setup API versioning
-setup_api_versioning(app)
+# API versioning removed - ghost architecture
 
-# Add trusted host middleware (first to process requests)
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1", "testserver"]
-)
+# Reduced middleware stack from 9 to 4 essential middlewares
 
-# Add security headers middleware (second to process requests)
-app.add_middleware(SecurityHeadersMiddleware)
-
-# Add input validation middleware (third to process requests)
-app.add_middleware(
-    InputValidationMiddleware,
-    validate_query_params=True,
-    validate_path_params=True,
-    validate_request_body=True,
-    max_request_size=10 * 1024 * 1024,  # 10MB
-    excluded_paths=['/docs', '/redoc', '/openapi.json', '/health', '/metrics']
-)
-
-# Security headers validation middleware - not available in current implementation
-# The SecurityHeadersMiddleware already provides comprehensive security headers
-
-# Add standard CORS middleware (last to process requests, first to add headers)
+# 1. CORS middleware (essential for frontend communication)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
@@ -186,23 +160,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Enhanced CORS middleware - disabled in favor of standard CORS middleware
-# The CORSSecurityMiddleware provides additional security features but may conflict
-# with the standard CORSMiddleware. Enable only if needed for production security.
-# app.add_middleware(
-#     CORSSecurityMiddleware,
-#     allowed_origins=settings.allowed_origins_list,
-#     allow_credentials=True
-# )
+# 2. Security headers middleware (essential for security)
+app.add_middleware(SecurityHeadersMiddleware)
 
-
-# Enhanced middleware with correlation ID support
-
-# Add correlation ID middleware
+# 3. Correlation ID middleware (essential for request tracking)
 app.add_middleware(CorrelationIDMiddleware)
 
-# Add rate limiting middleware
+# 4. Rate limiting middleware (essential for API protection)
 app.add_middleware(RateLimitMiddleware)
+
+# REMOVED MIDDLEWARES (ghost architecture):
+# - TrustedHostMiddleware (use reverse proxy)
+# - InputValidationMiddleware (use Pydantic validation)
+# - CORSSecurityMiddleware (conflicts with CORS)
+# - Custom logging middleware (use structured logging)
 
 # Add confirmation request logging middleware
 @app.middleware("http")
@@ -272,12 +243,9 @@ async def custom_redoc_html():
 
 @app.get("/api/version")
 async def api_version_info():
-    """Get comprehensive API version information."""
-    from app.core.api_versioning import get_version_manager
-    version_manager = get_version_manager()
+    """Get basic API version information."""
     return {
-        "api_version": version_manager.current_version,
-        "supported_versions": version_manager.supported_versions,
+        "api_version": "v1",
         "app_version": settings.app_version,
         "status": "active"
     }

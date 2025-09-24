@@ -76,7 +76,7 @@ class ProductFactory(factory.Factory):
     unit = factory.Iterator(["kg", "tonnes", "liters", "pieces"])
     common_product_id = factory.LazyAttribute(lambda obj: f"TEST-{obj.category.upper()}-{uuid4().hex[:8]}")
     material_breakdown = None
-    price_per_unit = factory.LazyFunction(lambda: Decimal(str(round(fuzzy.FuzzyFloat(0.5, 10.0).fuzz(), 2)))
+    price_per_unit = factory.LazyFunction(lambda: Decimal(str(round(fuzzy.FuzzyFloat(0.5, 10.0).fuzz(), 2))))
     supplier_id = factory.LazyFunction(lambda: str(uuid4()))
 
 
