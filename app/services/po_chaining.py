@@ -4,6 +4,7 @@ Handles automatic creation of child POs when confirming parent POs
 """
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
@@ -632,6 +633,15 @@ class POChainingService:
                 print("🌾 *** CALLING _update_transparency_score METHOD ***")
                 self._update_transparency_score(po, inherited_origin_data)
                 print("🌾 *** FINISHED _update_transparency_score METHOD ***")
+                
+                # ✅ FIX: Transfer batch ownership (3 lines)
+                print("🔄 Transferring batch ownership to buyer company")
+                for batch in harvest_batches:
+                    batch.company_id = po.buyer_company_id
+                    batch.status = 'transferred'
+                    batch.updated_at = datetime.utcnow()
+                    print(f"🔄 Transferred batch {batch.batch_id} to buyer company {po.buyer_company_id}")
+                    logger.info(f"Transferred batch {batch.batch_id} to buyer company {po.buyer_company_id}")
             else:
                 print("❌ No origin data to inherit from harvest batches")
                 logger.warning("No origin data to inherit from harvest batches")
