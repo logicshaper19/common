@@ -18,56 +18,6 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("/{company_id}", response_model=CompanyResponse)
-async def get_company(
-    company_id: UUID,
-    current_user: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get company by ID.
-    
-    Args:
-        company_id: UUID of the company to retrieve
-        current_user: Current authenticated user
-        db: Database session
-        
-    Returns:
-        CompanyResponse: Company details
-        
-    Raises:
-        HTTPException: If company not found or access denied
-    """
-    try:
-        company_service = CompanyService(db)
-        company = company_service.get_company_by_id(company_id)
-        
-        if not company:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Company not found"
-            )
-        
-        # Check if user has access to this company
-        # Admin users can access any company, regular users only their own
-        if current_user.role != "admin" and current_user.company_id != company_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to this company"
-            )
-        
-        return CompanyResponse.from_orm(company)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving company {company_id}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve company"
-        )
-
-
 @router.get("/")
 async def list_companies(
     page: int = 1,

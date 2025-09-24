@@ -18,6 +18,7 @@ from app.core.documentation import custom_openapi
 from app.core.api_versioning import setup_api_versioning, get_version_manager
 from app.core.validation import validation_exception_handler
 from app.core.security_headers import SecurityHeadersMiddleware, CORSSecurityMiddleware
+from app.core.correlation_middleware import CorrelationIDMiddleware
 from app.core.error_handling import (
     CommonHTTPException,
     common_exception_handler,
@@ -166,15 +167,15 @@ app.add_middleware(
 # Add security headers middleware (second to process requests)
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Add input validation middleware (third to process requests) - temporarily disabled
-# app.add_middleware(
-#     InputValidationMiddleware,
-#     validate_query_params=True,
-#     validate_path_params=True,
-#     validate_request_body=True,
-#     max_request_size=10 * 1024 * 1024,  # 10MB
-#     excluded_paths=['/docs', '/redoc', '/openapi.json', '/health', '/metrics']
-# )
+# Add input validation middleware (third to process requests)
+app.add_middleware(
+    InputValidationMiddleware,
+    validate_query_params=True,
+    validate_path_params=True,
+    validate_request_body=True,
+    max_request_size=10 * 1024 * 1024,  # 10MB
+    excluded_paths=['/docs', '/redoc', '/openapi.json', '/health', '/metrics']
+)
 
 # Add security headers validation middleware - temporarily disabled
 # app.add_middleware(SecurityHeadersValidationMiddleware)
@@ -199,7 +200,7 @@ app.add_middleware(
 # Enhanced middleware with correlation ID support
 
 # Add correlation ID middleware
-# app.add_middleware(CorrelationIDMiddleware)
+app.add_middleware(CorrelationIDMiddleware)
 
 # Add rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
