@@ -19,7 +19,7 @@ from app.core.environment_config import (
     Environment as EnvEnum,
     EnvironmentConfig
 )
-from database_config import get_current_database_url
+import os
 
 
 class Settings(BaseSettings):
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # Database
-    database_url: str = Field(default_factory=get_current_database_url, alias="DATABASE_URL")
+    database_url: str = Field(default_factory=lambda: os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/common_platform"), alias="DATABASE_URL")
     database_pool_size: int = Field(default=10, alias="DATABASE_POOL_SIZE")
     database_max_overflow: int = Field(default=20, alias="DATABASE_MAX_OVERFLOW")
     database_pool_timeout: int = Field(default=30, alias="DATABASE_POOL_TIMEOUT")
