@@ -120,7 +120,7 @@ class PurchaseOrder(Base):
     seller_company = relationship("Company", foreign_keys=[seller_company_id], back_populates="purchase_orders_as_seller")
     product = relationship("Product")
     amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
-    batch = relationship("Batch", foreign_keys=[batch_id])  # Batch created on PO confirmation
+    batch = relationship("Batch", foreign_keys=[batch_id], uselist=False)  # Batch created on PO confirmation
     delivery_confirmed_by_user = relationship("User", foreign_keys=[delivery_confirmed_by])
     # confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])  # TODO: Add when column exists
     
