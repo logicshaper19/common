@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Modal } from '../ui/Modal';
+import Modal from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { TextArea } from '../ui/TextArea';
+import TextArea from '../ui/Textarea';
 import { TruckIcon } from '@heroicons/react/24/outline';
 
 interface PurchaseOrder {
@@ -100,7 +100,7 @@ export const DeliveryConfirmationModal: React.FC<DeliveryConfirmationModalProps>
           <TextArea
             label="Delivery Notes (Optional)"
             value={deliveryNotes}
-            onChange={(e) => setDeliveryNotes(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDeliveryNotes(e.target.value)}
             placeholder="Any notes about the delivery condition, quantity verification, or issues..."
             rows={4}
             disabled={isConfirming}
