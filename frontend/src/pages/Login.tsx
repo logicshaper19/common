@@ -34,10 +34,15 @@ const Login: React.FC = () => {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
         console.log('Testing API connectivity to:', apiUrl);
         
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
         const response = await fetch(`${apiUrl}/health`, {
           method: 'GET',
-          timeout: 5000
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           console.log('✅ API server is running and accessible');
@@ -105,29 +110,31 @@ const Login: React.FC = () => {
     try {
       console.log('Attempting login with:', { email: formData.email });
       await login(formData);
-    } catch (error) {
+    } catch (error: unknown) {
       // Enhanced error logging for debugging
       console.error('Login failed - Full error object:', error);
+      
+      const errorObj = error as Error;
       console.error('Error details:', {
-        message: error?.message,
-        stack: error?.stack,
-        cause: error?.cause,
-        name: error?.name
+        message: errorObj?.message,
+        stack: errorObj?.stack,
+        cause: (errorObj as any)?.cause,
+        name: errorObj?.name
       });
       
       // Check if it's a network error
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      if (error instanceof TypeError && errorObj.message.includes('fetch')) {
         console.error('Network fetch failed - check if API server is running');
         console.error('API URL should be:', process.env.REACT_APP_API_URL || 'http://localhost:8000');
       }
       
       // Check for timeout errors
-      if (error?.message?.includes('timeout')) {
+      if (errorObj?.message?.includes('timeout')) {
         console.error('Request timeout - API server may be slow or unresponsive');
       }
       
       // Check for connection errors
-      if (error?.message?.includes('Network Error') || error?.code === 'ERR_NETWORK') {
+      if (errorObj?.message?.includes('Network Error') || (error as any)?.code === 'ERR_NETWORK') {
         console.error('Network connection failed - check if API server is running and accessible');
       }
     } finally {

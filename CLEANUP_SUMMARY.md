@@ -119,3 +119,5 @@ python test_supply_chain_flow.py
 
 The project is now clean, organized, and easy to navigate. All essential functionality is preserved while removing clutter and confusion. The development workflow is streamlined with clear entry points and documentation.
 
+
+

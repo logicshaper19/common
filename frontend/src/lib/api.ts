@@ -19,7 +19,7 @@ export interface ApiError {
   error: {
     code: string;
     message: string;
-    details?: any[];
+    details?: any;
   };
   request_id: string;
   timestamp: string;
@@ -116,7 +116,7 @@ class ApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: `${API_BASE_URL}/api/${API_VERSION}`,
-      timeout: 10000, // Reduced from 30s to 10s for faster failure
+      timeout: 30000, // Increased to 30s for better debugging
       headers: {
         'Content-Type': 'application/json',
       },
