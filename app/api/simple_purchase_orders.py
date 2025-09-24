@@ -385,7 +385,13 @@ def confirm_purchase_order(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user_sync)
 ):
-    """Confirm a purchase order (seller action) with automatic batch creation."""
+    """
+    Confirm a purchase order (seller action) with automatic batch creation.
+    
+    ⚠️  DEPRECATED: This is a simplified endpoint. 
+    For enhanced features including stock fulfillment and origin data inheritance,
+    use the enhanced confirmation endpoint: /api/v1/purchase-orders/{po_id}/confirm
+    """
     logger.info(f"SIMPLE CONFIRMATION ENDPOINT CALLED - PO ID: {purchase_order_id}")
     logger.debug(f"Current user: {current_user.email} (ID: {current_user.id})")
     logger.debug("This is the SIMPLE endpoint without origin data inheritance")
