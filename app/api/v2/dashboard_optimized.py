@@ -39,6 +39,10 @@ async def get_dashboard_config(
         # Combine feature flags with business permissions
         config["permissions"] = permissions
         
+        # IMPORTANT: Override dashboard_type with the correct one from PermissionService
+        # This ensures plantation_grower maps to originator, etc.
+        config["dashboard_type"] = permissions.get("dashboard_type", company_type)
+        
         # Add user info (existing)
         config["user_info"].update({
             "id": str(current_user.user.id),

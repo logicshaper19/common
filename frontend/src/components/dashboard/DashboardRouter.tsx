@@ -111,6 +111,11 @@ const getDashboardV2Layout = (dashboardType: string): React.ReactElement => {
       return <TraderLayout />;
     case 'platform_admin':
       return <PlatformAdminLayout />;
+    case 'auditor':
+    case 'regulator':
+      // For now, use platform admin layout for auditor/regulator roles
+      // TODO: Create dedicated auditor/regulator layouts if needed
+      return <PlatformAdminLayout />;
     default:
       // Fallback to originator for unknown types (more likely to be plantation companies)
       return <OriginatorLayout />;
