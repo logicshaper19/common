@@ -105,17 +105,22 @@ async def get_dashboard_metrics(
         result = db.execute(metrics_query, {"company_id": company_id}).fetchone()
         
         # Get transparency metrics from materialized view if available
-        transparency_query = text("""
-            SELECT 
-                avg_transparency_score,
-                total_confirmed_pos,
-                total_volume,
-                last_calculation_update
-            FROM mv_transparency_metrics
-            WHERE buyer_company_id = :company_id
-        """)
-        
-        transparency_result = db.execute(transparency_query, {"company_id": company_id}).fetchone()
+        transparency_result = None
+        try:
+            transparency_query = text("""
+                SELECT 
+                    avg_transparency_score,
+                    total_confirmed_pos,
+                    total_volume,
+                    last_calculation_update
+                FROM mv_transparency_metrics
+                WHERE buyer_company_id = :company_id
+            """)
+            
+            transparency_result = db.execute(transparency_query, {"company_id": company_id}).fetchone()
+        except Exception as e:
+            logger.warning(f"Materialized view mv_transparency_metrics not available: {str(e)}")
+            # Continue without transparency metrics
         
         return {
             "should_use_v2": True,

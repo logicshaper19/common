@@ -166,7 +166,8 @@ export const useDashboardMetrics = (dashboardType?: string) => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v2/dashboard/metrics/${type}`, {
+      // Use the correct metrics endpoint without appending the type
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v2/dashboard/metrics`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
           'Content-Type': 'application/json',
@@ -174,14 +175,14 @@ export const useDashboardMetrics = (dashboardType?: string) => {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load ${type} metrics: ${response.statusText}`);
+        throw new Error(`Failed to load dashboard metrics: ${response.statusText}`);
       }
 
       const metricsData = await response.json();
       setMetrics(metricsData);
     } catch (err) {
-      console.error(`Error loading ${type} metrics:`, err);
-      setError(err instanceof Error ? err.message : `Failed to load ${type} metrics`);
+      console.error(`Error loading dashboard metrics:`, err);
+      setError(err instanceof Error ? err.message : `Failed to load dashboard metrics`);
     } finally {
       setLoading(false);
     }
