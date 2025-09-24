@@ -51,7 +51,7 @@ class PurchaseOrderMetadata(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    purchase_order = relationship("PurchaseOrder", back_populates="metadata")
+    purchase_order = relationship("PurchaseOrder", back_populates="po_metadata")
 
     # Indexes for metadata queries
     __table_args__ = (

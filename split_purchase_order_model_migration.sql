@@ -134,6 +134,18 @@ CREATE TABLE IF NOT EXISTS po_metadata (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Purchase Order History Table (already exists, but ensure it's properly structured)
+CREATE TABLE IF NOT EXISTS purchase_order_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    purchase_order_id UUID NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    action_type VARCHAR(50) NOT NULL,
+    action_description TEXT NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id),
+    company_id UUID NOT NULL REFERENCES companies(id),
+    changes_data JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Step 2: Migrate existing data to specialized tables
 -- =====================================================
 

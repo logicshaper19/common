@@ -25,7 +25,8 @@ def test_model_files_exist():
         'app/models/purchase_order_confirmation.py',
         'app/models/purchase_order_erp_sync.py',
         'app/models/purchase_order_delivery.py',
-        'app/models/purchase_order_metadata.py'
+        'app/models/purchase_order_metadata.py',
+        'app/models/purchase_order_history.py'
     ]
     
     for file_path in model_files:

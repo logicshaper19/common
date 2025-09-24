@@ -7,6 +7,12 @@ from .brand import Brand
 from .location import Location
 from .gap_action import GapAction
 from .purchase_order import PurchaseOrder
+from .purchase_order_simplified import PurchaseOrder as PurchaseOrderSimplified
+from .purchase_order_confirmation import PurchaseOrderConfirmation
+from .purchase_order_erp_sync import PurchaseOrderERPSync
+from .purchase_order_delivery import PurchaseOrderDelivery
+from .purchase_order_metadata import PurchaseOrderMetadata
+from .purchase_order_history import PurchaseOrderHistory
 from .amendment import Amendment
 from .product import Product
 # BusinessRelationship model removed - using simple relationship checking instead
@@ -35,6 +41,12 @@ __all__ = [
     "Location",
     "GapAction",
     "PurchaseOrder",
+    "PurchaseOrderSimplified",
+    "PurchaseOrderConfirmation",
+    "PurchaseOrderERPSync",
+    "PurchaseOrderDelivery",
+    "PurchaseOrderMetadata",
+    "PurchaseOrderHistory",
     "Amendment",
     "Product",
     # "BusinessRelationship",  # Removed - using simple relationship checking
