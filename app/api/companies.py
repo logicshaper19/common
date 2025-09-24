@@ -125,27 +125,7 @@ async def list_companies(
     )
 
     # Convert companies to standardized format
-    companies_data = []
-    for company in companies:
-        companies_data.append({
-            "id": str(company.id),
-            "name": company.name,
-            "company_type": company.company_type,
-            "email": company.email,
-            "phone": company.phone,
-            "address": company.address_street,
-            "city": company.address_city,
-            "state": company.address_state,
-            "country": company.address_country,
-            "postal_code": company.address_postal_code,
-            "tier_level": company.tier_level,
-            "description": getattr(company, 'description', None),
-            "website": company.website,
-            "is_active": company.is_active,
-            "erp_integration_enabled": company.erp_integration_enabled,
-            "created_at": company.created_at.isoformat(),
-            "updated_at": company.updated_at.isoformat()
-        })
+    companies_data = [transform_company_to_dict(company) for company in companies]
 
     # Debug logging
     logger.info(f"Companies data: {companies_data}")

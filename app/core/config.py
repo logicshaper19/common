@@ -136,7 +136,7 @@ class Settings(BaseSettings):
             raise ValueError("JWT secret key must be at least 32 characters long")
 
         # Check for weak secrets in production
-        env = info.data.get('environment', 'development') if hasattr(info, 'data') else 'development'
+        env = info.data.get('environment', 'development') if (hasattr(info, 'data') and info.data) else 'development'
         if env in ['staging', 'production']:
             weak_secrets = [
                 "your-super-secret-jwt-key-change-in-production",
@@ -154,7 +154,7 @@ class Settings(BaseSettings):
             raise ValueError("Database URL must start with postgresql://, sqlite:///, or mysql://")
 
         # Warn about SQLite in production
-        env = info.data.get('environment', 'development') if hasattr(info, 'data') else 'development'
+        env = info.data.get('environment', 'development') if (hasattr(info, 'data') and info.data) else 'development'
         if env == 'production' and v.startswith('sqlite:///'):
             raise ValueError("SQLite is not recommended for production use")
 
@@ -170,7 +170,7 @@ class Settings(BaseSettings):
     @field_validator('admin_password')
     def validate_admin_password(cls, v, info):
         """Validate admin password."""
-        env = info.data.get('environment', 'development') if hasattr(info, 'data') else 'development'
+        env = info.data.get('environment', 'development') if (hasattr(info, 'data') and info.data) else 'development'
 
         # Require strong password in production
         if env in ['staging', 'production']:
