@@ -22,10 +22,11 @@ class Settings(BaseSettings):
     )
     database_pool_size: int = Field(default=10, alias="DATABASE_POOL_SIZE")
     
-    # Authentication (3 settings)
+    # Authentication (4 settings)
     jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_access_token_expire_minutes: int = Field(default=30, alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES")
+    jwt_refresh_token_expire_days: int = Field(default=7, alias="JWT_REFRESH_TOKEN_EXPIRE_DAYS")
     
     # External Services (3 settings)
     redis_url: str = Field(default="redis://localhost:6379", alias="REDIS_URL")
