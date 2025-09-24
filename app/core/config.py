@@ -240,6 +240,11 @@ class Settings(BaseSettings):
             'timeout': self.circuit_breaker_timeout,
         }
 
+    @property
+    def allowed_origins_list(self) -> List[str]:
+        """Convert comma-separated allowed origins to a list."""
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
     class Config:
         env_file = ".env"
         case_sensitive = False

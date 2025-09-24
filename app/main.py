@@ -174,19 +174,21 @@ app.add_middleware(
     excluded_paths=['/docs', '/redoc', '/openapi.json', '/health', '/metrics']
 )
 
-# Add security headers validation middleware - temporarily disabled
-# app.add_middleware(SecurityHeadersValidationMiddleware)
+# Security headers validation middleware - not available in current implementation
+# The SecurityHeadersMiddleware already provides comprehensive security headers
 
-# Add standard CORS middleware for development (last to process requests, first to add headers)
+# Add standard CORS middleware (last to process requests, first to add headers)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:8080", "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:8000"],
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Add enhanced CORS middleware
+# Enhanced CORS middleware - disabled in favor of standard CORS middleware
+# The CORSSecurityMiddleware provides additional security features but may conflict
+# with the standard CORSMiddleware. Enable only if needed for production security.
 # app.add_middleware(
 #     CORSSecurityMiddleware,
 #     allowed_origins=settings.allowed_origins_list,
