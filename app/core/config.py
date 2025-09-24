@@ -19,7 +19,7 @@ from app.core.environment_config import (
     Environment as EnvEnum,
     EnvironmentConfig
 )
-from database_config import get_current_database_url, get_database_info
+from database_config import get_current_database_url
 
 
 class Settings(BaseSettings):
