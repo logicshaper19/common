@@ -112,11 +112,13 @@ class POBatchIntegrationService:
                 source_purchase_order_id=po.id,
                 creation_type='po_confirmation',
                 creation_context={
+                    "creation_source": "po_confirmation",
                     "po_number": po.po_number,
                     "seller_company_id": str(po.seller_company_id),
                     "buyer_company_id": str(po.buyer_company_id),
                     "confirmed_quantity": float(po.quantity),
-                    "confirmed_unit_price": float(po.unit_price)
+                    "confirmed_unit_price": float(po.unit_price),
+                    "system_version": "1.0"
                 },
                 created_by_user_id=confirming_user_id
             )

@@ -9,6 +9,7 @@ from sqlalchemy import and_
 from app.models.batch_creation_event import BatchCreationEvent
 from app.models.batch import Batch
 from app.models.purchase_order import PurchaseOrder
+from app.schemas.batch_creation import BatchCreationContext, BatchCreationEventCreate
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -35,12 +36,25 @@ class BatchCreationService:
             batch_id: ID of the batch that was created
             source_purchase_order_id: ID of the PO that created this batch (if applicable)
             creation_type: Type of creation event ('po_confirmation', 'manual', 'transformation', etc.)
-            creation_context: Additional context about the creation
+            creation_context: Additional context about the creation (will be validated against schema)
             created_by_user_id: ID of the user who created the batch
             
         Returns:
             Created BatchCreationEvent
         """
+        # Validate creation context against schema to prevent drift
+        if creation_context:
+            try:
+                validated_context = BatchCreationContext(**creation_context)
+                creation_context = validated_context.dict()
+            except Exception as e:
+                logger.warning(f"Invalid creation context provided: {e}")
+                # Use minimal valid context instead of failing
+                creation_context = {
+                    "creation_source": creation_type,
+                    "system_version": "1.0",
+                    "validation_error": str(e)
+                }
         creation_event = BatchCreationEvent(
             batch_id=batch_id,
             source_purchase_order_id=source_purchase_order_id,
