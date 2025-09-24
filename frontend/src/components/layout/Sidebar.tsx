@@ -1,5 +1,6 @@
 /**
  * Sidebar Component - Main navigation sidebar
+ * Single source of truth - all permissions come from backend PermissionService
  */
 import React from 'react';
 import { NavLink } from 'react-router-dom';
@@ -27,9 +28,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 import Button from '../ui/Button';
-import { shouldShowNavigationItem, getDashboardConfig } from '../../utils/permissions';
 import { usePurchaseOrderCount } from '../../hooks/usePurchaseOrderCount';
-import { useDashboardConfig } from '../../hooks/useDashboardConfig';
+import { useDashboardConfig, DashboardPermissions } from '../../hooks/useDashboardConfig';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -40,147 +40,233 @@ interface NavigationItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  requiredRole?: string;
   badge?: string | number;
 }
+
+// Loading skeleton component
+const SidebarSkeleton: React.FC = () => (
+  <div className="space-y-1">
+    <div className="h-8 bg-gray-200 rounded animate-pulse" />
+    <div className="h-6 bg-gray-200 rounded animate-pulse" />
+    <div className="h-6 bg-gray-200 rounded animate-pulse" />
+    <div className="h-6 bg-gray-200 rounded animate-pulse" />
+    <div className="h-6 bg-gray-200 rounded animate-pulse" />
+  </div>
+);
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const { pendingCount } = usePurchaseOrderCount();
-  const { config: backendConfig, loading } = useDashboardConfig();
+  const { config, loading, error } = useDashboardConfig();
   
   if (!user) return null;
   
-  // Use backend config if available and loaded, otherwise fallback to local permissions
-  // This prevents flashing by using frontend config during loading
-  const dashboardConfig = (backendConfig && !loading) ? backendConfig : getDashboardConfig(user);
+  // Get permissions from backend - single source of truth
+  const permissions = config?.permissions || {} as DashboardPermissions;
 
-  // Navigation items with permission-based visibility
+  // Navigation items with backend-driven permissions
   const navigation: NavigationItem[] = [
     {
       name: 'Dashboard',
       href: '/dashboard',
       icon: HomeIcon,
     },
-    // Incoming Purchase Orders - only for users who can confirm POs (sellers)
-    ...(dashboardConfig.can_confirm_po ? [{
-      name: 'Incoming Purchase Orders',
-      href: '/purchase-orders',
-      icon: DocumentTextIcon,
-      badge: pendingCount > 0 ? pendingCount : undefined, // Show count only if there are pending orders
-    }] : []),
-    // Outgoing Purchase Orders - only for users who can create POs (buyers)
-    ...(dashboardConfig.can_create_po ? [{
-      name: 'Outgoing Purchase Orders',
+    // Purchase Order Management - Backend driven
+    ...(permissions.can_create_po ? [{
+      name: 'Create Purchase Order',
       href: '/purchase-orders/outgoing',
-      icon: ArrowRightIcon,
+      icon: DocumentTextIcon,
     }] : []),
-    // Confirmed Purchase Orders - for all users who can view purchase orders
-    ...(dashboardConfig.can_create_po || dashboardConfig.can_confirm_po ? [{
-      name: 'Confirmed Orders',
-      href: '/purchase-orders/confirmed',
-      icon: CheckCircleIcon,
+    ...(permissions.can_confirm_po ? [{
+      name: 'Incoming Purchase Orders',
+      href: '/purchase-orders/incoming',
+      icon: ArrowLeftIcon,
+      badge: pendingCount > 0 ? pendingCount : undefined,
     }] : []),
-    // Products - only for brands, manufacturers and processors (not originators)
-    ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
-      name: 'Products',
-      href: '/products',
-      icon: CubeIcon,
-    }] : []),
-    // Inventory - only for processors, brands and manufacturers (not originators)
-    ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
-      name: 'Inventory',
-      href: '/inventory',
-      icon: ArchiveBoxIcon,
-    }] : []),
-    // Batches - only for processors (not originators)
-    ...(user.company?.company_type === 'processor' ? [{
-      name: 'Batches',
-      href: '/inventory/batches',
-      icon: QueueListIcon,
-    }] : []),
-    // Originator features - only for originator companies
-    ...(dashboardConfig.can_report_farm_data ? [{
+    // Farm Management - Backend driven
+    ...(permissions.can_report_farm_data ? [{
       name: 'Farm Management',
       href: '/originator/farms',
       icon: BuildingOfficeIcon,
     }] : []),
-    ...(dashboardConfig.can_report_farm_data ? [{
+    ...(permissions.can_report_farm_data ? [{
       name: 'Production Tracking',
       href: '/harvest',
       icon: SunIcon,
     }] : []),
-    ...(dashboardConfig.can_manage_certifications ? [{
+    // Certifications - Backend driven
+    ...(permissions.can_manage_certifications ? [{
       name: 'Certifications',
       href: '/originator/certifications',
       icon: ShieldCheckIcon,
     }] : []),
-    // Team management - only for admins and farm managers
-    ...(dashboardConfig.can_manage_team ? [{
-      name: 'Team',
+    // Team Management - Backend driven
+    ...(permissions.can_manage_team ? [{
+      name: 'Team Management',
       href: '/team',
       icon: UserGroupIcon,
     }] : []),
-    // Transparency - visible to most users
-    ...(dashboardConfig.can_view_analytics ? [{
-      name: 'Transparency',
-      href: '/transparency',
-      icon: ChartBarIcon,
+    // Settings - Backend driven
+    ...(permissions.can_manage_settings ? [{
+      name: 'Settings',
+      href: '/settings',
+      icon: Cog6ToothIcon,
     }] : []),
-    // Supplier Onboarding - only for brands and processors (not originators)
-    ...(user.company?.company_type !== 'originator' && user.company?.company_type !== 'plantation_grower' ? [{
-      name: 'Supplier Onboarding',
-      href: '/onboarding',
-      icon: UserPlusIcon,
-    }] : []),
-    // Admin-specific navigation items
-    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
-      name: 'Companies',
-      href: '/companies',
-      icon: BuildingOfficeIcon,
-    }] : []),
-    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
-      name: 'Users',
-      href: '/users',
-      icon: UsersIcon,
-    }] : []),
-    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
-      name: 'System Monitor',
-      href: '/admin/system',
-      icon: ChartBarIcon,
-    }] : []),
-    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
-      name: 'Audit Logs',
-      href: '/admin/audit',
-      icon: DocumentTextIcon,
-    }] : []),
-    ...(user.role === 'admin' || user.role === 'super_admin' ? [{
-      name: 'Support Tickets',
-      href: '/admin/support',
-      icon: UserGroupIcon,
-    }] : []),
-    // Trader-specific features
-    ...(dashboardConfig.can_manage_trader_chain ? [{
-      name: 'Trader Chain',
+    // Trader-specific features - Backend driven
+    ...(permissions.can_manage_trader_chain ? [{
+      name: 'Supply Chain',
       href: '/trader-chain',
       icon: QueueListIcon,
     }] : []),
-    ...(dashboardConfig.can_view_margin_analysis ? [{
+    ...(permissions.can_view_margin_analysis ? [{
       name: 'Margin Analysis',
       href: '/margin-analysis',
       icon: ChartBarIcon,
     }] : []),
-    // Demo features - only for development (commented out for production)
-    // {
-    //   name: 'Confirmation Demo',
-    //   href: '/confirmation-demo',
-    //   icon: BeakerIcon,
-    //   badge: 'New',
-    // },
+    // Analytics - Backend driven
+    ...(permissions.can_view_analytics ? [{
+      name: 'Traceability',
+      href: '/transparency',
+      icon: ChartBarIcon,
+    }] : []),
+    // Admin features - Backend driven
+    ...(permissions.can_audit_companies ? [{
+      name: 'Company Audit',
+      href: '/admin/companies',
+      icon: BuildingOfficeIcon,
+    }] : []),
+    ...(permissions.can_regulate_platform ? [{
+      name: 'Platform Admin',
+      href: '/admin/platform',
+      icon: UsersIcon,
+    }] : []),
   ];
 
-  // Navigation items are already filtered by permissions in the array definition
-  const filteredNavigation = navigation;
+  // Show loading skeleton during API call
+  if (loading) {
+    return (
+      <>
+        {/* Mobile overlay */}
+        {isOpen && (
+          <div
+            className="fixed inset-0 z-40 lg:hidden"
+            onClick={onClose}
+          >
+            <div className="fixed inset-0 bg-neutral-600 bg-opacity-75" />
+          </div>
+        )}
+
+        {/* Sidebar with loading state */}
+        <div
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-neutral-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
+            isOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+        >
+          <div className="flex flex-col h-full">
+            {/* Logo section */}
+            <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+              <div className="flex items-center">
+                <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">C</span>
+                </div>
+                <div className="ml-3">
+                  <h1 className="text-lg font-semibold text-neutral-900">Common</h1>
+                  <p className="text-xs text-neutral-500">Supply Chain Platform</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                aria-label="Close sidebar"
+                className="lg:hidden"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </Button>
+            </div>
+
+            {/* Loading skeleton */}
+            <nav className="flex-1 px-4 pb-4 space-y-1 overflow-y-auto">
+              <div className="mb-6 p-3 bg-neutral-50 rounded-lg">
+                <div className="flex items-center">
+                  <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse" />
+                  <div className="ml-3 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse w-24" />
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-32" />
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-16" />
+                  </div>
+                </div>
+              </div>
+              <SidebarSkeleton />
+            </nav>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <>
+        {/* Mobile overlay */}
+        {isOpen && (
+          <div
+            className="fixed inset-0 z-40 lg:hidden"
+            onClick={onClose}
+          >
+            <div className="fixed inset-0 bg-neutral-600 bg-opacity-75" />
+          </div>
+        )}
+
+        {/* Sidebar with error state */}
+        <div
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-neutral-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
+            isOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+        >
+          <div className="flex flex-col h-full">
+            {/* Logo section */}
+            <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+              <div className="flex items-center">
+                <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">C</span>
+                </div>
+                <div className="ml-3">
+                  <h1 className="text-lg font-semibold text-neutral-900">Common</h1>
+                  <p className="text-xs text-neutral-500">Supply Chain Platform</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                aria-label="Close sidebar"
+                className="lg:hidden"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </Button>
+            </div>
+
+            {/* Error message */}
+            <div className="flex-1 px-4 pb-4 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-red-600 mb-2">Error loading navigation</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="text-sm underline text-primary-600 hover:text-primary-800"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   // Navigation link component
   const NavigationLink: React.FC<{ item: NavigationItem }> = ({ item }) => (
@@ -295,7 +381,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
             {/* Navigation links */}
             <div className="space-y-1">
-              {filteredNavigation.map((item) => (
+              {navigation.map((item) => (
                 <NavigationLink key={item.name} item={item} />
               ))}
             </div>

@@ -1,12 +1,11 @@
 /**
  * React hook for dashboard configuration and feature flags
- * Provides dashboard type, permissions, and feature flag status
+ * Single source of truth - all permissions come from backend PermissionService
  */
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { featureFlags } from '../utils/featureFlags';
 
-export interface DashboardConfig {
+export interface DashboardPermissions {
   can_create_po: boolean;
   can_confirm_po: boolean;
   can_manage_team: boolean;
@@ -19,13 +18,20 @@ export interface DashboardConfig {
   can_report_farm_data?: boolean;
   can_manage_certifications?: boolean;
   dashboard_type: string;
+}
+
+export interface DashboardConfig {
   should_use_v2: boolean;
+  dashboard_type: string;
   feature_flags: Record<string, boolean>;
+  permissions: DashboardPermissions;
   user_info: {
     id: string;
+    email: string;
     role: string;
     company_type: string;
     company_name: string;
+    company_id: string;
   };
 }
 
@@ -52,14 +58,11 @@ export const useDashboardConfig = () => {
       // Get auth token from localStorage
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        console.warn('No authentication token found, falling back to V1 dashboard');
+        console.warn('No authentication token found');
         throw new Error('No authentication token found');
       }
 
-      // Load feature flags from API first
-      await featureFlags.loadFromAPI();
-
-      // Get dashboard configuration
+      // Get complete dashboard configuration from backend (single source of truth)
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v2/dashboard/config`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -69,7 +72,7 @@ export const useDashboardConfig = () => {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          console.warn('Authentication failed for Dashboard V2, falling back to V1');
+          console.warn('Authentication failed for Dashboard V2');
           throw new Error('Authentication failed - please log in again');
         }
         throw new Error(`Failed to load dashboard config: ${response.status} ${response.statusText}`);
@@ -77,63 +80,15 @@ export const useDashboardConfig = () => {
 
       const backendResponse = await response.json();
       
-      // Map backend response to frontend DashboardConfig structure
-      const dashboardConfig: DashboardConfig = {
-        // Map permissions based on user role and company type
-        can_create_po: backendResponse.user_info.role === 'buyer' || 
-                      (backendResponse.user_info.company_type === 'brand' && backendResponse.user_info.role === 'buyer') ||
-                      (backendResponse.user_info.company_type === 'trader' && backendResponse.user_info.role === 'trader'),
-        can_confirm_po: backendResponse.user_info.role === 'seller' || 
-                       backendResponse.user_info.role === 'originator' ||
-                       backendResponse.user_info.company_type === 'plantation_grower' ||
-                       backendResponse.user_info.company_type === 'processor',
-        can_manage_team: backendResponse.user_info.role === 'admin' || 
-                        backendResponse.user_info.role === 'originator' ||
-                        backendResponse.user_info.role === 'plantation_manager',
-        can_view_analytics: true, // Most users can view analytics
-        can_manage_settings: backendResponse.user_info.role === 'admin' || 
-                            backendResponse.user_info.role === 'originator' ||
-                            backendResponse.user_info.role === 'plantation_manager',
-        can_audit_companies: backendResponse.user_info.role === 'auditor',
-        can_regulate_platform: backendResponse.user_info.role === 'admin',
-        can_manage_trader_chain: backendResponse.user_info.company_type === 'trader',
-        can_view_margin_analysis: backendResponse.user_info.company_type === 'trader',
-        can_report_farm_data: backendResponse.user_info.company_type === 'originator' || 
-                             backendResponse.user_info.company_type === 'plantation_grower' ||
-                             backendResponse.user_info.company_type === 'smallholder_cooperative',
-        can_manage_certifications: backendResponse.user_info.company_type === 'originator' || 
-                                  backendResponse.user_info.company_type === 'plantation_grower' ||
-                                  backendResponse.user_info.company_type === 'smallholder_cooperative',
-        dashboard_type: backendResponse.dashboard_type,
-        should_use_v2: backendResponse.should_use_v2,
-        feature_flags: backendResponse.feature_flags,
-        user_info: backendResponse.user_info
-      };
+      // Backend now returns complete config with permissions - no mapping needed!
+      setConfig(backendResponse);
       
-      setConfig(dashboardConfig);
     } catch (err) {
       console.error('Error loading dashboard config:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dashboard config');
       
-      // Fallback to frontend permissions if API fails
-      if (user) {
-        // Import the frontend permissions function
-        const { getDashboardConfig } = await import('../utils/permissions');
-        const frontendConfig = getDashboardConfig(user);
-        
-        setConfig({
-          ...frontendConfig,
-          dashboard_type: user.company?.company_type || 'default',
-          should_use_v2: false, // Disable V2 if API fails
-          feature_flags: {},
-          user_info: {
-            id: user.id,
-            role: user.role,
-            company_type: user.company?.company_type || 'unknown',
-            company_name: user.company?.name || 'Unknown Company'
-          }
-        });
-      }
+      // No fallback to frontend permissions - backend is single source of truth
+      setConfig(null);
     } finally {
       setLoading(false);
     }
@@ -154,9 +109,9 @@ export const useDashboardConfig = () => {
     return config?.dashboard_type || 'default';
   };
 
-  const canPerformAction = (action: keyof DashboardConfig): boolean => {
-    if (!config) return false;
-    return Boolean(config[action]);
+  const canPerformAction = (action: keyof DashboardPermissions): boolean => {
+    if (!config?.permissions) return false;
+    return Boolean(config.permissions[action]);
   };
 
   return {

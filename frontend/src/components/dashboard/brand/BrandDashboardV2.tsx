@@ -271,13 +271,13 @@ export const BrandDashboardV2: React.FC = () => {
             <TeamManagementWidget
               companyId={config.user_info.id}
               userRole={config.user_info.role}
-              canManageTeam={config.can_manage_team}
+              canManageTeam={config.permissions.can_manage_team}
             />
 
             {/* Company Profile */}
             <CompanyProfileWidget
               companyId={config.user_info.id}
-              canManageSettings={config.can_manage_settings}
+              canManageSettings={config.permissions.can_manage_settings}
             />
           </div>
         </div>
