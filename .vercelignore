@@ -1,58 +1,71 @@
-# Ignore files for Vercel deployment
-node_modules/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/
-.mypy_cache/
-.pytest_cache/
-.hypothesis/
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Development files
+# Production builds (except frontend/build)
+backend/
+*.log
+
+# Environment variables (handled by Vercel dashboard)
+.env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.development
+.env.test
+.env.production
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# OS files
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Test files
-tests/
-test_*.py
-*_test.py
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Documentation
-*.md
-docs/
+# Testing
+coverage/
+.nyc_output
+.coverage
+.pytest_cache/
 
-# Database files
+# Database
 *.db
-*.sqlite
 *.sqlite3
 
-# Logs
-logs/
-*.log
+# Misc
+*.tgz
+*.tar.gz
+README.md
+docs/
+tests/

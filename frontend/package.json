@@ -5,6 +5,10 @@
   "description": "Frontend for Common Supply Chain Platform",
   "author": "Common Team",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "dependencies": {
     "@headlessui/react": "^2.2.7",
     "@heroicons/react": "^2.2.0",
@@ -28,13 +32,13 @@
     "react-scripts": "5.0.1",
     "recharts": "^3.1.2",
     "tailwind-merge": "^3.3.1",
-    "typescript": "^4.9.5",
+    "typescript": "^5.3.3",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
-    "vercel-build": "react-scripts build",
+    "build": "CI=false react-scripts build",
+    "vercel-build": "CI=false react-scripts build",
     "test": "react-scripts test",
     "test:coverage": "react-scripts test --coverage --watchAll=false",
     "test:ci": "react-scripts test --coverage --watchAll=false --ci",

@@ -1,19 +1,45 @@
 {
   "version": 2,
+  "functions": {
+    "frontend/**": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "builds": [
     {
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "build",
-        "buildCommand": "npm ci && rm -rf build && npm run build"
+        "distDir": "frontend/build"
       }
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/static/(.*)",
+      "dest": "/frontend/build/static/$1"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/frontend/build/manifest.json"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/frontend/build/favicon.ico"
+    },
+    {
+      "src": "/robots.txt",
+      "dest": "/frontend/build/robots.txt"
+    },
+    {
+      "src": "/(.*\\.(js|css|ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|map))",
       "dest": "/frontend/build/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/build/index.html"
     }
-  ]
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
 }
