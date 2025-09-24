@@ -8,9 +8,7 @@ import structlog
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
-from app.core.service_dependencies import get_sector_service
 from app.core.events import publish_event, EventType
-from app.core.service_protocols import SectorServiceProtocol
 from app.services.sector_service import SectorService
 from app.models.user import User
 from app.schemas.sector import (
@@ -47,9 +45,10 @@ async def get_sectors(
 async def get_sector(
     sector_id: str,
     current_user: User = Depends(get_current_user),
-    sector_service: SectorServiceProtocol = Depends(get_sector_service)
+    db: Session = Depends(get_db)
 ):
     """Get a specific sector by ID with dependency injection."""
+    sector_service = SectorService(db)
     sector = sector_service.get_sector_by_id(sector_id)
     if not sector:
         raise HTTPException(
@@ -163,7 +162,7 @@ async def get_user_sector_info(
 async def create_sector(
     sector_data: SectorCreate,
     current_user: User = Depends(get_current_user),
-    sector_service: SectorServiceProtocol = Depends(get_sector_service)
+    db: Session = Depends(get_db)
 ):
     """Create a new sector (admin only) with event publishing."""
     if current_user.role != "admin":
@@ -171,8 +170,9 @@ async def create_sector(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can create sectors"
         )
-
+    
     # Use context manager for proper transaction handling
+    sector_service = SectorService(db)
     with sector_service:
         sector = sector_service.create_sector(sector_data.dict())
 
