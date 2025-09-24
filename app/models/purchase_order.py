@@ -46,8 +46,9 @@ class PurchaseOrder(Base):
     parent_po_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=True)  # Links to parent PO
     supply_chain_level = Column(Integer, default=1)
     
-    # Unified PO Model - Batch Integration
-    batch_id = Column(UUID(as_uuid=True), ForeignKey("batches.id"), nullable=True)  # Batch created on PO confirmation  # 1=Brand, 2=Trader, 3=Processor, 4=Originator
+    # Unified PO Model - Batch Integration (CIRCULAR DEPENDENCY REMOVED)
+    # REMOVED: batch_id (circular dependency with Batch model)
+    # REMOVED: linked_po_id (creates potential cycles in PO graph)
     is_chain_initiated = Column(Boolean, default=False)  # TRUE if this PO initiated a new chain
     fulfillment_status = Column(String(20), default='pending')  # 'pending', 'partial', 'fulfilled'
     fulfillment_percentage = Column(Integer, default=0)  # 0-100 percentage fulfilled
@@ -56,7 +57,6 @@ class PurchaseOrder(Base):
     # PO State Management (NEW)
     po_state = Column(String(20), default='OPEN')  # 'OPEN', 'PARTIALLY_FULFILLED', 'FULFILLED', 'CLOSED'
     fulfilled_quantity = Column(Numeric(12, 3), default=0)  # Quantity fulfilled from this PO
-    linked_po_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=True)  # For commitment inventory linking
 
     # Additional notes
     notes = Column(Text)
@@ -120,7 +120,7 @@ class PurchaseOrder(Base):
     seller_company = relationship("Company", foreign_keys=[seller_company_id], back_populates="purchase_orders_as_seller")
     product = relationship("Product")
     amendments = relationship("Amendment", back_populates="purchase_order", cascade="all, delete-orphan")
-    batch = relationship("Batch", foreign_keys=[batch_id], uselist=False)  # Batch allocated to fulfill this PO
+    # REMOVED: batch = relationship("Batch", foreign_keys=[batch_id], uselist=False)  # Circular dependency removed
     delivery_confirmed_by_user = relationship("User", foreign_keys=[delivery_confirmed_by])
     # confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])  # TODO: Add when column exists
     
@@ -168,6 +168,19 @@ class PurchaseOrder(Base):
     # Relationships
     compliance_results = relationship("POComplianceResult", back_populates="purchase_order", cascade="all, delete-orphan")
     history_entries = relationship("PurchaseOrderHistory", back_populates="purchase_order", cascade="all, delete-orphan")
+    
+    # Property to access batches through linkage table (no circular dependency)
+    @property
+    def batches(self):
+        """Get all batches linked to this PO through the linkage table."""
+        return [linkage.batch for linkage in self.batch_linkages]
+    
+    @property
+    def primary_batch(self):
+        """Get the primary batch for this PO (first one if multiple)."""
+        if self.batch_linkages:
+            return self.batch_linkages[0].batch
+        return None
 
 
 class PurchaseOrderHistory(Base):

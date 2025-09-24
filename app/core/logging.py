@@ -17,7 +17,7 @@ def configure_logging() -> None:
     try:
         from app.core.config import settings
         debug_mode = settings.debug
-        log_level = "DEBUG" if debug_mode else "INFO"  # Simplified log level
+        log_level = settings.log_level.upper()
     except ImportError:
         # Fallback configuration if settings not available
         debug_mode = True
