@@ -27,6 +27,34 @@ const Login: React.FC = () => {
   useEffect(() => {
     clearError();
     setFormErrors({});
+    
+    // Test API connectivity on mount
+    const testApiConnectivity = async () => {
+      try {
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        console.log('Testing API connectivity to:', apiUrl);
+        
+        const response = await fetch(`${apiUrl}/health`, {
+          method: 'GET',
+          timeout: 5000
+        });
+        
+        if (response.ok) {
+          console.log('✅ API server is running and accessible');
+        } else {
+          console.warn('⚠️ API server responded with status:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ API server connectivity test failed:', error);
+        console.error('This suggests the backend server is not running or not accessible');
+        console.error('Please check:');
+        console.error('1. Is the backend server running? (python -m uvicorn app.main:app --reload)');
+        console.error('2. Is the API URL correct?', process.env.REACT_APP_API_URL || 'http://localhost:8000');
+        console.error('3. Are there any firewall or network issues?');
+      }
+    };
+    
+    testApiConnectivity();
   }, [formData, clearError]);
 
   // Redirect if already authenticated
@@ -75,10 +103,33 @@ const Login: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      console.log('Attempting login with:', { email: formData.email });
       await login(formData);
     } catch (error) {
-      // Error is handled by the auth context
-      console.error('Login failed:', error);
+      // Enhanced error logging for debugging
+      console.error('Login failed - Full error object:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        cause: error?.cause,
+        name: error?.name
+      });
+      
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('Network fetch failed - check if API server is running');
+        console.error('API URL should be:', process.env.REACT_APP_API_URL || 'http://localhost:8000');
+      }
+      
+      // Check for timeout errors
+      if (error?.message?.includes('timeout')) {
+        console.error('Request timeout - API server may be slow or unresponsive');
+      }
+      
+      // Check for connection errors
+      if (error?.message?.includes('Network Error') || error?.code === 'ERR_NETWORK') {
+        console.error('Network connection failed - check if API server is running and accessible');
+      }
     } finally {
       setIsSubmitting(false);
     }

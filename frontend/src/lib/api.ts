@@ -183,16 +183,61 @@ class ApiClient {
   // Generic request method
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
     try {
+      console.log('Making API request:', {
+        method: config.method,
+        url: config.url,
+        baseURL: this.client.defaults.baseURL,
+        fullURL: `${this.client.defaults.baseURL}${config.url}`,
+        headers: config.headers
+      });
+      
       const response = await this.client.request<T>(config);
+      console.log('API response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.config.url
+      });
       return response.data;
     } catch (error: any) {
+      console.error('API request failed:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        config: {
+          method: config.method,
+          url: config.url,
+          baseURL: this.client.defaults.baseURL,
+          timeout: config.timeout
+        },
+        response: error.response ? {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        } : null,
+        request: error.request ? {
+          readyState: error.request.readyState,
+          timeout: error.request.timeout
+        } : null
+      });
+      
       if (error.response?.data) {
         throw new Error(JSON.stringify(error.response.data as ApiError));
       }
+      
+      // Enhanced error information
+      const errorMessage = error.code === 'ECONNABORTED' 
+        ? `Request timeout after ${config.timeout || this.client.defaults.timeout}ms`
+        : error.message || 'Network error occurred';
+        
       throw new Error(JSON.stringify({
         error: {
-          code: 'NETWORK_ERROR',
-          message: 'Network error occurred',
+          code: error.code || 'NETWORK_ERROR',
+          message: errorMessage,
+          details: {
+            originalError: error.message,
+            url: `${this.client.defaults.baseURL}${config.url}`,
+            method: config.method
+          }
         },
         request_id: 'unknown',
         timestamp: new Date().toISOString(),
