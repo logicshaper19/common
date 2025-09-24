@@ -142,7 +142,7 @@ async def init_db():
     """
     try:
         # Import all models to ensure they are registered
-        from app.models import company, user, product, purchase_order, business_relationship, audit_event
+        from app.models import company, user, product, purchase_order, audit_event
 
         # Create all tables
         Base.metadata.create_all(bind=engine)
