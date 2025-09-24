@@ -63,6 +63,7 @@ class Batch(Base):
     batch_metadata = Column(JSONType)  # Additional batch-specific metadata
     
     # Relationships
+    source_purchase_order = relationship("PurchaseOrder", foreign_keys=[source_purchase_order_id], uselist=False)  # Source PO that created this batch
     po_linkages = relationship("POBatchLinkage", back_populates="batch")
     po_allocations = relationship("POFulfillmentAllocation", back_populates="source_batch")
     farm_contributions = relationship("BatchFarmContribution", back_populates="batch")
