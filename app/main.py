@@ -75,7 +75,7 @@ from app.api.enhanced_transformations import router as enhanced_transformations_
 from app.api.transformation_enhanced_v2 import router as transformation_enhanced_v2_router
 from app.api.websocket import router as websocket_router
 from app.services.seed_data import SeedDataService
-from app.core.service_container import get_container
+from app.core.service_container import get_container, ServiceContainer
 from app.services.event_handlers import initialize_event_handlers
 from app.core.input_validation_middleware import InputValidationMiddleware, SecurityHeadersValidationMiddleware
 
@@ -216,9 +216,8 @@ from fastapi.exceptions import RequestValidationError
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(CircuitBreakerError, circuit_breaker_exception_handler)
 app.add_exception_handler(CommonHTTPException, common_exception_handler)
-app.add_exception_handler(Exception, general_exception_handler)
 
-# Add standardized error handler
+# Add standardized error handler for all unhandled exceptions
 @app.exception_handler(Exception)
 async def standardized_exception_handler(request: Request, exc: Exception):
     """Standardized exception handler for all unhandled exceptions."""
@@ -243,31 +242,8 @@ async def standardized_exception_handler(request: Request, exc: Exception):
     return error_handler.to_json_response(error)
 
 
-# Application startup event
-@app.on_event("startup")
-async def startup_event():
-    """Application startup event handler."""
-    logger.info("Starting up application...")
-    
-    # Initialize Redis
-    await init_redis()
-    
-    # Initialize service container
-    service_container = ServiceContainer()
-    service_container.initialize()
-    
-    # Setup API versioning
-    version_manager = get_version_manager()
-    setup_api_versioning(app, version_manager)
-    
-    # Warm up cache
-    try:
-        cache_warm_up()
-        logger.info("Cache warm-up completed")
-    except Exception as e:
-        logger.warning(f"Cache warm-up failed: {e}")
-    
-    logger.info("Application startup completed")
+# Note: Startup logic is handled in the lifespan context manager above
+# Removed duplicate @app.on_event("startup") to avoid conflicts
 
 
 # Custom documentation endpoints
@@ -294,7 +270,14 @@ async def custom_redoc_html():
 @app.get("/api/version")
 async def api_version_info():
     """Get comprehensive API version information."""
-    return get_api_version_info()
+    from app.core.api_versioning import get_version_manager
+    version_manager = get_version_manager()
+    return {
+        "api_version": version_manager.current_version,
+        "supported_versions": version_manager.supported_versions,
+        "app_version": settings.app_version,
+        "status": "active"
+    }
 
 
 # Include routers
