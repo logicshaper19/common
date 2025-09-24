@@ -104,7 +104,24 @@ class POBatchIntegrationService:
                 user_id=confirming_user_id
             )
             
-            # Link PO to batch
+            # Create batch creation event for provenance tracking
+            from app.services.batch_creation_service import BatchCreationService
+            creation_service = BatchCreationService(self.db)
+            creation_service.create_batch_creation_event(
+                batch_id=batch.id,
+                source_purchase_order_id=po.id,
+                creation_type='po_confirmation',
+                creation_context={
+                    "po_number": po.po_number,
+                    "seller_company_id": str(po.seller_company_id),
+                    "buyer_company_id": str(po.buyer_company_id),
+                    "confirmed_quantity": float(po.quantity),
+                    "confirmed_unit_price": float(po.unit_price)
+                },
+                created_by_user_id=confirming_user_id
+            )
+            
+            # Link PO to batch for allocation tracking
             po.batch_id = batch.id
             self.db.commit()
             

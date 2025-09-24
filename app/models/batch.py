@@ -63,7 +63,8 @@ class Batch(Base):
     batch_metadata = Column(JSONType)  # Additional batch-specific metadata
     
     # Relationships
-    # source_purchase_order relationship removed - use audit trail for provenance tracking
+    # source_purchase_order relationship removed - use batch_creation_events for provenance tracking
+    creation_events = relationship("BatchCreationEvent", foreign_keys="BatchCreationEvent.batch_id", cascade="all, delete-orphan")
     po_linkages = relationship("POBatchLinkage", back_populates="batch")
     po_allocations = relationship("POFulfillmentAllocation", back_populates="source_batch")
     farm_contributions = relationship("BatchFarmContribution", back_populates="batch")

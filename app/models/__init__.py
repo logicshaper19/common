@@ -11,6 +11,7 @@ from .amendment import Amendment
 from .product import Product
 # BusinessRelationship model removed - using simple relationship checking instead
 from .batch import Batch
+from .batch_creation_event import BatchCreationEvent
 from .notification import Notification
 from .audit_event import AuditEvent
 from .document import Document, ProxyRelationship, ProxyAction
@@ -38,6 +39,7 @@ __all__ = [
     "Product",
     # "BusinessRelationship",  # Removed - using simple relationship checking
     "Batch",
+    "BatchCreationEvent",
     "Notification",
     "AuditEvent",
     "Document",
