@@ -95,3 +95,5 @@ The API supports CORS for the following origins:
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
+
+

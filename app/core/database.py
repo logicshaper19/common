@@ -39,10 +39,17 @@ if "sqlite" in settings.database_url:
     }
 else:
     # PostgreSQL-specific configuration (including Neon)
-    connect_args = {
-        "sslmode": "require",
-        "connect_timeout": 10,
-    }
+    # Use SSL only for production/remote databases, disable for local development
+    if "localhost" in settings.database_url or "127.0.0.1" in settings.database_url:
+        connect_args = {
+            "sslmode": "disable",
+            "connect_timeout": 10,
+        }
+    else:
+        connect_args = {
+            "sslmode": "require",
+            "connect_timeout": 10,
+        }
     engine_kwargs.update({
         "poolclass": QueuePool,
         "pool_pre_ping": True,  # Validate connections before use

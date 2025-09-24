@@ -173,3 +173,5 @@ docker run -p 3000:3000 common-frontend
 - Check browser console for errors
 - Use network tab to debug API calls
 
+
+
