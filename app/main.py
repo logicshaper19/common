@@ -88,7 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Application lifespan manager.
     """
     # Startup
-    logger.info("Starting Common Supply Chain Platform", version=settings.app_version)
+    logger.info("Starting Common Supply Chain Platform", version="1.0.0")
     
     try:
         # Initialize database
@@ -136,7 +136,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # Create FastAPI application
 app = FastAPI(
     title="Common Supply Chain Platform API",
-    version=settings.app_version,
+    version="1.0.0",
     description="Supply chain transparency platform with unified Purchase Order system",
     docs_url=None,  # Custom docs endpoint
     redoc_url=None,  # Custom redoc endpoint
@@ -246,7 +246,7 @@ async def api_version_info():
     """Get basic API version information."""
     return {
         "api_version": "v1",
-        "app_version": settings.app_version,
+        "app_version": "1.0.0",
         "status": "active"
     }
 
@@ -306,6 +306,6 @@ async def root():
     """
     return {
         "message": "Common Supply Chain Platform API",
-        "version": settings.app_version,
+        "version": "1.0.0",
         "status": "running"
     }

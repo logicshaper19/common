@@ -98,8 +98,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     def _add_security_headers(self, request: Request, response: Response) -> None:
         """Add all security headers to the response."""
         
-        # HTTP Strict Transport Security (HSTS)
-        if request.url.scheme == "https" or settings.force_https:
+        # HTTP Strict Transport Security (HSTS) - only for HTTPS
+        if request.url.scheme == "https":
             hsts_value = f"max-age={self.hsts_max_age}"
             if self.include_subdomains:
                 hsts_value += "; includeSubDomains"
@@ -145,7 +145,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Server"] = "Common API"
         
         # Add custom security headers
-        response.headers["X-API-Version"] = settings.app_version
+        response.headers["X-API-Version"] = "1.0.0"
         response.headers["X-Content-Type-Options"] = "nosniff"
         
         logger.debug("Security headers added", path=request.url.path)
