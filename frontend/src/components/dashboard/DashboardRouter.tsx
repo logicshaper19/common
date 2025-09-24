@@ -101,24 +101,36 @@ export const DashboardRouter: React.FC<DashboardRouterProps> = ({ className = ''
 const getDashboardV2Layout = (dashboardType: string): React.ReactElement => {
   switch (dashboardType) {
     case 'brand':
+    case 'manufacturer':
       return <BrandLayout />;
+    
     case 'processor':
+    case 'refinery_crusher':
+    case 'mill_processor':
       return <ProcessorLayout />;
+    
     case 'originator':
-    case 'plantation_grower':  // Plantation companies use originator dashboard
+    case 'plantation_grower':
+    case 'smallholder_cooperative':
       return <OriginatorLayout />;
+    
     case 'trader':
+    case 'trader_aggregator':
       return <TraderLayout />;
+    
     case 'platform_admin':
       return <PlatformAdminLayout />;
+    
     case 'auditor':
     case 'regulator':
       // For now, use platform admin layout for auditor/regulator roles
       // TODO: Create dedicated auditor/regulator layouts if needed
       return <PlatformAdminLayout />;
+    
     default:
-      // Fallback to originator for unknown types (more likely to be plantation companies)
-      return <OriginatorLayout />;
+      // 🔥 FIXED: Show appropriate dashboard based on user role instead of defaulting
+      console.warn(`Unknown dashboard type: ${dashboardType}, showing legacy dashboard`);
+      return <LegacyDashboard />; // Show legacy dashboard for unknown types
   }
 };
 
