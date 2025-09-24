@@ -231,24 +231,6 @@ const OriginatorLayout: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs */}
-      <nav className="flex" aria-label="Breadcrumb">
-        <ol className="flex items-center space-x-2">
-          <li>
-            <div className="flex items-center">
-              <HomeIcon className="h-4 w-4 text-gray-400" />
-              <span className="ml-2 text-sm text-gray-500">Dashboard</span>
-            </div>
-          </li>
-          <li>
-            <div className="flex items-center">
-              <span className="text-gray-400 mx-2">/</span>
-              <span className="text-sm font-medium text-gray-900">Originator</span>
-            </div>
-          </li>
-        </ol>
-      </nav>
-
       {/* Page header */}
       <div className="md:flex md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
