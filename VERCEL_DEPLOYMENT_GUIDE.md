@@ -22,17 +22,28 @@
 
 ### 2. **Set Up PostgreSQL Database**
 
-**Option A: Vercel Postgres (Recommended)**
+**Option A: Neon (Recommended for Vercel)**
+1. Go to [neon.tech](https://neon.tech)
+2. Sign up with GitHub (easiest for Vercel integration)
+3. Create a new project:
+   - Choose a region close to your users
+   - Select PostgreSQL version (latest recommended)
+4. Get connection details:
+   - Copy the connection string from the "Connect" modal
+   - Enable connection pooling (recommended for Vercel)
+   - Note the password (you'll need it for environment variables)
+
+**Option B: Vercel Postgres**
 1. In Vercel dashboard, go to Storage
 2. Create a new Postgres database
 3. Copy the connection string
 
-**Option B: Supabase**
+**Option C: Supabase**
 1. Go to [supabase.com](https://supabase.com)
 2. Create a new project
 3. Get the connection string from Settings > Database
 
-**Option C: Railway**
+**Option D: Railway**
 1. Go to [railway.app](https://railway.app)
 2. Create a new PostgreSQL service
 3. Copy the connection string
