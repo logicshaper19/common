@@ -44,11 +44,17 @@ export const SectorProvider: React.FC<SectorProviderProps> = ({ children }) => {
 
   const loadAvailableSectors = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const sectors = await sectorApi.getSectors();
       setAvailableSectors(sectors);
     } catch (err) {
       console.error('Failed to load available sectors:', err);
       setError('Failed to load available sectors');
+      // Don't block the app if sectors fail to load
+      setAvailableSectors([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,7 +73,7 @@ export const SectorProvider: React.FC<SectorProviderProps> = ({ children }) => {
     }
   }, [currentSector]);
 
-  // Load available sectors on mount
+  // Load available sectors on mount (non-blocking)
   useEffect(() => {
     loadAvailableSectors();
   }, []);
