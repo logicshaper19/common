@@ -19,6 +19,7 @@ from app.models.user import User
 from app.models.batch import Batch
 from app.schemas.batch import BatchType, BatchStatus
 from app.services.batch import BatchTrackingService
+from app.services.batch_creation_service import BatchCreationService
 from app.schemas.batch import BatchCreate, BatchResponse, BatchListResponse
 from app.core.logging import get_logger
 
@@ -300,7 +301,7 @@ def get_harvest_batches(
                 "parent_batch_ids": batch.parent_batch_ids,
                 "origin_data": batch.origin_data,
                 "certifications": batch.certifications or [],
-                "source_purchase_order_id": batch.batch_metadata.get("purchase_order_id") if batch.batch_metadata else None,
+                "source_purchase_order_id": _get_source_po_id_from_creation_events(batch.id, db),
                 "created_at": batch.created_at.isoformat() if batch.created_at else None,
                 "updated_at": batch.updated_at.isoformat() if batch.updated_at else None,
                 "created_by_user_id": batch.created_by_user_id,
@@ -438,3 +439,23 @@ def get_harvest_traceability(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch harvest traceability"
         )
+
+
+def _get_source_po_id_from_creation_events(batch_id: UUID, db: Session) -> Optional[str]:
+    """
+    Helper function to get source purchase order ID from batch creation events.
+    
+    Args:
+        batch_id: ID of the batch
+        db: Database session
+        
+    Returns:
+        Source purchase order ID as string, or None if not found
+    """
+    try:
+        creation_service = BatchCreationService(db)
+        source_po = creation_service.get_source_purchase_order(batch_id)
+        return str(source_po.id) if source_po else None
+    except Exception as e:
+        logger.warning(f"Failed to get source PO ID for batch {batch_id}: {e}")
+        return None
