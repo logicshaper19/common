@@ -38,8 +38,7 @@ from app.api.auth import router as auth_router
 from app.api.admin import router as admin_router
 from app.api.users import router as users_router
 from app.api.products import router as products_router
-from app.api.v1.purchase_orders import router as purchase_orders_router
-from app.api.simple_purchase_orders import router as simple_purchase_orders_router
+from app.api.purchase_orders import router as purchase_orders_router
 from app.api.simple_relationships import router as simple_relationships_router
 from app.api.traceability import router as traceability_router
 from app.api.transparency_jobs import router as transparency_jobs_router
@@ -65,12 +64,12 @@ from app.api.deterministic_transparency import router as deterministic_transpare
 from app.api.admin_migration import router as admin_migration_router
 from app.api.debug_transparency import router as debug_transparency_router
 from app.api.companies import router as companies_router
-from app.api.dashboard_v2 import router as dashboard_v2_router
+# Removed dashboard_v2 - complex versioning system
 from app.api.dual_chain_transparency import router as dual_chain_transparency_router
 from app.api.transformation_versioning import router as transformation_versioning_router
 from app.api.transformation_enhanced import router as transformation_enhanced_router
 from app.api.enhanced_transformations import router as enhanced_transformations_router
-from app.api.transformation_enhanced_v2 import router as transformation_enhanced_v2_router
+# Removed transformation_enhanced_v2 - complex versioning system
 from app.api.websocket import router as websocket_router
 from app.services.seed_data import SeedDataService
 # Removed service_container import - ghost architecture
@@ -262,7 +261,6 @@ app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(companies_router, prefix="/api/v1/companies", tags=["Companies"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["Purchase Orders"])
-app.include_router(simple_purchase_orders_router, prefix="/api/v1/simple", tags=["Simple Purchase Orders"])
 app.include_router(simple_relationships_router, tags=["Simple Relationships"])
 # app.include_router(confirmation_router, prefix="/api/v1", tags=["Confirmation"])  # Removed to avoid routing conflicts
 app.include_router(traceability_router, prefix="/api/v1", tags=["Traceability"])
@@ -291,9 +289,8 @@ app.include_router(debug_transparency_router, prefix="/api/v1", tags=["Debug Tra
 app.include_router(dual_chain_transparency_router, tags=["Dual-Chain Transparency"])
 app.include_router(transformation_versioning_router, prefix="/api/v1", tags=["Transformation Versioning"])
 app.include_router(transformation_enhanced_router, prefix="/api/v1", tags=["Enhanced Transformations"])
-app.include_router(enhanced_transformations_router, tags=["Enhanced Transformations v2"])
-app.include_router(transformation_enhanced_v2_router, prefix="/api/v2/transformations", tags=["Enhanced Transformations v3"])
-app.include_router(dashboard_v2_router, prefix="/api/v2/dashboard", tags=["Dashboard V2"])
+app.include_router(enhanced_transformations_router, tags=["Enhanced Transformations"])
+# Removed complex v2/v3 versioning systems
 
 # WebSocket endpoints (no prefix)
 app.include_router(websocket_router, tags=["WebSocket"])

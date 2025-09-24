@@ -558,3 +558,110 @@ def approve_purchase_order(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to approve purchase order"
         )
+
+
+# ============================================================================
+# SIMPLE PO-BATCH RELATIONSHIP MANAGEMENT
+# ============================================================================
+
+@router.get("/{po_id}/batches")
+def get_po_batches(
+    po_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Get all batches linked to a purchase order through the linkage table."""
+    try:
+        # Check if user can access this PO
+        if not can_access_purchase_order(po_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this purchase order"
+            )
+        
+        # Get PO to verify it exists
+        po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+        if not po:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Purchase order not found"
+            )
+        
+        # Get batches through linkage table (no circular dependency)
+        from app.models.po_batch_linkage import POBatchLinkage
+        from app.models.batch import Batch
+        
+        linkages = db.query(POBatchLinkage).filter(
+            POBatchLinkage.purchase_order_id == po_id
+        ).all()
+        
+        batches = []
+        for linkage in linkages:
+            batch = db.query(Batch).filter(Batch.id == linkage.batch_id).first()
+            if batch:
+                batches.append({
+                    "batch_id": batch.id,
+                    "batch_number": batch.batch_number,
+                    "quantity_allocated": linkage.quantity_allocated,
+                    "unit": linkage.unit,
+                    "allocation_reason": linkage.allocation_reason,
+                    "created_at": linkage.created_at
+                })
+        
+        return {
+            "purchase_order_id": po_id,
+            "po_number": po.po_number,
+            "batches": batches,
+            "total_batches": len(batches)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting PO batches: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get purchase order batches"
+        )
+
+
+@router.get("/{po_id}/fulfillment-network")
+def get_fulfillment_network(
+    po_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Get complex fulfillment network for a purchase order (when needed)."""
+    try:
+        # Check if user can access this PO
+        if not can_access_purchase_order(po_id, current_user, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to this purchase order"
+            )
+        
+        # Get PO to verify it exists
+        po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+        if not po:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Purchase order not found"
+            )
+        
+        # For now, return a simple response indicating this is for complex networks
+        # In the future, this could be expanded to handle complex fulfillment networks
+        return {
+            "purchase_order_id": po_id,
+            "po_number": po.po_number,
+            "message": "Complex fulfillment network analysis not yet implemented",
+            "note": "Use /batches endpoint for simple batch relationships"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting fulfillment network: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get fulfillment network"
+        )
