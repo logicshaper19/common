@@ -41,19 +41,16 @@ from app.api.products import router as products_router
 from app.api.v1.purchase_orders import router as purchase_orders_router
 from app.api.simple_purchase_orders import router as simple_purchase_orders_router
 from app.api.simple_relationships import router as simple_relationships_router
-# from app.api.confirmation import router as confirmation_router  # Removed to avoid routing conflicts
 from app.api.traceability import router as traceability_router
 from app.api.transparency_jobs import router as transparency_jobs_router
 from app.api.notifications import router as notifications_router
 from app.api.audit import router as audit_router
-# Data access router removed - using simplified authentication instead
 from app.api.transparency_visualization import router as transparency_visualization_router
 from app.api.transparency import router as transparency_router
 from app.api.origin_data import router as origin_data_router
 from app.api.harvest import router as harvest_router
 from app.api.farm_management import router as farm_management_router
 from app.api.v1.access_control import router as access_control_router # Universal access control
-# Business relationships router removed - using simplified relationships instead
 from app.api.batches import router as batches_router
 from app.api.performance import router as performance_router
 from app.api.v1.sectors import router as sectors_router
@@ -209,9 +206,9 @@ app.add_middleware(RateLimitMiddleware)
 @app.middleware("http")
 async def log_confirmation_requests(request: Request, call_next):
     if "confirm" in str(request.url).lower():
-        print(f"🚀 CONFIRMATION REQUEST: {request.method} {request.url}")
-        print(f"🚀 Request path: {request.url.path}")
-        print(f"🚀 Request headers: {dict(request.headers)}")
+        logger.info(f"CONFIRMATION REQUEST: {request.method} {request.url}")
+        logger.debug(f"Request path: {request.url.path}")
+        logger.debug(f"Request headers: {dict(request.headers)}")
     response = await call_next(request)
     return response
 
@@ -302,14 +299,12 @@ app.include_router(traceability_router, prefix="/api/v1", tags=["Traceability"])
 app.include_router(transparency_jobs_router, prefix="/api/v1", tags=["Transparency Jobs"])
 app.include_router(notifications_router, prefix="/api/v1", tags=["Notifications"])
 app.include_router(audit_router, prefix="/api/v1", tags=["Audit"])
-# Data access router removed - using simplified authentication instead
 app.include_router(transparency_visualization_router, prefix="/api/v1", tags=["Transparency Visualization"])
 app.include_router(transparency_router, prefix="/api/v1", tags=["Transparency"])
 app.include_router(origin_data_router, prefix="/api/v1", tags=["Origin Data"])
 app.include_router(harvest_router, prefix="/api", tags=["Harvest"])
 app.include_router(farm_management_router, prefix="/api/v1", tags=["Farm Management"])
 app.include_router(access_control_router, prefix="/api/v1/access-control", tags=["Access Control"])
-# Business relationships router removed - using simplified relationships instead
 app.include_router(batches_router, prefix="/api/v1", tags=["Batch Tracking"])
 app.include_router(performance_router, tags=["Performance"])
 app.include_router(sectors_router, prefix="/api/v1", tags=["Sectors"])

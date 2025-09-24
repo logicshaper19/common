@@ -386,10 +386,9 @@ def confirm_purchase_order(
     current_user: CurrentUser = Depends(get_current_user_sync)
 ):
     """Confirm a purchase order (seller action) with automatic batch creation."""
-    print(f"🔧 SIMPLE CONFIRMATION ENDPOINT CALLED - UNIQUE MARKER 🔧")
-    print(f"🔧 PO ID: {purchase_order_id}")
-    print(f"🔧 Current user: {current_user.email} (ID: {current_user.id})")
-    print(f"🔧 This is the SIMPLE endpoint without origin data inheritance! 🔧")
+    logger.info(f"SIMPLE CONFIRMATION ENDPOINT CALLED - PO ID: {purchase_order_id}")
+    logger.debug(f"Current user: {current_user.email} (ID: {current_user.id})")
+    logger.debug("This is the SIMPLE endpoint without origin data inheritance")
     
     from app.services.po_batch_integration import POBatchIntegrationService
     
