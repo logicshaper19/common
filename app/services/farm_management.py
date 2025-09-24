@@ -14,6 +14,7 @@ from app.models.location import Location
 from app.models.batch import Batch
 from app.models.batch_farm_contribution import BatchFarmContribution
 from app.models.company import Company
+from app.models.user import User
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
