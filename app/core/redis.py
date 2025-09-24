@@ -24,29 +24,47 @@ async def init_redis() -> redis.Redis:
     global redis_client
     
     try:
-        redis_client = redis.from_url(
-            settings.redis_url,
-            encoding="utf-8",
-            decode_responses=True
-        )
+        # Handle Upstash Redis URL format for production
+        redis_url = settings.redis_url
+        
+        # For Upstash Redis, we need to handle the URL format properly
+        if "upstash.io" in redis_url:
+            # Upstash Redis URL format: redis://:password@host:port
+            redis_client = redis.from_url(
+                redis_url,
+                encoding="utf-8",
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                retry_on_timeout=True,
+                health_check_interval=30
+            )
+        else:
+            # Standard Redis connection
+            redis_client = redis.from_url(
+                redis_url,
+                encoding="utf-8",
+                decode_responses=True
+            )
         
         # Test connection
         await redis_client.ping()
-        logger.info("Redis connection established", url=settings.redis_url)
+        logger.info("Redis connection established", url=redis_url)
         
         return redis_client
         
     except Exception as e:
-        logger.error("Failed to connect to Redis", error=str(e))
-        raise
+        logger.warning("Failed to connect to Redis, continuing without cache", error=str(e))
+        # Return None instead of raising to allow app to continue without Redis
+        return None
 
 
-async def get_redis() -> redis.Redis:
+async def get_redis() -> Optional[redis.Redis]:
     """
     Get Redis client instance.
     
     Returns:
-        Redis client
+        Redis client or None if not available
     """
     if redis_client is None:
         await init_redis()

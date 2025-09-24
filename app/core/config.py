@@ -41,9 +41,13 @@ class Settings(BaseSettings):
     database_pool_timeout: int = Field(default=30, alias="DATABASE_POOL_TIMEOUT")
 
     # Redis
-    redis_url: str = Field(..., alias="REDIS_URL")
+    redis_url: str = Field(default="redis://localhost:6379", alias="REDIS_URL")
     redis_pool_size: int = Field(default=10, alias="REDIS_POOL_SIZE")
     redis_timeout: int = Field(default=5, alias="REDIS_TIMEOUT")
+    
+    # Upstash Redis (for production)
+    upstash_redis_rest_url: Optional[str] = Field(default=None, alias="UPSTASH_REDIS_REST_URL")
+    upstash_redis_rest_token: Optional[str] = Field(default=None, alias="UPSTASH_REDIS_REST_TOKEN")
 
     # JWT
     jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
