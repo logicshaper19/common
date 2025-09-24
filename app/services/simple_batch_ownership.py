@@ -25,7 +25,7 @@ class SimpleBatchOwnershipService:
         po_id: Optional[UUID] = None
     ) -> bool:
         """
-        Simple, safe batch ownership transfer.
+        Simple, safe batch ownership transfer with validation.
         
         Args:
             batch_id: ID of the batch to transfer
@@ -36,16 +36,29 @@ class SimpleBatchOwnershipService:
             bool: True if transfer successful, False otherwise
         """
         try:
+            # Validate batch exists and is transferable
             batch = self.db.query(Batch).filter(Batch.id == batch_id).first()
             if not batch:
                 logger.error(f"Batch not found: {batch_id}")
+                return False
+            
+            # Validate batch is in transferable state
+            if batch.status in ['consumed', 'expired', 'recalled']:
+                logger.error(f"Batch {batch_id} cannot be transferred in status: {batch.status}")
+                return False
+            
+            # Validate company exists (basic check)
+            from app.models.company import Company
+            company = self.db.query(Company).filter(Company.id == new_company_id).first()
+            if not company:
+                logger.error(f"Company not found: {new_company_id}")
                 return False
             
             old_company_id = batch.company_id
             
             # Simple ownership transfer
             batch.company_id = new_company_id
-            batch.status = 'allocated'
+            batch.status = 'active'  # Use 'active' status instead of 'allocated'
             batch.updated_at = datetime.utcnow()
             
             # Minimal liability note
@@ -109,7 +122,7 @@ class SimpleBatchOwnershipService:
 
     def complete_delivery(self, batch_id: UUID) -> bool:
         """
-        Mark batch as delivered.
+        Mark batch as delivered (consumed).
         
         Args:
             batch_id: ID of the batch to mark as delivered
@@ -123,7 +136,8 @@ class SimpleBatchOwnershipService:
                 logger.error(f"Batch not found: {batch_id}")
                 return False
             
-            batch.status = 'delivered'
+            # Use 'consumed' status to indicate delivery completion
+            batch.status = 'consumed'
             batch.updated_at = datetime.utcnow()
             
             # Update liability note
@@ -131,7 +145,7 @@ class SimpleBatchOwnershipService:
                 batch.batch_metadata['seller_liable_until_delivery'] = False
                 batch.batch_metadata['delivery_completed_at'] = datetime.utcnow().isoformat()
             
-            logger.info(f"Batch marked as delivered: {batch.batch_id}")
+            logger.info(f"Batch marked as delivered (consumed): {batch.batch_id}")
             return True
             
         except Exception as e:
