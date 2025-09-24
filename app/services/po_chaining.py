@@ -634,18 +634,16 @@ class POChainingService:
                 self._update_transparency_score(po, inherited_origin_data)
                 print("🌾 *** FINISHED _update_transparency_score METHOD ***")
                 
-                # ✅ ENHANCED: Transfer batch ownership with seller liability tracking
-                print("🔄 Transferring batch ownership with seller liability tracking")
-                from app.services.batch_ownership import BatchOwnershipService
-                ownership_service = BatchOwnershipService(self.db)
+                # ✅ SIMPLE: Transfer batch ownership with minimal liability tracking
+                print("🔄 Transferring batch ownership with simple liability tracking")
+                from app.services.simple_batch_ownership import SimpleBatchOwnershipService
+                ownership_service = SimpleBatchOwnershipService(self.db)
                 
                 batch_ids = [batch.id for batch in harvest_batches]
                 transfer_results = ownership_service.transfer_multiple_batches(
                     batch_ids=batch_ids,
                     new_company_id=po.buyer_company_id,
-                    seller_company_id=po.seller_company_id,
-                    po_id=po.id,
-                    reason="purchase_order_confirmation"
+                    po_id=po.id
                 )
                 
                 print(f"🔄 Ownership transfer results: {len(transfer_results['successful_transfers'])} successful, {len(transfer_results['failed_transfers'])} failed")
@@ -664,7 +662,7 @@ class POChainingService:
     
     def _transfer_batch_ownership_for_po(self, po: PurchaseOrder, batch_ids: List[UUID]) -> bool:
         """
-        Transfer batch ownership with seller liability until delivery.
+        Transfer batch ownership with simple liability tracking.
         
         Args:
             po: The purchase order
@@ -673,15 +671,13 @@ class POChainingService:
         Returns:
             bool: True if all transfers successful, False otherwise
         """
-        from app.services.batch_ownership import BatchOwnershipService
+        from app.services.simple_batch_ownership import SimpleBatchOwnershipService
         
-        ownership_service = BatchOwnershipService(self.db)
+        ownership_service = SimpleBatchOwnershipService(self.db)
         transfer_results = ownership_service.transfer_multiple_batches(
             batch_ids=batch_ids,
             new_company_id=po.buyer_company_id,
-            seller_company_id=po.seller_company_id,
-            po_id=po.id,
-            reason="purchase_order_confirmation"
+            po_id=po.id
         )
         
         if transfer_results['failed_transfers']:
@@ -693,7 +689,7 @@ class POChainingService:
 
     def _link_po_to_stock_batches(self, po: PurchaseOrder, stock_batches: List[dict]) -> bool:
         """
-        Link PO to stock batches and transfer ownership with seller liability.
+        Link PO to stock batches and transfer ownership with simple liability tracking.
         
         Args:
             po: The purchase order
@@ -728,7 +724,7 @@ class POChainingService:
             else:
                 logger.warning(f"Batch not found for linking: {batch_id}")
         
-        # Transfer ownership with seller liability
+        # Transfer ownership with simple liability tracking
         if batch_ids:
             return self._transfer_batch_ownership_for_po(po, batch_ids)
         
