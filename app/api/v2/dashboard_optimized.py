@@ -10,6 +10,7 @@ from sqlalchemy import text
 from app.core.database import get_db
 from app.core.auth import get_current_user, CurrentUser
 from app.core.consolidated_feature_flags import consolidated_feature_flags
+from app.services.permissions import PermissionService
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -19,24 +20,39 @@ router = APIRouter(prefix="/api/v2/dashboard", tags=["Dashboard V2 Optimized"])
 
 @router.get("/config")
 async def get_dashboard_config(
+    db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Get optimized dashboard configuration using consolidated feature flags."""
+    """Get complete dashboard configuration using single source of truth."""
     
     try:
         user_role = current_user.user.role
         company_type = current_user.company.company_type
         
-        # Use consolidated feature flag service
+        # Get consolidated feature flags (existing)
         config = consolidated_feature_flags.get_dashboard_config(user_role, company_type)
         
-        # Add user info
+        # ADD: Get business permissions using existing PermissionService
+        permission_service = PermissionService(db)
+        permissions = permission_service.get_user_dashboard_config(current_user.user)
+        
+        # Combine feature flags with business permissions
+        config["permissions"] = permissions
+        
+        # Add user info (existing)
         config["user_info"].update({
             "id": str(current_user.user.id),
             "email": current_user.user.email,
             "company_name": current_user.company.name,
             "company_id": str(current_user.company.id)
         })
+        
+        logger.info(
+            "Dashboard config generated successfully",
+            user_id=str(current_user.user.id),
+            company_type=company_type,
+            permissions_count=len(permissions)
+        )
         
         return config
         

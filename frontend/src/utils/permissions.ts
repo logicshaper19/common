@@ -1,6 +1,7 @@
 /**
  * Frontend permission utilities for role-based access control
- * Mirrors the backend PermissionService logic
+ * NOTE: getDashboardConfig function is deprecated - use backend PermissionService instead
+ * This file is kept for other permission utilities that may still be needed
  */
 
 export interface User {
@@ -234,57 +235,33 @@ export const canManageCertifications = (user: User): boolean => {
 
 /**
  * Get dashboard configuration for a user
+ * @deprecated Use backend PermissionService instead - this creates dual logic
  */
-export const getDashboardConfig = (user: User): DashboardConfig => {
-  return {
-    can_create_po: canCreatePO(user),
-    can_confirm_po: canConfirmPO(user),
-    can_manage_team: canManageTeam(user),
-    can_view_analytics: true, // Most users can view analytics
-    can_manage_settings: canManageSettings(user),
-    can_audit_companies: canAuditCompanies(user),
-    can_regulate_platform: canRegulatePlatform(user),
-    can_manage_trader_chain: canManageTraderChain(user),
-    can_view_margin_analysis: canViewMarginAnalysis(user),
-    can_report_farm_data: canReportFarmData(user),
-    can_manage_certifications: canManageCertifications(user)
-  };
-};
+// export const getDashboardConfig = (user: User): DashboardConfig => {
+//   return {
+//     can_create_po: canCreatePO(user),
+//     can_confirm_po: canConfirmPO(user),
+//     can_manage_team: canManageTeam(user),
+//     can_view_analytics: true, // Most users can view analytics
+//     can_manage_settings: canManageSettings(user),
+//     can_audit_companies: canAuditCompanies(user),
+//     can_regulate_platform: canRegulatePlatform(user),
+//     can_manage_trader_chain: canManageTraderChain(user),
+//     can_view_margin_analysis: canViewMarginAnalysis(user),
+//     can_report_farm_data: canReportFarmData(user),
+//     can_manage_certifications: canManageCertifications(user)
+//   };
+// };
 
 /**
  * Check if user should see a specific navigation item
+ * @deprecated Use backend PermissionService instead - this creates dual logic
  */
+// @deprecated - Use backend PermissionService instead
 export const shouldShowNavigationItem = (user: User, itemKey: string): boolean => {
-  const config = getDashboardConfig(user);
-  
-  switch (itemKey) {
-    case 'purchase-orders':
-      return config.can_create_po || config.can_confirm_po;
-    case 'incoming-orders':
-      return config.can_create_po || config.can_confirm_po;
-    case 'outgoing-orders':
-      return config.can_create_po || config.can_confirm_po;
-    case 'team':
-      return config.can_manage_team;
-    case 'settings':
-      return config.can_manage_settings;
-    case 'transparency':
-      return config.can_view_analytics;
-    case 'audit':
-      return config.can_audit_companies;
-    case 'regulate':
-      return config.can_regulate_platform;
-    case 'trader-chain':
-      return config.can_manage_trader_chain ?? true;
-    case 'margin-analysis':
-      return config.can_view_margin_analysis ?? true;
-    case 'farm-data':
-      return config.can_report_farm_data ?? true;
-    case 'certifications':
-      return config.can_manage_certifications ?? true;
-    default:
-      return true; // Show by default if not specified
-  }
+  // This function is broken and deprecated - use backend permissions instead
+  console.warn('shouldShowNavigationItem is deprecated - use backend PermissionService instead');
+  return false;
 };
 
 /**
