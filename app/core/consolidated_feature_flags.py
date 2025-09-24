@@ -67,12 +67,18 @@ class ConsolidatedFeatureFlagService:
         """
         v2_enabled = self.is_v2_enabled_for_user(user_role, company_type)
         
-        # Map consolidated flags to legacy flags
+        # 🔥 FIXED: More comprehensive company type mapping
         legacy_flags = {
-            "v2_dashboard_brand": v2_enabled and company_type == "brand",
-            "v2_dashboard_processor": v2_enabled and company_type == "processor", 
-            "v2_dashboard_originator": v2_enabled and company_type in ["originator", "plantation_grower"],
-            "v2_dashboard_trader": v2_enabled and company_type == "trader",
+            "v2_dashboard_brand": v2_enabled and company_type in ["brand", "manufacturer"],
+            "v2_dashboard_processor": v2_enabled and company_type in [
+                "processor", "refinery_crusher", "mill_processor"
+            ], 
+            "v2_dashboard_originator": v2_enabled and company_type in [
+                "originator", "plantation_grower", "smallholder_cooperative"
+            ],
+            "v2_dashboard_trader": v2_enabled and company_type in [
+                "trader", "trader_aggregator"
+            ],
             "v2_dashboard_platform_admin": v2_enabled and user_role == "platform_admin",
             "v2_notification_center": v2_enabled and self.company_dashboards
         }
@@ -84,9 +90,12 @@ class ConsolidatedFeatureFlagService:
         v2_enabled = self.is_v2_enabled_for_user(user_role, company_type)
         legacy_flags = self.get_legacy_feature_flags(user_role, company_type)
         
+        # 🔥 FIXED: Proper dashboard type determination
+        dashboard_type = self._determine_dashboard_type(user_role, company_type)
+        
         return {
             "should_use_v2": v2_enabled,
-            "dashboard_type": company_type,
+            "dashboard_type": dashboard_type,  # This drives the frontend routing
             "feature_flags": legacy_flags,
             "user_info": {
                 "role": user_role,
@@ -98,6 +107,27 @@ class ConsolidatedFeatureFlagService:
                 "admin_features": self.admin_features
             }
         }
+    
+    def _determine_dashboard_type(self, user_role: str, company_type: str) -> str:
+        """Determine the appropriate dashboard type for routing."""
+        if user_role == "platform_admin":
+            return "platform_admin"
+        
+        # Map company types to dashboard types
+        type_mapping = {
+            "brand": "brand",
+            "manufacturer": "brand",
+            "processor": "processor", 
+            "refinery_crusher": "processor",
+            "mill_processor": "processor",
+            "originator": "originator",
+            "plantation_grower": "originator",
+            "smallholder_cooperative": "originator",
+            "trader": "trader",
+            "trader_aggregator": "trader"
+        }
+        
+        return type_mapping.get(company_type, "originator")  # Default to originator only if no match
     
     def _get_bool_flag(self, flag_name: str) -> bool:
         """Get boolean flag with caching."""
