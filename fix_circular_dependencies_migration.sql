@@ -20,6 +20,18 @@ BEGIN;
 -- Step 1: Data Migration - Preserve Existing Relationships
 -- Before removing the circular batch_id column, migrate all existing PO-Batch relationships
 -- to the proper po_batch_linkages table
+
+-- Ensure pgcrypto extension is available for UUID generation
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Check if po_batch_linkages table exists before migration
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'po_batch_linkages') THEN
+        RAISE EXCEPTION 'CRITICAL: po_batch_linkages table does not exist. Please run the POBatchLinkage migration first.';
+    END IF;
+END $$;
+
 INSERT INTO po_batch_linkages (
     id, 
     purchase_order_id, 
@@ -59,8 +71,9 @@ END $$;
 -- Step 2: Break the Circular Foreign Key Constraint
 -- Remove the foreign key constraint that prevents deletion of the circular column
 ALTER TABLE purchase_orders DROP CONSTRAINT IF EXISTS purchase_orders_batch_id_fkey;
+ALTER TABLE purchase_orders DROP CONSTRAINT IF EXISTS purchase_orders_linked_po_id_fkey;
 
--- Step 3: Remove the Circular Column
+-- Step 3: Remove the Circular Columns
 -- This is the core fix - removing the direct batch_id foreign key that creates
 -- the circular dependency between purchase_orders and batches
 ALTER TABLE purchase_orders DROP COLUMN IF EXISTS batch_id;

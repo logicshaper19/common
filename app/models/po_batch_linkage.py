@@ -8,6 +8,7 @@ from sqlalchemy import Column, String, Numeric, ForeignKey, DateTime, Text, Inde
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+import uuid
 from app.core.database import Base
 
 
@@ -17,7 +18,7 @@ class POBatchLinkage(Base):
     __tablename__ = "po_batch_linkages"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=func.uuid_generate_v4())
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Foreign keys
     purchase_order_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), nullable=False)
@@ -40,11 +41,18 @@ class POBatchLinkage(Base):
     batch = relationship("Batch", back_populates="po_linkages")
     created_by_user = relationship("User")
     
-    # Indexes for performance
+    # Indexes and constraints for performance and data integrity
     __table_args__ = (
+        # Single column indexes for foreign key lookups
         Index('idx_po_batch_linkage_po_id', 'purchase_order_id'),
         Index('idx_po_batch_linkage_batch_id', 'batch_id'),
         Index('idx_po_batch_linkage_created_at', 'created_at'),
+        
+        # Unique constraint to prevent duplicate PO-Batch relationships
+        Index('idx_po_batch_linkage_unique', 'purchase_order_id', 'batch_id', unique=True),
+        
+        # Composite index for common query patterns (PO + allocation reason)
+        Index('idx_po_batch_linkage_po_reason', 'purchase_order_id', 'allocation_reason'),
     )
     
     def __repr__(self):
