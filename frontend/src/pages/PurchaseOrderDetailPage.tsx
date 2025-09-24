@@ -144,12 +144,12 @@ const PurchaseOrderDetailPage: React.FC = () => {
     }
   };
 
-  const getDeliveryStatusColor = (status: string) => {
+  const getDeliveryStatusColor = (status: string | undefined) => {
     switch (status?.toLowerCase()) {
       case 'delivered':
         return 'success';
       case 'in_transit':
-        return 'info';
+        return 'warning'; // Changed from 'info' to 'warning' since 'info' is not a valid BadgeVariant
       case 'failed':
         return 'error';
       case 'pending':
