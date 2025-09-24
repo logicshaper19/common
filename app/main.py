@@ -65,7 +65,7 @@ from app.api.deterministic_transparency import router as deterministic_transpare
 from app.api.admin_migration import router as admin_migration_router
 from app.api.debug_transparency import router as debug_transparency_router
 from app.api.companies import router as companies_router
-# Removed dashboard_v2 - complex versioning system
+from app.api.v2.dashboard_optimized import router as dashboard_v2_router
 from app.api.dual_chain_transparency import router as dual_chain_transparency_router
 from app.api.transformation_versioning import router as transformation_versioning_router
 from app.api.transformation_enhanced import router as transformation_enhanced_router
@@ -260,6 +260,7 @@ app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(companies_router, prefix="/api/v1/companies", tags=["Companies"])
+app.include_router(dashboard_v2_router, tags=["Dashboard V2"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["Purchase Orders"])
 app.include_router(simple_relationships_router, tags=["Simple Relationships"])

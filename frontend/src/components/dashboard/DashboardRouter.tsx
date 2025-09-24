@@ -105,14 +105,15 @@ const getDashboardV2Layout = (dashboardType: string): React.ReactElement => {
     case 'processor':
       return <ProcessorLayout />;
     case 'originator':
+    case 'plantation_grower':  // Plantation companies use originator dashboard
       return <OriginatorLayout />;
     case 'trader':
       return <TraderLayout />;
     case 'platform_admin':
       return <PlatformAdminLayout />;
     default:
-      // Fallback to brand for unknown types
-      return <BrandLayout />;
+      // Fallback to originator for unknown types (more likely to be plantation companies)
+      return <OriginatorLayout />;
   }
 };
 

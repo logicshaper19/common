@@ -67,7 +67,7 @@ class ConsolidatedFeatureFlagService:
         legacy_flags = {
             "v2_dashboard_brand": v2_enabled and company_type == "brand",
             "v2_dashboard_processor": v2_enabled and company_type == "processor", 
-            "v2_dashboard_originator": v2_enabled and company_type == "originator",
+            "v2_dashboard_originator": v2_enabled and company_type in ["originator", "plantation_grower"],
             "v2_dashboard_trader": v2_enabled and company_type == "trader",
             "v2_dashboard_platform_admin": v2_enabled and user_role == "platform_admin",
             "v2_notification_center": v2_enabled and self.company_dashboards
