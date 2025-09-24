@@ -18,6 +18,22 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+def _get_field_value(company, primary_field: str, fallback_field: str) -> str:
+    """Get field value with fallback, handling empty strings properly."""
+    primary_value = getattr(company, primary_field, None)
+    fallback_value = getattr(company, fallback_field, None)
+    
+    # Return primary value if it exists and is not empty
+    if primary_value and str(primary_value).strip():
+        return str(primary_value).strip()
+    
+    # Return fallback value if it exists and is not empty
+    if fallback_value and str(fallback_value).strip():
+        return str(fallback_value).strip()
+    
+    return None
+
+
 def transform_company_to_dict(company) -> dict:
     """
     Transform a Company model instance to a standardized dictionary format.
@@ -34,11 +50,11 @@ def transform_company_to_dict(company) -> dict:
         "company_type": company.company_type,
         "email": company.email,
         "phone": company.phone,
-        "address": getattr(company, 'address', None) or getattr(company, 'address_street', None),
-        "city": getattr(company, 'city', None) or getattr(company, 'address_city', None),
-        "state": getattr(company, 'state', None) or getattr(company, 'address_state', None),
-        "country": getattr(company, 'country', None) or getattr(company, 'address_country', None),
-        "postal_code": getattr(company, 'postal_code', None) or getattr(company, 'address_postal_code', None),
+        "address": _get_field_value(company, 'address', 'address_street'),
+        "city": _get_field_value(company, 'city', 'address_city'),
+        "state": _get_field_value(company, 'state', 'address_state'),
+        "country": _get_field_value(company, 'country', 'address_country'),
+        "postal_code": _get_field_value(company, 'postal_code', 'address_postal_code'),
         "tier_level": company.tier_level,
         "description": getattr(company, 'description', None),
         "website": company.website,

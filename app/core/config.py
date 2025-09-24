@@ -201,10 +201,6 @@ class Settings(BaseSettings):
 
         return self
 
-    @property
-    def allowed_origins_list(self) -> List[str]:
-        """Convert comma-separated origins string to list."""
-        return [x.strip() for x in self.allowed_origins.split(',')]
 
     @property
     def is_production(self) -> bool:

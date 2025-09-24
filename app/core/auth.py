@@ -68,6 +68,14 @@ def get_current_user_sync(
     # Verify the token
     payload = verify_token(credentials.credentials)
     
+    # Check if token is expired
+    if is_token_expired(credentials.credentials):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     # Extract user ID from token
     user_id_str = payload.get("sub")
     if user_id_str is None:
@@ -141,6 +149,14 @@ async def get_current_user(
     # Verify the token
     payload = verify_token(credentials.credentials)
     
+    # Check if token is expired
+    if is_token_expired(credentials.credentials):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     # Extract user ID from token
     user_id_str = payload.get("sub")
     if user_id_str is None:
@@ -182,10 +198,11 @@ async def get_current_user(
     company = db.query(Company).filter(Company.id == user.company_id).first()
 
     if company is None:
-        logger.error("User's company not found", user_id=user_id_str, company_id=str(user.company_id))
+        logger.warning("Company not found for user", user_id=user_id_str, company_id=str(user.company_id))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User company not found",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
     logger.debug("User authenticated", user_id=user_id_str, email=user.email, role=user.role)
