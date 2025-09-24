@@ -18,6 +18,37 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+def transform_company_to_dict(company) -> dict:
+    """
+    Transform a Company model instance to a standardized dictionary format.
+    
+    Args:
+        company: Company model instance
+        
+    Returns:
+        dict: Standardized company data dictionary
+    """
+    return {
+        "id": str(company.id),
+        "name": company.name,
+        "company_type": company.company_type,
+        "email": company.email,
+        "phone": company.phone,
+        "address": getattr(company, 'address', None) or getattr(company, 'address_street', None),
+        "city": getattr(company, 'city', None) or getattr(company, 'address_city', None),
+        "state": getattr(company, 'state', None) or getattr(company, 'address_state', None),
+        "country": getattr(company, 'country', None) or getattr(company, 'address_country', None),
+        "postal_code": getattr(company, 'postal_code', None) or getattr(company, 'address_postal_code', None),
+        "tier_level": company.tier_level,
+        "description": getattr(company, 'description', None),
+        "website": company.website,
+        "is_active": company.is_active,
+        "erp_integration_enabled": company.erp_integration_enabled,
+        "created_at": company.created_at.isoformat(),
+        "updated_at": company.updated_at.isoformat()
+    }
+
+
 @router.get("/")
 async def list_companies(
     page: int = 1,
@@ -59,25 +90,7 @@ async def list_companies(
                 message="No companies found"
             )
 
-        company_data = {
-            "id": str(company.id),
-            "name": company.name,
-            "company_type": company.company_type,
-            "email": company.email,
-            "phone": company.phone,
-            "address": company.address_street,
-            "city": company.address_city,
-            "state": company.address_state,
-            "country": company.address_country,
-            "postal_code": company.address_postal_code,
-            "tier_level": company.tier_level,
-            "description": getattr(company, 'description', None),
-            "website": company.website,
-            "is_active": company.is_active,
-            "erp_integration_enabled": company.erp_integration_enabled,
-            "created_at": company.created_at.isoformat(),
-            "updated_at": company.updated_at.isoformat()
-        }
+        company_data = transform_company_to_dict(company)
 
         return ResponseBuilder.paginated(
             data=[company_data],
@@ -171,25 +184,7 @@ async def get_company(
         )
 
     # Convert to standardized format
-    company_data = {
-        "id": str(company.id),
-        "name": company.name,
-        "company_type": company.company_type,
-        "email": company.email,
-        "phone": company.phone,
-        "address": company.address,
-        "city": company.city,
-        "state": company.state,
-        "country": company.country,
-        "postal_code": company.postal_code,
-        "tier_level": company.tier_level,
-        "description": company.description,
-        "website": company.website,
-        "is_active": company.is_active,
-        "erp_integration_enabled": company.erp_integration_enabled,
-        "created_at": company.created_at.isoformat(),
-        "updated_at": company.updated_at.isoformat()
-    }
+    company_data = transform_company_to_dict(company)
 
     return ResponseBuilder.success(
         data=company_data,
