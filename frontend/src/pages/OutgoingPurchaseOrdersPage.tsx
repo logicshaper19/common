@@ -9,7 +9,6 @@ import PurchaseOrderTable from '../components/purchase-orders/PurchaseOrderTable
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
-  ArrowRightIcon,
   DocumentTextIcon,
   ClockIcon,
   CheckCircleIcon,
@@ -191,14 +190,11 @@ export const OutgoingPurchaseOrdersPage: React.FC<OutgoingPurchaseOrdersPageProp
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <ArrowRightIcon className="h-8 w-8 text-green-600" />
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Outgoing Purchase Orders</h1>
-              <p className="mt-2 text-gray-600">
-                Purchase orders where your company is the buyer - create child orders from these
-              </p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Outgoing Purchase Orders</h1>
+            <p className="text-gray-600">
+              Purchase orders where your company is the buyer - create child orders from these
+            </p>
           </div>
           <Button
             variant="primary"
