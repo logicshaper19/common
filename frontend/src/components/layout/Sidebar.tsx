@@ -24,6 +24,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircleIcon,
+  CogIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
@@ -88,6 +89,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       name: 'Confirmed Orders',
       href: '/purchase-orders/confirmed',
       icon: CheckCircleIcon,
+    }] : []),
+    // Transformations - Backend driven
+    ...(permissions.can_manage_transformations ? [{
+      name: 'Transformations',
+      href: '/transformations',
+      icon: CogIcon,
+    }] : []),
+    // Inventory Management - Available for all roles that have batches
+    ...(permissions.can_create_po || permissions.can_confirm_po || permissions.can_manage_transformations ? [{
+      name: '📦 Inventory',
+      href: '/inventory',
+      icon: ArchiveBoxIcon,
     }] : []),
     // Farm Management - Backend driven
     ...(permissions.can_report_farm_data ? [{

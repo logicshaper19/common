@@ -56,7 +56,8 @@ const DeliveryTab: React.FC<DeliveryTabProps> = ({ purchaseOrderId, onStatusUpda
     try {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/v1/purchase-orders/${purchaseOrderId}/delivery`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/api/v1/purchase-orders/${purchaseOrderId}/delivery`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -85,7 +86,8 @@ const DeliveryTab: React.FC<DeliveryTabProps> = ({ purchaseOrderId, onStatusUpda
   const fetchHistory = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/v1/purchase-orders/${purchaseOrderId}/delivery/history`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/api/v1/purchase-orders/${purchaseOrderId}/delivery/history`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -109,7 +111,8 @@ const DeliveryTab: React.FC<DeliveryTabProps> = ({ purchaseOrderId, onStatusUpda
     try {
       setUpdating(true);
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/v1/purchase-orders/${purchaseOrderId}/delivery`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/api/v1/purchase-orders/${purchaseOrderId}/delivery`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

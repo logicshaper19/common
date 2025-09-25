@@ -73,6 +73,8 @@ from app.api.dual_chain_transparency import router as dual_chain_transparency_ro
 from app.api.transformation_versioning import router as transformation_versioning_router
 from app.api.transformation_enhanced import router as transformation_enhanced_router
 from app.api.enhanced_transformations import router as enhanced_transformations_router
+from app.api.transformation_dashboard import router as transformation_dashboard_router
+from app.api.inventory import router as inventory_router
 # Removed transformation_enhanced_v2 - complex versioning system
 from app.api.websocket import router as websocket_router
 from app.services.seed_data import SeedDataService
@@ -299,6 +301,8 @@ app.include_router(dual_chain_transparency_router, tags=["Dual-Chain Transparenc
 app.include_router(transformation_versioning_router, prefix="/api/v1", tags=["Transformation Versioning"])
 app.include_router(transformation_enhanced_router, prefix="/api/v1", tags=["Enhanced Transformations"])
 app.include_router(enhanced_transformations_router, tags=["Enhanced Transformations"])
+app.include_router(transformation_dashboard_router, prefix="/api/v1", tags=["Transformation Dashboard"])
+app.include_router(inventory_router, tags=["Inventory"])
 # Removed complex v2/v3 versioning systems
 
 # WebSocket endpoints (no prefix)
