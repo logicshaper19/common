@@ -12,6 +12,7 @@ import Textarea from '../ui/Textarea';
 import Select from '../ui/Select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/Tabs';
 import { useAuth } from '../../contexts/AuthContext';
+import { RoleSpecificTransformationForm } from './RoleSpecificTransformationForm';
 import { 
   BoltIcon, 
   ChartBarIcon, 
@@ -541,111 +542,12 @@ export const EnhancedTransformationManager: React.FC<EnhancedTransformationManag
 
         {/* Create Tab */}
         <TabsContent value="create" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Create Complete Transformation</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="event_id">Event ID</Label>
-                  <Input
-                    id="event_id"
-                    value={newTransformation.event_id}
-                    onChange={(e) => setNewTransformation(prev => ({ ...prev, event_id: e.target.value }))}
-                    placeholder="TRANS-2024-001"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="transformation_type">Transformation Type</Label>
-                  <Select
-                    value={newTransformation.transformation_type}
-                    onChange={(e) => setNewTransformation(prev => ({ ...prev, transformation_type: e.target.value }))}
-                    options={allowedTransformationTypes.length > 0 ? allowedTransformationTypes : [
-                      { label: 'Loading...', value: 'LOADING' }
-                    ]}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="company_id">Company ID</Label>
-                  <Input
-                    id="company_id"
-                    value={newTransformation.company_id}
-                    onChange={(e) => setNewTransformation(prev => ({ ...prev, company_id: e.target.value }))}
-                    placeholder="company-uuid"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="facility_id">Facility ID</Label>
-                  <Input
-                    id="facility_id"
-                    value={newTransformation.facility_id}
-                    onChange={(e) => setNewTransformation(prev => ({ ...prev, facility_id: e.target.value }))}
-                    placeholder="MILL-001"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="quantity">Input Quantity (MT)</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  value={newTransformation.total_input_quantity}
-                  onChange={(e) => setNewTransformation(prev => ({ ...prev, total_input_quantity: parseFloat(e.target.value) }))}
-                  placeholder="1000"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="description">Process Description</Label>
-                <Textarea
-                  id="description"
-                  value={newTransformation.process_description}
-                  onChange={(e) => setNewTransformation(prev => ({ ...prev, process_description: e.target.value }))}
-                  placeholder="Describe the transformation process..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-medium">Automatic Features</h4>
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={newTransformation.auto_apply_template}
-                      onChange={(e) => setNewTransformation(prev => ({ ...prev, auto_apply_template: e.target.checked }))}
-                    />
-                    <span className="text-sm">Auto-apply process template</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={newTransformation.auto_calculate_costs}
-                      onChange={(e) => setNewTransformation(prev => ({ ...prev, auto_calculate_costs: e.target.checked }))}
-                    />
-                    <span className="text-sm">Auto-calculate costs</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={newTransformation.auto_inherit_quality}
-                      onChange={(e) => setNewTransformation(prev => ({ ...prev, auto_inherit_quality: e.target.checked }))}
-                    />
-                    <span className="text-sm">Auto-inherit quality</span>
-                  </label>
-                </div>
-              </div>
-
-              <Button onClick={handleCreateCompleteTransformation} className="w-full">
-                <BoltIcon className="h-4 w-4 mr-2" />
-                Create Complete Transformation
-              </Button>
-            </CardBody>
-          </Card>
+          <RoleSpecificTransformationForm
+            transformationType={newTransformation.transformation_type}
+            onSave={handleCreateCompleteTransformation}
+            onCancel={() => setActiveTab('auto-features')}
+            className="w-full"
+          />
         </TabsContent>
 
         {/* Monitoring Tab */}
