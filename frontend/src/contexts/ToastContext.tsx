@@ -32,18 +32,28 @@ export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastProps[]>([]);
 
   const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+    console.log('Removing toast:', id); // Debug log
+    setToasts(prev => {
+      const filtered = prev.filter(toast => toast.id !== id);
+      console.log('Toasts after removal:', filtered.length); // Debug log
+      return filtered;
+    });
   }, []);
 
   const showToast = useCallback((toast: Omit<ToastProps, 'id' | 'onClose'>) => {
     const id = Math.random().toString(36).substr(2, 9);
+    console.log('Adding toast:', id, toast.title); // Debug log
     const newToast: ToastProps = {
       ...toast,
       id,
       onClose: removeToast
     };
     
-    setToasts(prev => [...prev, newToast]);
+    setToasts(prev => {
+      const updated = [...prev, newToast];
+      console.log('Total toasts after adding:', updated.length); // Debug log
+      return updated;
+    });
   }, [removeToast]);
 
   const showSuccess = useCallback((title: string, message?: string) => {

@@ -2,7 +2,7 @@
  * Toast Notification Component
  * Provides user feedback for actions and errors
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { cn } from '../../lib/utils';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -33,25 +33,38 @@ const Toast: React.FC<ToastProps> = ({
   const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {
-    // Animate in
-    setIsVisible(true);
+    // Use requestAnimationFrame for smooth slide-in animation
+    const slideIn = requestAnimationFrame(() => {
+      setIsVisible(true);
+    });
 
     // Auto-dismiss after duration
+    let timer: NodeJS.Timeout | null = null;
     if (duration > 0) {
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         handleClose();
       }, duration);
-
-      return () => clearTimeout(timer);
     }
+
+    return () => {
+      cancelAnimationFrame(slideIn);
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
   }, [duration]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    if (isLeaving) return; // Prevent multiple close calls
+    
     setIsLeaving(true);
-    setTimeout(() => {
+    const closeTimer = setTimeout(() => {
       onClose(id);
     }, 300); // Match animation duration
-  };
+    
+    // Store timer reference for cleanup if needed
+    return closeTimer;
+  }, [id, onClose, isLeaving]);
 
   const getTypeStyles = () => {
     switch (type) {
@@ -119,11 +132,11 @@ const Toast: React.FC<ToastProps> = ({
   return (
     <div
       className={cn(
-        'max-w-sm w-full border rounded-lg shadow-lg pointer-events-auto transition-all duration-300 ease-in-out',
+        'max-w-sm w-full border rounded-lg shadow-lg pointer-events-auto transition-all duration-300 ease-in-out transform',
         styles.container,
         isVisible && !isLeaving
-          ? 'transform translate-x-0 opacity-100'
-          : 'transform translate-x-full opacity-0'
+          ? 'translate-x-0 opacity-100 scale-100'
+          : 'translate-x-full opacity-0 scale-95'
       )}
     >
       <div className="p-4">
