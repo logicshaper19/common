@@ -201,7 +201,7 @@ const InventoryPage: React.FC = () => {
                     <span className="text-sm text-gray-500">{batch.batch_type}</span>
                   </div>
                   <div className="mt-1 text-sm text-gray-600">
-                    <span>Quantity: {batch.quantity.toLocaleString()} {batch.unit}</span>
+                    <span>Total: {batch.quantity.toLocaleString()} {batch.unit} | Available: {batch.available_quantity.toLocaleString()} | Allocated: {batch.allocated_quantity.toLocaleString()}</span>
                     {batch.location_name && <span className="ml-4">Location: {batch.location_name}</span>}
                     {batch.production_date && (
                       <span className="ml-4">
@@ -299,6 +299,18 @@ const InventoryPage: React.FC = () => {
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-500">Available Quantity</p>
                   <p className="text-2xl font-bold text-gray-900">{summary.available_quantity.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+          
+          <Card>
+            <CardBody className="p-4">
+              <div className="flex items-center">
+                <ClockIcon className="h-8 w-8 text-yellow-600" />
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-500">Allocated Quantity</p>
+                  <p className="text-2xl font-bold text-gray-900">{summary.allocated_quantity.toLocaleString()}</p>
                 </div>
               </div>
             </CardBody>

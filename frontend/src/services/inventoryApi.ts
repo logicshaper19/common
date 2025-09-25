@@ -11,6 +11,8 @@ export interface InventoryBatch {
   product_name?: string;
   product_code?: string;
   quantity: number;
+  available_quantity: number;
+  allocated_quantity: number;
   unit: string;
   status: string;
   production_date: string;
@@ -32,6 +34,7 @@ export interface InventorySummary {
   total_batches: number;
   total_quantity: number;
   available_quantity: number;
+  allocated_quantity: number;
   expiring_soon: number;
   status_breakdown: { [status: string]: number };
   type_breakdown: { [type: string]: number };
@@ -115,16 +118,86 @@ export const inventoryApi = {
       params.append('offset', filters.offset.toString());
     }
 
-    const response = await apiClient.get(`/api/inventory/?${params.toString()}`);
-    return response.data;
+    try {
+      const response = await apiClient.get(`/api/inventory/?${params.toString()}`);
+      
+      // Check if response is successful
+      if (!response.data) {
+        throw new Error('Invalid response from server');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      // Enhanced error handling
+      if (error.response) {
+        // Server responded with error status
+        const status = error.response.status;
+        const message = error.response.data?.detail || error.response.data?.message || 'Server error';
+        
+        switch (status) {
+          case 401:
+            throw new Error('Authentication required. Please log in again.');
+          case 403:
+            throw new Error('Access denied. You do not have permission to view inventory.');
+          case 404:
+            throw new Error('Inventory data not found.');
+          case 422:
+            throw new Error(`Invalid request parameters: ${message}`);
+          case 429:
+            throw new Error('Too many requests. Please wait a moment and try again.');
+          case 500:
+            throw new Error('Server error. Please try again later.');
+          default:
+            throw new Error(`API error (${status}): ${message}`);
+        }
+      } else if (error.request) {
+        // Network error
+        throw new Error('Network error. Please check your connection and try again.');
+      } else {
+        // Other error
+        throw new Error(error.message || 'An unexpected error occurred.');
+      }
+    }
   },
 
   /**
    * Get inventory summary for dashboard
    */
   getInventorySummary: async (): Promise<{ company_id: string; summary: InventorySummary; last_updated: string }> => {
-    const response = await apiClient.get('/api/inventory/summary');
-    return response.data;
+    try {
+      const response = await apiClient.get('/api/inventory/summary');
+      
+      if (!response.data) {
+        throw new Error('Invalid response from server');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      // Enhanced error handling for summary endpoint
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.detail || error.response.data?.message || 'Server error';
+        
+        switch (status) {
+          case 401:
+            throw new Error('Authentication required. Please log in again.');
+          case 403:
+            throw new Error('Access denied. You do not have permission to view inventory summary.');
+          case 404:
+            throw new Error('Inventory summary not found.');
+          case 429:
+            throw new Error('Too many requests. Please wait a moment and try again.');
+          case 500:
+            throw new Error('Server error. Please try again later.');
+          default:
+            throw new Error(`API error (${status}): ${message}`);
+        }
+      } else if (error.request) {
+        throw new Error('Network error. Please check your connection and try again.');
+      } else {
+        throw new Error(error.message || 'An unexpected error occurred.');
+      }
+    }
   },
 
   /**
