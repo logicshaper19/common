@@ -22,6 +22,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
+import { assistantApi } from '../services/assistantApi';
 
 interface Message {
   id: number;
@@ -119,18 +120,28 @@ const AssistantPage: React.FC = () => {
     setInputMessage('');
     setIsLoading(true);
 
-    // TODO: Call AI API here (Step 2)
-    // For now, simulate AI response
-    setTimeout(() => {
+    // Call backend assistant API
+    try {
+      const response = await assistantApi.sendMessage(userMessage.content);
       const assistantMessage: Message = {
         id: Date.now() + 1,
         type: 'assistant',
-        content: `I received your message: "${userMessage.content}". The AI backend will be connected soon! I can help you with supply chain operations, inventory management, purchase orders, traceability, compliance, and more.`,
+        content: response.response,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error getting assistant response:', error);
+      const errorMessage: Message = {
+        id: Date.now() + 1,
+        type: 'assistant',
+        content: "I'm sorry, I'm having trouble connecting to the backend right now. Please try again later.",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -147,37 +158,6 @@ const AssistantPage: React.FC = () => {
   // Landing Screen Component
   const LandingScreen = () => (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header with User Name */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <ChatBubbleLeftRightIcon className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">Common Assistant</h1>
-              <p className="text-sm text-gray-600">Your AI-powered supply chain assistant</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-              <SparklesIcon className="h-4 w-4 text-purple-600" />
-            </div>
-            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-              <UserIcon className="h-4 w-4 text-gray-600" />
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">
-                {user?.name || user?.email || 'User'}
-              </p>
-              <p className="text-xs text-gray-500">
-                {user?.company?.name || 'Company'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         {/* Input Card */}
