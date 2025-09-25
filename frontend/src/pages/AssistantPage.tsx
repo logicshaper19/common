@@ -11,10 +11,10 @@ import {
   ChatBubbleLeftRightIcon,
   UserIcon,
   SparklesIcon,
-  DocumentTextIcon,
-  AcademicCapIcon,
-  CodeBracketIcon,
-  HeartIcon,
+  ChartBarIcon,
+  ShieldCheckIcon,
+  ArchiveBoxIcon,
+  BeakerIcon,
   LightBulbIcon,
   PlusIcon,
   Squares2X2Icon,
@@ -36,31 +36,31 @@ const AssistantPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Suggested actions for the landing screen
+  // Supply chain topics for the landing screen
   const suggestedActions = [
     {
-      id: 'write',
-      label: 'Write',
-      icon: DocumentTextIcon,
-      description: 'Help with documentation and reports'
+      id: 'traceability',
+      label: 'Traceability',
+      icon: ChartBarIcon,
+      description: 'Track products from origin to consumer'
     },
     {
-      id: 'learn',
-      label: 'Learn',
-      icon: AcademicCapIcon,
-      description: 'Understand supply chain concepts'
+      id: 'compliance',
+      label: 'Compliance',
+      icon: ShieldCheckIcon,
+      description: 'EUDR, RSPO, and regulatory requirements'
     },
     {
-      id: 'code',
-      label: 'Code',
-      icon: CodeBracketIcon,
-      description: 'Technical implementation help'
+      id: 'inventory',
+      label: 'Inventory',
+      icon: ArchiveBoxIcon,
+      description: 'Manage batches and stock levels'
     },
     {
-      id: 'life',
-      label: 'Life stuff',
-      icon: HeartIcon,
-      description: 'General productivity tips'
+      id: 'transformation',
+      label: 'Transformation',
+      icon: BeakerIcon,
+      description: 'Processing and manufacturing events'
     },
     {
       id: 'choice',
@@ -92,10 +92,10 @@ const AssistantPage: React.FC = () => {
 
   const handleSuggestedAction = (action: typeof suggestedActions[0]) => {
     const prompts = {
-      write: "Help me write a supply chain compliance report",
-      learn: "Explain how traceability works in our supply chain system",
-      code: "Help me implement a new feature for inventory management",
-      life: "Give me some productivity tips for managing multiple projects",
+      traceability: "Explain how traceability works in our supply chain system",
+      compliance: "Help me understand EUDR and RSPO compliance requirements",
+      inventory: "Show me how to manage inventory batches and stock levels",
+      transformation: "Explain the transformation process for processing events",
       choice: "What's the most important thing I should focus on today?"
     };
     
@@ -145,28 +145,6 @@ const AssistantPage: React.FC = () => {
   // Landing Screen Component
   const LandingScreen = () => (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Top Bar */}
-      <div className="bg-purple-600 h-1"></div>
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <ChatBubbleLeftRightIcon className="h-6 w-6 text-purple-600" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">Common Assistant</h1>
-            <p className="text-sm text-gray-600">Your AI-powered supply chain assistant</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-            <SparklesIcon className="h-4 w-4 text-purple-600" />
-          </div>
-          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-            <UserIcon className="h-4 w-4 text-gray-600" />
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         {/* Greeting */}
@@ -180,34 +158,30 @@ const AssistantPage: React.FC = () => {
         </div>
 
         {/* Input Card */}
-        <div className="w-full max-w-2xl mb-8">
+        <div className="w-full max-w-4xl mb-8">
           <Card className="bg-white border border-gray-200 shadow-sm">
             <CardBody className="p-6">
-              <div className="text-center mb-4">
+              <div className="text-center mb-6">
                 <p className="text-lg text-gray-600">How can I help you today?</p>
               </div>
               
-              <div className="flex items-center space-x-3 mb-4">
-                <Button variant="ghost" size="sm" className="p-2">
+              <div className="flex items-start space-x-3">
+                <Button variant="ghost" size="sm" className="p-2 mt-2">
                   <PlusIcon className="h-4 w-4 text-gray-500" />
                 </Button>
-                <Button variant="ghost" size="sm" className="p-2">
+                <Button variant="ghost" size="sm" className="p-2 mt-2">
                   <Squares2X2Icon className="h-4 w-4 text-gray-500" />
                 </Button>
                 
                 <div className="flex-1">
-                  <Input
+                  <textarea
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && startChat()}
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), startChat())}
                     placeholder="Ask about your supply chain operations..."
-                    className="w-full"
+                    className="w-full min-h-[120px] p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    rows={4}
                   />
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-500">Sonnet 4</span>
-                  <ChevronDownIcon className="h-4 w-4 text-gray-500" />
                 </div>
                 
                 <Button
@@ -215,7 +189,7 @@ const AssistantPage: React.FC = () => {
                   disabled={!inputMessage.trim()}
                   variant="primary"
                   size="sm"
-                  className="p-2"
+                  className="p-2 mt-2"
                 >
                   <PaperAirplaneIcon className="h-4 w-4" />
                 </Button>
@@ -225,7 +199,7 @@ const AssistantPage: React.FC = () => {
         </div>
 
         {/* Suggested Actions */}
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-4xl">
           <div className="flex flex-wrap gap-3 justify-center">
             {suggestedActions.map((action) => (
               <Button
