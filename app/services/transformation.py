@@ -113,7 +113,8 @@ class TransformationService:
         end_date: Optional[date] = None,
         page: int = 1,
         per_page: int = 20,
-        current_user: User = None
+        current_user: User = None,
+        allowed_transformation_types: Optional[List[TransformationType]] = None
     ) -> List[TransformationSummaryResponse]:
         """List transformation events with filtering and pagination."""
         try:
@@ -122,6 +123,10 @@ class TransformationService:
             # Apply filters
             if company_id:
                 query = query.filter(TransformationEvent.company_id == company_id)
+            
+            # ROLE-BASED FILTERING: Only show transformation types allowed for this company type
+            if allowed_transformation_types:
+                query = query.filter(TransformationEvent.transformation_type.in_(allowed_transformation_types))
             
             if transformation_type:
                 query = query.filter(TransformationEvent.transformation_type == transformation_type)
@@ -807,20 +812,32 @@ class TransformationService:
             )
             self.db.add(mapping)
     
-    async def count_transformations_by_company(self, company_id: UUID) -> int:
-        """Count total transformations for a company."""
-        return self.db.query(TransformationEvent).filter(
+    async def count_transformations_by_company(self, company_id: UUID, allowed_transformation_types: Optional[List[TransformationType]] = None) -> int:
+        """Count total transformations for a company, optionally filtered by allowed transformation types."""
+        query = self.db.query(TransformationEvent).filter(
             TransformationEvent.company_id == company_id
-        ).count()
+        )
+        
+        # Apply role-based filtering if provided
+        if allowed_transformation_types:
+            query = query.filter(TransformationEvent.transformation_type.in_(allowed_transformation_types))
+        
+        return query.count()
     
-    async def count_transformations_by_status(self, company_id: UUID, status: TransformationStatus) -> int:
-        """Count transformations by status for a company."""
-        return self.db.query(TransformationEvent).filter(
+    async def count_transformations_by_status(self, company_id: UUID, status: TransformationStatus, allowed_transformation_types: Optional[List[TransformationType]] = None) -> int:
+        """Count transformations by status for a company, optionally filtered by allowed transformation types."""
+        query = self.db.query(TransformationEvent).filter(
             and_(
                 TransformationEvent.company_id == company_id,
                 TransformationEvent.status == status
             )
-        ).count()
+        )
+        
+        # Apply role-based filtering if provided
+        if allowed_transformation_types:
+            query = query.filter(TransformationEvent.transformation_type.in_(allowed_transformation_types))
+        
+        return query.count()
 
     async def _get_transformation_response(self, transformation_id: UUID) -> TransformationEventResponse:
         """Get transformation event response."""
