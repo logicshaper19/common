@@ -157,44 +157,67 @@ const AssistantPage: React.FC = () => {
 
   // Landing Screen Component
   const LandingScreen = () => (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 via-purple-50/30 to-gray-100 relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute top-20 left-20 w-32 h-32 bg-purple-400 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 right-20 w-40 h-40 bg-purple-300 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/3 w-24 h-24 bg-purple-500 rounded-full blur-2xl"></div>
+      </div>
+      
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
         {/* Input Card */}
         <div className="w-full max-w-4xl mb-8">
-          <Card className="bg-white border border-gray-200 shadow-sm">
-            <CardBody className="p-6">
-              <div className="text-center mb-6">
-                <p className="text-lg text-gray-600">How can I help you today?</p>
+          <Card className="bg-white/80 backdrop-blur-sm border border-white/20 shadow-2xl shadow-purple-500/10 hover:shadow-purple-500/20 transition-all duration-300">
+            <CardBody className="p-8">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-purple-700 bg-clip-text text-transparent mb-2">
+                  How can I help you today?
+                </h1>
+                <p className="text-gray-500 text-sm">Ask me anything about your supply chain operations</p>
               </div>
               
-              <div className="flex items-start space-x-3">
-                <Button variant="ghost" size="sm" className="p-2 mt-2">
-                  <PlusIcon className="h-4 w-4 text-gray-500" />
-                </Button>
-                <Button variant="ghost" size="sm" className="p-2 mt-2">
-                  <Squares2X2Icon className="h-4 w-4 text-gray-500" />
-                </Button>
+              <div className="flex items-start space-x-4">
+                <div className="flex flex-col space-y-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="p-3 hover:bg-purple-50 hover:text-purple-600 transition-all duration-200 rounded-xl"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="p-3 hover:bg-purple-50 hover:text-purple-600 transition-all duration-200 rounded-xl"
+                  >
+                    <Squares2X2Icon className="h-5 w-5" />
+                  </Button>
+                </div>
                 
-                <div className="flex-1">
+                <div className="flex-1 relative">
                   <textarea
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), startChat())}
                     placeholder="Ask about your supply chain operations..."
-                    className="w-full min-h-[120px] p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full min-h-[140px] p-6 border-2 border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 bg-white/50 backdrop-blur-sm text-gray-800 placeholder-gray-400"
                     rows={4}
                   />
+                  <div className="absolute bottom-3 right-3 text-xs text-gray-400">
+                    Press Enter to send, Shift+Enter for new line
+                  </div>
                 </div>
                 
                 <Button
                   onClick={() => startChat()}
                   disabled={!inputMessage.trim()}
                   variant="primary"
-                  size="sm"
-                  className="p-2 mt-2"
+                  size="lg"
+                  className="p-4 mt-2 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:transform-none"
                 >
-                  <PaperAirplaneIcon className="h-4 w-4" />
+                  <PaperAirplaneIcon className="h-5 w-5" />
                 </Button>
               </div>
             </CardBody>
@@ -203,18 +226,34 @@ const AssistantPage: React.FC = () => {
 
         {/* Suggested Actions */}
         <div className="w-full max-w-4xl">
-          <div className="flex flex-wrap gap-3 justify-center">
-            {suggestedActions.map((action) => (
-              <Button
+          <div className="text-center mb-6">
+            <h2 className="text-lg font-semibold text-gray-700 mb-2">Quick Actions</h2>
+            <p className="text-sm text-gray-500">Choose a topic to get started</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {suggestedActions.map((action, index) => (
+              <div
                 key={action.id}
-                variant="outline"
-                size="sm"
+                className="group cursor-pointer"
                 onClick={() => handleSuggestedAction(action)}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50"
+                style={{ animationDelay: `${index * 100}ms` }}
               >
-                <action.icon className="h-4 w-4 text-gray-600" />
-                <span className="text-gray-700">{action.label}</span>
-              </Button>
+                <div className="bg-white/70 backdrop-blur-sm border border-white/30 rounded-2xl p-6 hover:bg-white/90 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/10 transform hover:scale-105 transition-all duration-300 group-hover:border-purple-300">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl group-hover:from-purple-200 group-hover:to-purple-300 transition-all duration-300">
+                      <action.icon className="h-6 w-6 text-purple-600 group-hover:text-purple-700" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-800 group-hover:text-purple-700 transition-colors duration-200">
+                        {action.label}
+                      </h3>
+                      <p className="text-sm text-gray-500 group-hover:text-gray-600 transition-colors duration-200">
+                        {action.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -224,15 +263,17 @@ const AssistantPage: React.FC = () => {
 
   // Chat Screen Component
   const ChatScreen = () => (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 via-purple-50/20 to-gray-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 px-6 py-4 shadow-sm">
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-purple-100 rounded-lg">
+          <div className="p-2 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl shadow-sm">
             <ChatBubbleLeftRightIcon className="h-6 w-6 text-purple-600" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Common Assistant</h1>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-purple-700 bg-clip-text text-transparent">
+              Common Assistant
+            </h1>
             <p className="text-sm text-gray-600">Your AI-powered supply chain assistant</p>
           </div>
         </div>
@@ -259,10 +300,10 @@ const AssistantPage: React.FC = () => {
               
               <div
                 className={cn(
-                  "max-w-[70%] rounded-lg px-4 py-3",
+                  "max-w-[70%] rounded-2xl px-6 py-4 shadow-sm",
                   message.type === 'user'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white border border-gray-200 text-gray-900'
+                    ? 'bg-gradient-to-br from-purple-600 to-purple-700 text-white shadow-purple-500/20'
+                    : 'bg-white/80 backdrop-blur-sm border border-white/30 text-gray-900 shadow-gray-500/10'
                 )}
               >
                 <div className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -270,7 +311,7 @@ const AssistantPage: React.FC = () => {
                 </div>
                 <div
                   className={cn(
-                    "text-xs mt-2",
+                    "text-xs mt-3 opacity-70",
                     message.type === 'user' ? 'text-purple-100' : 'text-gray-500'
                   )}
                 >
@@ -291,18 +332,18 @@ const AssistantPage: React.FC = () => {
           {isLoading && (
             <div className="flex gap-3 justify-start">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-purple-200 rounded-full flex items-center justify-center shadow-sm">
                   <SparklesIcon className="h-4 w-4 text-purple-600" />
                 </div>
               </div>
-              <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-                <div className="flex items-center space-x-2">
+              <div className="bg-white/80 backdrop-blur-sm border border-white/30 rounded-2xl px-6 py-4 shadow-sm">
+                <div className="flex items-center space-x-3">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
-                  <span className="text-sm text-gray-500">Thinking...</span>
+                  <span className="text-sm text-gray-600 font-medium">Thinking...</span>
                 </div>
               </div>
             </div>
@@ -312,30 +353,36 @@ const AssistantPage: React.FC = () => {
       </div>
 
       {/* Input Area */}
-      <div className="bg-white border-t border-gray-200 px-6 py-4">
+      <div className="bg-white/80 backdrop-blur-sm border-t border-white/20 px-6 py-6 shadow-lg">
         <div className="max-w-4xl mx-auto">
-          <div className="flex gap-3">
+          <div className="flex gap-4 items-end">
             <div className="flex-1">
-              <Input
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask about your supply chain operations..."
-                disabled={isLoading}
-                className="w-full"
-              />
+              <div className="relative">
+                <textarea
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Ask about your supply chain operations..."
+                  disabled={isLoading}
+                  className="w-full min-h-[60px] max-h-[120px] p-4 border-2 border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 bg-white/70 backdrop-blur-sm text-gray-800 placeholder-gray-400 disabled:opacity-50"
+                  rows={2}
+                />
+                <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+                  {inputMessage.length > 0 && `${inputMessage.length} chars`}
+                </div>
+              </div>
             </div>
             <Button
               onClick={() => sendMessage()}
               disabled={isLoading || !inputMessage.trim()}
               variant="primary"
-              size="md"
-              leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
+              size="lg"
+              className="px-6 py-4 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:transform-none"
             >
-              Send
+              <PaperAirplaneIcon className="h-5 w-5" />
             </Button>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
+          <p className="text-xs text-gray-500 mt-3 text-center">
             Press Enter to send, Shift+Enter for new line
           </p>
         </div>
