@@ -31,6 +31,7 @@ import LoadingSpinner from '../ui/LoadingSpinner';
 import AnalyticsCard from '../ui/AnalyticsCard';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDate } from '../../lib/utils';
+import { farmApi } from '../../services/farmApi';
 
 interface FarmInformation {
   id: string;
@@ -227,71 +228,15 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
       setIsLoading(true);
       setError(null);
       
-      // TODO: Replace with actual API call
-      // Simulated data for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use actual API call instead of mock data
+      const response = await farmApi.getCompanyFarms(companyId);
+      const farms = response.farms;
       
-      const mockFarms: FarmInformation[] = [
-        {
-          id: '1',
-          farm_id: 'FARM-KAL-001',
-          farm_name: 'Kalimantan Estate Block A',
-          farm_size_hectares: 250.5,
-          establishment_year: 2010,
-          owner_name: 'PT Kalimantan Plantation',
-          owner_contact: '+62-123-456-7890',
-          plantation_type: 'own_estate',
-          cultivation_methods: ['sustainable', 'integrated_pest', 'water_conservation'],
-          gps_coordinates: { latitude: -2.5489, longitude: 118.0149 },
-          soil_type: 'Peat soil',
-          irrigation_system: 'Drip irrigation',
-          annual_production_capacity: 5000,
-          certification_status: ['RSPO', 'NDPE'],
-          compliance_status: 'verified',
-          last_updated: '2025-01-10T10:30:00Z',
-          is_active: true
-        },
-        {
-          id: '2',
-          farm_id: 'FARM-SUM-001',
-          farm_name: 'Sumatra Smallholder Cooperative',
-          farm_size_hectares: 125.0,
-          establishment_year: 2015,
-          owner_name: 'Cooperative Sumatra Sejahtera',
-          owner_contact: '+62-987-654-3210',
-          plantation_type: 'smallholder',
-          cultivation_methods: ['organic', 'biodiversity', 'agroforestry'],
-          gps_coordinates: { latitude: -0.7893, longitude: 113.9213 },
-          soil_type: 'Mineral soil',
-          irrigation_system: 'Rain-fed',
-          annual_production_capacity: 2500,
-          certification_status: ['ISPO', 'Rainforest Alliance'],
-          compliance_status: 'verified',
-          last_updated: '2025-01-09T14:20:00Z',
-          is_active: true
-        },
-        {
-          id: '3',
-          farm_id: 'FARM-KAL-002',
-          farm_name: 'Kalimantan Estate Block B',
-          farm_size_hectares: 180.3,
-          establishment_year: 2012,
-          owner_name: 'PT Kalimantan Plantation',
-          owner_contact: '+62-123-456-7890',
-          plantation_type: 'own_estate',
-          cultivation_methods: ['sustainable', 'precision_agriculture'],
-          gps_coordinates: { latitude: -1.2379, longitude: 116.8227 },
-          soil_type: 'Mineral soil',
-          irrigation_system: 'Sprinkler system',
-          annual_production_capacity: 3600,
-          certification_status: ['RSPO'],
-          compliance_status: 'pending',
-          last_updated: '2025-01-08T09:15:00Z',
-          is_active: false
-        }
-      ];
-      
-      setFarms(mockFarms);
+      setFarms(farms);
+      setTotalFarms(response.total_farms);
+      setActiveFarms(farms.filter(farm => farm.is_active).length);
+      setCertifiedFarms(farms.filter(farm => farm.certification_status && farm.certification_status.length > 0).length);
+      setTotalHectares(farms.reduce((sum, farm) => sum + (farm.farm_size_hectares || 0), 0));
       
     } catch (err) {
       console.error('Error loading farms:', err);

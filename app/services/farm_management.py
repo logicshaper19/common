@@ -26,6 +26,30 @@ class FarmManagementService:
     def __init__(self, db: Session):
         self.db = db
     
+    def _normalize_certifications(self, certifications) -> Dict[str, Any]:
+        """
+        Normalize certifications to always return a dictionary format.
+        
+        Args:
+            certifications: Can be None, list, or dict
+            
+        Returns:
+            Dict with normalized certification data
+        """
+        if not certifications:
+            return {}
+        
+        if isinstance(certifications, list):
+            # Convert list to dict format
+            return {
+                "certifications": certifications,
+                "certification_count": len(certifications)
+            }
+        elif isinstance(certifications, dict):
+            return certifications
+        else:
+            return {}
+    
     def get_company_capabilities(self, company_id: UUID) -> Dict[str, Any]:
         """
         Determine what a company can do based on its type and farm structure
@@ -105,7 +129,7 @@ class FarmManagementService:
                 "farm_owner": farm.farm_owner_name,
                 "established_year": farm.established_year,
                 "registration_number": farm.registration_number,
-                "certifications": farm.certifications or {},
+                "certifications": self._normalize_certifications(farm.certifications),
                 "compliance_data": farm.compliance_data or {},
                 "location": {
                     "address": farm.address,
@@ -313,7 +337,7 @@ class FarmManagementService:
                 },
                 "farm_size_hectares": float(farm.farm_size_hectares) if farm.farm_size_hectares else None,
                 "specialization": farm.specialization,
-                "certifications": farm.certifications or {},
+                "certifications": self._normalize_certifications(farm.certifications),
                 "compliance_status": contrib.compliance_status,
                 "compliance_data": contrib.farm_data or {}
             })
