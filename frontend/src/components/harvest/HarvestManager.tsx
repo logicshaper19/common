@@ -57,6 +57,7 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<HarvestBatch | null>(null);
+  const [hasShownEmptyToast, setHasShownEmptyToast] = useState(false);
 
   // Calculate analytics from harvest batches data
   const analytics = React.useMemo(() => {
@@ -162,12 +163,16 @@ const HarvestManager: React.FC<HarvestManagerProps> = ({
       
       setHarvestBatches(transformedBatches);
       
-      if (transformedBatches.length === 0) {
+      if (transformedBatches.length === 0 && !hasShownEmptyToast) {
         showToast({
           type: 'info',
           title: 'No Harvest Batches',
           message: 'No harvest batches found. Create a harvest declaration to get started.'
         });
+        setHasShownEmptyToast(true);
+      } else if (transformedBatches.length > 0) {
+        // Reset the flag if batches are found
+        setHasShownEmptyToast(false);
       }
     } catch (error) {
       console.error('Error loading harvest batches:', error);
