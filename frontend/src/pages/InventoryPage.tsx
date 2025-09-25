@@ -11,6 +11,7 @@ import { Button } from '../components/ui/Button';
 import Select from '../components/ui/Select';
 import Input from '../components/ui/Input';
 import Label from '../components/ui/Label';
+import AnalyticsCard from '../components/ui/AnalyticsCard';
 import { 
   FunnelIcon, 
   AdjustmentsHorizontalIcon,
@@ -278,7 +279,7 @@ const InventoryPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center">
             <ArchiveBoxIcon className="h-8 w-8 text-blue-600 mr-3" />
-            📦 Inventory Management
+            Inventory Management
           </h1>
           <p className="text-gray-600 mt-1">
             Manage and track all your company's inventory batches
@@ -298,66 +299,41 @@ const InventoryPage: React.FC = () => {
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardBody className="p-4">
-              <div className="flex items-center">
-                <ArchiveBoxIcon className="h-8 w-8 text-blue-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Batches</p>
-                  <p className="text-2xl font-bold text-gray-900">{summary.total_batches}</p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-          
-          <Card>
-            <CardBody className="p-4">
-              <div className="flex items-center">
-                <CheckCircleIcon className="h-8 w-8 text-green-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Available Quantity</p>
-                  <p className="text-2xl font-bold text-gray-900">{summary.available_quantity.toLocaleString()}</p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-          
-          <Card>
-            <CardBody className="p-4">
-              <div className="flex items-center">
-                <ClockIcon className="h-8 w-8 text-yellow-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Allocated Quantity</p>
-                  <p className="text-2xl font-bold text-gray-900">{summary.allocated_quantity.toLocaleString()}</p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-          
-          <Card>
-            <CardBody className="p-4">
-              <div className="flex items-center">
-                <ChartBarIcon className="h-8 w-8 text-purple-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Quantity</p>
-                  <p className="text-2xl font-bold text-gray-900">{summary.total_quantity.toLocaleString()}</p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-          
-          <Card>
-            <CardBody className="p-4">
-              <div className="flex items-center">
-                <ClockIcon className="h-8 w-8 text-yellow-600" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Expiring Soon</p>
-                  <p className="text-2xl font-bold text-gray-900">{summary.expiring_soon}</p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <AnalyticsCard
+            title="Total Batches"
+            value={summary.total_batches.toLocaleString()}
+            icon={ArchiveBoxIcon}
+            size="md"
+          />
+
+          <AnalyticsCard
+            title="Available Quantity"
+            value={summary.available_quantity.toLocaleString()}
+            icon={CheckCircleIcon}
+            size="md"
+          />
+
+          <AnalyticsCard
+            title="Allocated Quantity"
+            value={summary.allocated_quantity.toLocaleString()}
+            icon={ClockIcon}
+            size="md"
+          />
+
+          <AnalyticsCard
+            title="Total Quantity"
+            value={summary.total_quantity.toLocaleString()}
+            icon={ChartBarIcon}
+            size="md"
+          />
+
+          <AnalyticsCard
+            title="Expiring Soon"
+            value={summary.expiring_soon.toLocaleString()}
+            icon={ExclamationTriangleIcon}
+            size="md"
+          />
         </div>
       )}
 
