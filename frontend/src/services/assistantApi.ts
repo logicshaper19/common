@@ -2,7 +2,7 @@
  * Assistant API Service
  * Handles communication with the backend assistant endpoints
  */
-import { apiClient } from './apiClient';
+import { apiClient } from '../lib/api';
 
 export interface ChatRequest {
   message: string;
