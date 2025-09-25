@@ -31,7 +31,7 @@ async def chat_endpoint(
     
     try:
         message_lower = request.message.lower()
-        user_name = current_user.first_name or current_user.email.split('@')[0] if current_user.email else "User"
+        user_name = current_user.full_name or current_user.email.split('@')[0] if current_user.email else "User"
         company_name = current_user.company.name if current_user.company else "your company"
         
         # Simple keyword-based responses using your existing data
