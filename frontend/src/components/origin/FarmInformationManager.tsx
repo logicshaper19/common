@@ -229,14 +229,41 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
       setError(null);
       
       // Use actual API call instead of mock data
+      if (!companyId) {
+        throw new Error('Company ID is required');
+      }
+      
       const response = await farmApi.getCompanyFarms(companyId);
       const farms = response.farms;
       
-      setFarms(farms);
-      setTotalFarms(response.total_farms);
-      setActiveFarms(farms.filter(farm => farm.is_active).length);
-      setCertifiedFarms(farms.filter(farm => farm.certification_status && farm.certification_status.length > 0).length);
-      setTotalHectares(farms.reduce((sum, farm) => sum + (farm.farm_size_hectares || 0), 0));
+      // Transform API response to match component interface
+      const transformedFarms: FarmInformation[] = farms.map(farm => ({
+        id: farm.id,
+        farm_id: farm.id, // Use id as farm_id
+        farm_name: farm.farm_name,
+        farm_size_hectares: farm.total_area_hectares,
+        establishment_year: new Date(farm.created_at).getFullYear(),
+        owner_name: farm.contact_person.name,
+        owner_contact: farm.contact_person.phone,
+        plantation_type: farm.farm_type === 'plantation' ? 'own_estate' : 
+                        farm.farm_type === 'cooperative' ? 'smallholder' : 
+                        farm.farm_type === 'mill' ? 'other' : 'other',
+        cultivation_methods: [], // Not available in API response
+        gps_coordinates: {
+          latitude: farm.location.latitude,
+          longitude: farm.location.longitude
+        },
+        soil_type: '', // Not available in API response
+        irrigation_system: '', // Not available in API response
+        annual_production_capacity: 0, // Not available in API response
+        certification_status: farm.certifications,
+        compliance_status: farm.eudr_status === 'compliant' ? 'verified' : 
+                          farm.eudr_status === 'non_compliant' ? 'failed' : 'pending',
+        last_updated: farm.updated_at,
+        is_active: farm.is_active
+      }));
+      
+      setFarms(transformedFarms);
       
     } catch (err) {
       console.error('Error loading farms:', err);
