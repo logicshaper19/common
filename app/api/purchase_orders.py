@@ -6,7 +6,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import and_, or_, desc, asc
 
 from app.core.database import get_db
@@ -69,7 +69,12 @@ def get_purchase_orders(
     """Get purchase orders with simple filtering."""
     try:
         # Build query - users can only see POs involving their company
-        query = db.query(PurchaseOrder).filter(
+        # Add eager loading to prevent N+1 queries
+        query = db.query(PurchaseOrder).options(
+            selectinload(PurchaseOrder.buyer_company),
+            selectinload(PurchaseOrder.seller_company),
+            selectinload(PurchaseOrder.product)
+        ).filter(
             or_(
                 PurchaseOrder.buyer_company_id == current_user.company_id,
                 PurchaseOrder.seller_company_id == current_user.company_id
@@ -108,13 +113,17 @@ def get_purchase_orders(
         # Calculate total pages
         total_pages = (total + per_page - 1) // per_page
         
+        # Simple production logging for N+1 fix verification
+        logger.info(f"Purchase orders query: {len(purchase_orders)} records, "
+                   f"eager loading enabled (buyer_company, seller_company, product)")
+        
         # Convert to response format
         result = []
         for po in purchase_orders:
-            # Get related data
-            buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
-            seller_company = db.query(Company).filter(Company.id == po.seller_company_id).first()
-            product = db.query(Product).filter(Product.id == po.product_id).first()
+            # Related data is already loaded via eager loading - no more N+1 queries!
+            buyer_company = po.buyer_company
+            seller_company = po.seller_company
+            product = po.product
             
             po_dict = {
                 'id': po.id,
@@ -177,16 +186,25 @@ def get_incoming_purchase_orders_simple(
     """Get incoming purchase orders (where user's company is seller)."""
     try:
         # Get POs where user's company is the seller
-        purchase_orders = db.query(PurchaseOrder).filter(
+        # Add eager loading to prevent N+1 queries
+        purchase_orders = db.query(PurchaseOrder).options(
+            selectinload(PurchaseOrder.buyer_company),
+            selectinload(PurchaseOrder.product)
+        ).filter(
             PurchaseOrder.seller_company_id == current_user.company_id,
             PurchaseOrder.status == 'pending'
         ).order_by(desc(PurchaseOrder.created_at)).limit(10).all()
         
+        # Simple production logging for N+1 fix verification
+        logger.info(f"Incoming purchase orders query: {len(purchase_orders)} records, "
+                   f"eager loading enabled (buyer_company, product)")
+        
         # Convert to simple format
         result = []
         for po in purchase_orders:
-            buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
-            product = db.query(Product).filter(Product.id == po.product_id).first()
+            # Related data is already loaded via eager loading - no more N+1 queries!
+            buyer_company = po.buyer_company
+            product = po.product
             
             po_dict = {
                 'id': str(po.id),
@@ -226,6 +244,144 @@ def get_incoming_purchase_orders_simple(
         return []
 
 
+@router.get("/debug-performance")
+def debug_performance(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user_sync)
+):
+    """Simple debug endpoint to measure N+1 query performance improvement."""
+    import time
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+    
+    # Simple query counting setup
+    query_count = {"count": 0}
+    
+    def count_queries(conn, cursor, statement, parameters, context, executemany):
+        query_count["count"] += 1
+    
+    # Register the event listener
+    event.listen(Engine, "before_cursor_execute", count_queries)
+    
+    try:
+        # Test without eager loading (N+1 problem)
+        query_count["count"] = 0
+        start_time = time.time()
+        
+        pos_slow = db.query(PurchaseOrder).filter(
+            or_(
+                PurchaseOrder.buyer_company_id == current_user.company_id,
+                PurchaseOrder.seller_company_id == current_user.company_id
+            )
+        ).limit(5).all()
+        
+        # Access relationships to trigger N+1 queries
+        for po in pos_slow:
+            try:
+                _ = po.buyer_company.name if po.buyer_company else "No buyer"
+                _ = po.seller_company.name if po.seller_company else "No seller"
+                _ = po.product.name if po.product else "No product"
+            except Exception as rel_error:
+                logger.warning(f"Relationship access error: {rel_error}")
+        
+        slow_time = time.time() - start_time
+        slow_query_count = query_count["count"]
+        
+        # Test with eager loading (optimized)
+        query_count["count"] = 0
+        start_time = time.time()
+        
+        pos_fast = db.query(PurchaseOrder).options(
+            selectinload(PurchaseOrder.buyer_company),
+            selectinload(PurchaseOrder.seller_company),
+            selectinload(PurchaseOrder.product)
+        ).filter(
+            or_(
+                PurchaseOrder.buyer_company_id == current_user.company_id,
+                PurchaseOrder.seller_company_id == current_user.company_id
+            )
+        ).limit(5).all()
+        
+        # Access relationships (should not trigger additional queries)
+        for po in pos_fast:
+            try:
+                _ = po.buyer_company.name if po.buyer_company else "No buyer"
+                _ = po.seller_company.name if po.seller_company else "No seller"
+                _ = po.product.name if po.product else "No product"
+            except Exception as rel_error:
+                logger.warning(f"Relationship access error: {rel_error}")
+        
+        fast_time = time.time() - start_time
+        fast_query_count = query_count["count"]
+        
+        # Calculate improvements
+        time_improvement = ((slow_time - fast_time) / slow_time * 100) if slow_time > 0 else 0
+        query_reduction = slow_query_count - fast_query_count
+        query_reduction_percent = (query_reduction / slow_query_count * 100) if slow_query_count > 0 else 0
+        
+        # Simple production logging
+        logger.info(f"N+1 Performance Test: {query_reduction} fewer queries ({query_reduction_percent:.1f}% reduction), "
+                   f"{time_improvement:.1f}% time improvement")
+        
+        return {
+            "test_records": len(pos_slow),
+            "performance_metrics": {
+                "without_eager_loading": {
+                    "time": f"{slow_time:.3f}s",
+                    "query_count": slow_query_count
+                },
+                "with_eager_loading": {
+                    "time": f"{fast_time:.3f}s", 
+                    "query_count": fast_query_count
+                },
+                "improvements": {
+                    "time_improvement": f"{time_improvement:.1f}%",
+                    "query_reduction": query_reduction,
+                    "query_reduction_percent": f"{query_reduction_percent:.1f}%"
+                }
+            },
+            "n1_problem_solved": query_reduction > 0 and time_improvement > 0,
+            "recommendations": _generate_simple_recommendations(time_improvement, query_reduction)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in performance debug: {str(e)}", exc_info=True)
+        return {
+            "error": str(e),
+            "message": "Performance test failed"
+        }
+    finally:
+        # Clean up event listener
+        event.remove(Engine, "before_cursor_execute", count_queries)
+
+def _generate_simple_recommendations(time_improvement: float, query_reduction: int) -> list:
+    """Generate simple recommendations based on performance test results."""
+    recommendations = []
+    
+    if query_reduction > 0:
+        recommendations.append(f"✅ N+1 problem SOLVED: {query_reduction} fewer database queries")
+    else:
+        recommendations.append("⚠️ No query reduction detected - check relationship configuration")
+    
+    if time_improvement > 50:
+        recommendations.append("🚀 Excellent performance improvement - consider applying to other endpoints")
+    elif time_improvement > 20:
+        recommendations.append("✅ Good performance improvement - monitor in production")
+    elif time_improvement > 0:
+        recommendations.append("📈 Modest improvement - consider additional optimizations")
+    else:
+        recommendations.append("❌ No time improvement - investigate further")
+    
+    if query_reduction > 5:
+        recommendations.append("💡 High query reduction - this optimization will scale well with more data")
+    
+    return recommendations
+
+@router.post("/test")
+def test_create():
+    """Test endpoint to verify the API is working."""
+    return {"message": "Test endpoint working", "status": "success"}
+
 @router.get("/{purchase_order_id}", response_model=PurchaseOrderWithDetails)
 @simple_log_action("view", "purchase_order")
 def get_purchase_order(
@@ -236,7 +392,12 @@ def get_purchase_order(
     """Get a specific purchase order with related data."""
     try:
         po_id = UUID(purchase_order_id)
-        po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+        # Add eager loading to prevent N+1 queries
+        po = db.query(PurchaseOrder).options(
+            selectinload(PurchaseOrder.buyer_company),
+            selectinload(PurchaseOrder.seller_company),
+            selectinload(PurchaseOrder.product)
+        ).filter(PurchaseOrder.id == po_id).first()
         
         if not po:
             raise HTTPException(
@@ -251,10 +412,14 @@ def get_purchase_order(
                 detail="Access denied: You can only access purchase orders involving your company"
             )
         
-        # Get related data
-        buyer_company = db.query(Company).filter(Company.id == po.buyer_company_id).first()
-        seller_company = db.query(Company).filter(Company.id == po.seller_company_id).first()
-        product = db.query(Product).filter(Product.id == po.product_id).first()
+        # Related data is already loaded via eager loading - no more N+1 queries!
+        buyer_company = po.buyer_company
+        seller_company = po.seller_company
+        product = po.product
+        
+        # Simple production logging for N+1 fix verification
+        logger.info(f"Purchase order detail query: {po.po_number}, "
+                   f"eager loading enabled (buyer_company, seller_company, product)")
         
         # Build response with related data
         po_dict = {
@@ -309,12 +474,6 @@ def get_purchase_order(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve purchase order"
         )
-
-
-@router.post("/test")
-def test_create():
-    """Test endpoint to verify the API is working."""
-    return {"message": "Test endpoint working", "status": "success"}
 
 @router.post("/")
 def create_purchase_order(
