@@ -7,12 +7,13 @@ from uuid import UUID
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 
 from app.core.database import get_db
 from app.core.auth import get_current_user_sync, CurrentUser
 from app.core.logging import get_logger
+from app.core.rate_limiting import rate_limit
 from app.models.batch import Batch
 from app.models.product import Product
 from app.models.company import Company
@@ -25,6 +26,7 @@ router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
 
 @router.get("/")
+@rate_limit("inventory:get", max_requests=100, window_seconds=60)
 async def get_inventory(
     # Filtering parameters
     status: List[str] = Query(['available'], description="Filter by batch status"),
@@ -38,13 +40,13 @@ async def get_inventory(
     expiry_warning_days: Optional[int] = Query(None, description="Show batches expiring within N days"),
     
     # Grouping and sorting
-    group_by: str = Query("product", description="Group results by: product, facility, status, date"),
-    sort_by: str = Query("production_date", description="Sort by field"),
-    sort_order: str = Query("desc", description="Sort order: asc or desc"),
+    group_by: str = Query("product", regex="^(product|facility|status|date)$", description="Group results by: product, facility, status, date"),
+    sort_by: str = Query("production_date", regex="^(production_date|quantity|status|batch_id)$", description="Sort by field"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order: asc or desc"),
     
     # Pagination
-    limit: int = Query(100, description="Number of results per page"),
-    offset: int = Query(0, description="Number of results to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Number of results per page (1-1000)"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
     
     # Dependencies
     db: Session = Depends(get_db),
@@ -52,9 +54,16 @@ async def get_inventory(
 ):
     """Single endpoint for all inventory views with comprehensive filtering."""
     
+    # Check if user has permission to view inventory
+    if not current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User not associated with a company"
+        )
+    
     try:
-        # Base query for user's company
-        query = db.query(Batch).filter(Batch.company_id == current_user.company_id)
+        # Base query for user's company with eager loading to prevent N+1 queries
+        query = db.query(Batch).options(joinedload(Batch.product)).filter(Batch.company_id == current_user.company_id)
         
         # Apply status filters (map new enum values to existing database values)
         if status:
@@ -121,7 +130,7 @@ async def get_inventory(
         grouped_results = group_inventory_results(batches, group_by, db)
         
         # Calculate summary
-        summary = calculate_inventory_summary(batches)
+        summary = calculate_inventory_summary(batches, db)
         
         return {
             "total_count": total_count,
@@ -169,24 +178,13 @@ def group_inventory_results(batches: List[Batch], group_by: str, db: Session) ->
                     "batches": []
                 }
             
-            # Calculate available quantity (simplified - assumes all quantity is available)
-            available_qty = float(batch.quantity)
+            # Calculate available quantity using proper calculation
+            available_qty = calculate_batch_available_quantity(batch, db)
             
-            groups[product_id]["batches"].append({
-                "batch_id": batch.batch_id,
-                "batch_type": batch.batch_type,
-                "quantity": float(batch.quantity),
-                "available_quantity": available_qty,
-                "status": batch.status,
-                "production_date": batch.production_date.isoformat(),
-                "expiry_date": batch.expiry_date.isoformat() if batch.expiry_date else None,
-                "location_name": batch.location_name,
-                "quality_metrics": batch.quality_metrics,
-                "batch_metadata": batch.batch_metadata
-            })
+            groups[product_id]["batches"].append(format_batch_summary(batch, db))
             
             groups[product_id]["total_quantity"] += float(batch.quantity)
-            groups[product_id]["available_quantity"] += available_qty
+            groups[product_id]["available_quantity"] += float(available_qty)
         
         return list(groups.values())
     
@@ -212,7 +210,7 @@ def group_inventory_results(batches: List[Batch], group_by: str, db: Session) ->
                     "batches": []
                 }
             
-            groups[user_friendly_status]["batches"].append(format_batch_summary(batch))
+            groups[user_friendly_status]["batches"].append(format_batch_summary(batch, db))
             groups[user_friendly_status]["total_quantity"] += float(batch.quantity)
             groups[user_friendly_status]["batch_count"] += 1
         
@@ -230,7 +228,7 @@ def group_inventory_results(batches: List[Batch], group_by: str, db: Session) ->
                     "batches": []
                 }
             
-            groups[facility]["batches"].append(format_batch_summary(batch))
+            groups[facility]["batches"].append(format_batch_summary(batch, db))
             groups[facility]["total_quantity"] += float(batch.quantity)
             groups[facility]["batch_count"] += 1
         
@@ -248,7 +246,7 @@ def group_inventory_results(batches: List[Batch], group_by: str, db: Session) ->
                     "batches": []
                 }
             
-            groups[date_key]["batches"].append(format_batch_summary(batch))
+            groups[date_key]["batches"].append(format_batch_summary(batch, db))
             groups[date_key]["total_quantity"] += float(batch.quantity)
             groups[date_key]["batch_count"] += 1
         
@@ -256,11 +254,28 @@ def group_inventory_results(batches: List[Batch], group_by: str, db: Session) ->
     
     else:
         # Default: return individual batches
-        return [format_batch_summary(batch) for batch in batches]
+        return [format_batch_summary(batch, db) for batch in batches]
 
 
-def format_batch_summary(batch: Batch) -> Dict[str, Any]:
-    """Format a batch for summary display."""
+def calculate_batch_available_quantity(batch: Batch, db: Session) -> Decimal:
+    """Calculate actual available quantity for a batch."""
+    try:
+        # Get total allocated quantity from PO linkages
+        allocated_result = db.query(func.coalesce(func.sum(POBatchLinkage.quantity_allocated), 0))\
+            .filter(POBatchLinkage.batch_id == batch.id)\
+            .scalar()
+        
+        allocated_qty = Decimal(str(allocated_result)) if allocated_result else Decimal('0')
+        available_qty = max(Decimal('0'), batch.quantity - allocated_qty)
+        
+        return available_qty
+    except Exception as e:
+        logger.error(f"Error calculating available quantity for batch {batch.id}: {str(e)}")
+        # Fallback to full quantity if calculation fails
+        return batch.quantity
+
+def format_batch_summary(batch: Batch, db: Session) -> Dict[str, Any]:
+    """Format a batch for summary display with accurate quantity calculations."""
     # Map database status to user-friendly status
     status_mapping = {
         'active': 'available',
@@ -271,11 +286,16 @@ def format_batch_summary(batch: Batch) -> Dict[str, Any]:
         'recalled': 'recalled'
     }
     
+    # Calculate available quantity
+    available_qty = calculate_batch_available_quantity(batch, db)
+    
     return {
         "batch_id": batch.batch_id,
         "batch_type": batch.batch_type,
         "product_id": str(batch.product_id),
         "quantity": float(batch.quantity),
+        "available_quantity": float(available_qty),
+        "allocated_quantity": float(batch.quantity - available_qty),
         "unit": batch.unit,
         "status": status_mapping.get(batch.status, batch.status),
         "production_date": batch.production_date.isoformat(),
@@ -287,13 +307,14 @@ def format_batch_summary(batch: Batch) -> Dict[str, Any]:
     }
 
 
-def calculate_inventory_summary(batches: List[Batch]) -> Dict[str, Any]:
-    """Calculate summary statistics for inventory."""
+def calculate_inventory_summary(batches: List[Batch], db: Session) -> Dict[str, Any]:
+    """Calculate summary statistics for inventory with accurate quantity calculations."""
     
     summary = {
         "total_batches": len(batches),
         "total_quantity": 0,
         "available_quantity": 0,
+        "allocated_quantity": 0,
         "expiring_soon": 0,  # Within 30 days
         "status_breakdown": {},
         "type_breakdown": {},
@@ -311,8 +332,13 @@ def calculate_inventory_summary(batches: List[Batch]) -> Dict[str, Any]:
     }
     
     for batch in batches:
+        # Calculate actual available quantity
+        available_qty = calculate_batch_available_quantity(batch, db)
+        allocated_qty = batch.quantity - available_qty
+        
         summary["total_quantity"] += float(batch.quantity)
-        summary["available_quantity"] += float(batch.quantity)  # Simplified
+        summary["available_quantity"] += float(available_qty)
+        summary["allocated_quantity"] += float(allocated_qty)
         
         # Status breakdown with mapping
         user_friendly_status = status_mapping.get(batch.status, batch.status)
@@ -349,7 +375,7 @@ async def get_inventory_summary(
         # Get all batches for the company
         batches = db.query(Batch).filter(Batch.company_id == current_user.company_id).all()
         
-        summary = calculate_inventory_summary(batches)
+        summary = calculate_inventory_summary(batches, db)
         
         return {
             "company_id": str(current_user.company_id),
