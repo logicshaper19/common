@@ -1,6 +1,6 @@
 /**
  * Common Assistant Page
- * AI-powered supply chain assistant with ChatGPT-like interface
+ * AI-powered supply chain assistant with landing and chat screens
  */
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
@@ -10,7 +10,15 @@ import {
   PaperAirplaneIcon,
   ChatBubbleLeftRightIcon,
   UserIcon,
-  SparklesIcon
+  SparklesIcon,
+  DocumentTextIcon,
+  AcademicCapIcon,
+  CodeBracketIcon,
+  CoffeeIcon,
+  LightBulbIcon,
+  PlusIcon,
+  Squares2X2Icon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { cn } from '../lib/utils';
 
@@ -22,17 +30,45 @@ interface Message {
 }
 
 const AssistantPage: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      type: 'assistant',
-      content: 'Hi! I\'m your Common Assistant. I can help you with supply chain operations, inventory management, purchase orders, traceability, and more. What would you like to know?',
-      timestamp: new Date()
-    }
-  ]);
+  const [isInChat, setIsInChat] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Suggested actions for the landing screen
+  const suggestedActions = [
+    {
+      id: 'write',
+      label: 'Write',
+      icon: DocumentTextIcon,
+      description: 'Help with documentation and reports'
+    },
+    {
+      id: 'learn',
+      label: 'Learn',
+      icon: AcademicCapIcon,
+      description: 'Understand supply chain concepts'
+    },
+    {
+      id: 'code',
+      label: 'Code',
+      icon: CodeBracketIcon,
+      description: 'Technical implementation help'
+    },
+    {
+      id: 'life',
+      label: 'Life stuff',
+      icon: CoffeeIcon,
+      description: 'General productivity tips'
+    },
+    {
+      id: 'choice',
+      label: 'Assistant\'s choice',
+      icon: LightBulbIcon,
+      description: 'Let me suggest something useful'
+    }
+  ];
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -43,13 +79,37 @@ const AssistantPage: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  const startChat = (initialMessage?: string) => {
+    setIsInChat(true);
+    if (initialMessage) {
+      setInputMessage(initialMessage);
+      // Auto-send the initial message
+      setTimeout(() => {
+        sendMessage(initialMessage);
+      }, 100);
+    }
+  };
+
+  const handleSuggestedAction = (action: typeof suggestedActions[0]) => {
+    const prompts = {
+      write: "Help me write a supply chain compliance report",
+      learn: "Explain how traceability works in our supply chain system",
+      code: "Help me implement a new feature for inventory management",
+      life: "Give me some productivity tips for managing multiple projects",
+      choice: "What's the most important thing I should focus on today?"
+    };
+    
+    startChat(prompts[action.id as keyof typeof prompts]);
+  };
+
+  const sendMessage = async (messageText?: string) => {
+    const messageToSend = messageText || inputMessage.trim();
+    if (!messageToSend || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now(),
       type: 'user',
-      content: inputMessage.trim(),
+      content: messageToSend,
       timestamp: new Date()
     };
     
@@ -82,7 +142,111 @@ const AssistantPage: React.FC = () => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  return (
+  // Landing Screen Component
+  const LandingScreen = () => (
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Top Bar */}
+      <div className="bg-purple-600 h-1"></div>
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <ChatBubbleLeftRightIcon className="h-6 w-6 text-purple-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Common Assistant</h1>
+            <p className="text-sm text-gray-600">Your AI-powered supply chain assistant</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+            <SparklesIcon className="h-4 w-4 text-purple-600" />
+          </div>
+          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+            <UserIcon className="h-4 w-4 text-gray-600" />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6">
+        {/* Greeting */}
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center mb-4">
+            <SparklesIcon className="h-8 w-8 text-purple-600 mr-3" />
+            <h2 className="text-4xl font-light text-gray-700">
+              How's it going?
+            </h2>
+          </div>
+        </div>
+
+        {/* Input Card */}
+        <div className="w-full max-w-2xl mb-8">
+          <Card className="bg-white border border-gray-200 shadow-sm">
+            <CardBody className="p-6">
+              <div className="text-center mb-4">
+                <p className="text-lg text-gray-600">How can I help you today?</p>
+              </div>
+              
+              <div className="flex items-center space-x-3 mb-4">
+                <Button variant="ghost" size="sm" className="p-2">
+                  <PlusIcon className="h-4 w-4 text-gray-500" />
+                </Button>
+                <Button variant="ghost" size="sm" className="p-2">
+                  <Squares2X2Icon className="h-4 w-4 text-gray-500" />
+                </Button>
+                
+                <div className="flex-1">
+                  <Input
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && startChat()}
+                    placeholder="Ask about your supply chain operations..."
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">Sonnet 4</span>
+                  <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                </div>
+                
+                <Button
+                  onClick={() => startChat()}
+                  disabled={!inputMessage.trim()}
+                  variant="primary"
+                  size="sm"
+                  className="p-2"
+                >
+                  <PaperAirplaneIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Suggested Actions */}
+        <div className="w-full max-w-2xl">
+          <div className="flex flex-wrap gap-3 justify-center">
+            {suggestedActions.map((action) => (
+              <Button
+                key={action.id}
+                variant="outline"
+                size="sm"
+                onClick={() => handleSuggestedAction(action)}
+                className="flex items-center space-x-2 px-4 py-2 bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50"
+              >
+                <action.icon className="h-4 w-4 text-gray-600" />
+                <span className="text-gray-700">{action.label}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Chat Screen Component
+  const ChatScreen = () => (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -201,6 +365,9 @@ const AssistantPage: React.FC = () => {
       </div>
     </div>
   );
+
+  // Main return - choose between landing and chat screens
+  return isInChat ? <ChatScreen /> : <LandingScreen />;
 };
 
 export default AssistantPage;
