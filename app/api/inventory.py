@@ -62,17 +62,17 @@ async def get_inventory(
         )
     
     try:
-        # Base query for user's company - simplified for debugging
+        # Base query for user's company - simplified to avoid relationship issues
         batches = db.query(Batch).filter(Batch.company_id == current_user.company_id).all()
         
-        # Return simple response for debugging
+        # For now, return a simple response to test basic functionality
         return {
             "results": [],
             "summary": {
                 "total_batches": len(batches),
-                "total_quantity": 0,
-                "available_quantity": 0,
-                "allocated_quantity": 0,
+                "total_quantity": sum(float(b.quantity) for b in batches),
+                "available_quantity": sum(float(b.quantity) for b in batches),  # Simplified for now
+                "allocated_quantity": 0,  # Simplified for now
                 "expiring_soon": 0,
                 "status_breakdown": {},
                 "type_breakdown": {},
