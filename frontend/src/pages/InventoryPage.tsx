@@ -474,12 +474,12 @@ const InventoryPage: React.FC = () => {
               <ArchiveBoxIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Inventory Found</h3>
               <p className="text-gray-600 mb-4 max-w-md mx-auto">
-                {summary.total_batches === 0 
+                {summary?.total_batches === 0 
                   ? "No inventory batches are available yet. Inventory will appear here when purchase orders are confirmed and batches are created."
                   : "No batches match your current filters. Try adjusting your search criteria."
                 }
               </p>
-              {summary.total_batches === 0 ? (
+              {summary?.total_batches === 0 ? (
                 <div className="text-sm text-gray-500 mb-4">
                   <p>Inventory batches are created when:</p>
                   <ul className="text-left max-w-sm mx-auto mt-2 space-y-1">
@@ -490,7 +490,7 @@ const InventoryPage: React.FC = () => {
                 </div>
               ) : null}
               <div className="flex justify-center space-x-2">
-                {summary.total_batches === 0 ? (
+                {summary?.total_batches === 0 ? (
                   <Button onClick={() => window.location.href = '/purchase-orders'} variant="primary">
                     View Purchase Orders
                   </Button>
