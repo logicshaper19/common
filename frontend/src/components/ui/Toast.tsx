@@ -138,6 +138,11 @@ const Toast: React.FC<ToastProps> = ({
           ? 'translate-x-0 opacity-100 scale-100'
           : 'translate-x-full opacity-0 scale-95'
       )}
+      style={{
+        position: 'relative',
+        zIndex: 1,
+        marginBottom: '0.5rem'
+      }}
     >
       <div className="p-4">
         <div className="flex items-start">

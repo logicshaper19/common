@@ -2,6 +2,7 @@
  * Toast Context for managing notifications
  */
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import Toast, { ToastProps, ToastType } from '../components/ui/Toast';
 
 interface ToastContextType {
@@ -118,16 +119,34 @@ export function ToastProvider({ children }: ToastProviderProps) {
     clearAll
   };
 
+  // Create toast portal content
+  const toastContent = (
+    <div 
+      className="fixed top-4 right-4 z-[9999] space-y-2 pointer-events-none"
+      style={{
+        position: 'fixed',
+        top: '1rem',
+        right: '1rem',
+        zIndex: 9999,
+        maxWidth: '400px',
+        width: 'auto',
+        pointerEvents: 'none'
+      }}
+    >
+      {toasts.map(toast => (
+        <div key={toast.id} style={{ pointerEvents: 'auto' }}>
+          <Toast {...toast} />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <ToastContext.Provider value={value}>
       {children}
       
-      {/* Toast Container */}
-      <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
-        {toasts.map(toast => (
-          <Toast key={toast.id} {...toast} />
-        ))}
-      </div>
+      {/* Render toasts in a portal to avoid layout constraints */}
+      {typeof document !== 'undefined' && createPortal(toastContent, document.body)}
     </ToastContext.Provider>
   );
 }
