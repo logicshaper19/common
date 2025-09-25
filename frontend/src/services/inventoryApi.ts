@@ -119,7 +119,7 @@ export const inventoryApi = {
     }
 
     try {
-      const response = await apiClient.get(`/api/inventory/?${params.toString()}`);
+      const response = await apiClient.get(`/inventory/?${params.toString()}`);
       
       // Check if response is successful
       if (!response.data) {
@@ -165,7 +165,7 @@ export const inventoryApi = {
    */
   getInventorySummary: async (): Promise<{ company_id: string; summary: InventorySummary; last_updated: string }> => {
     try {
-      const response = await apiClient.get('/api/inventory/summary');
+      const response = await apiClient.get('/inventory/summary');
       
       if (!response.data) {
         throw new Error('Invalid response from server');
