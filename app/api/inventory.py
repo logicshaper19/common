@@ -29,7 +29,7 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
 # @rate_limit("inventory:get", max_requests=100, window_seconds=60)  # Temporarily disabled
 async def get_inventory(
     # Filtering parameters
-    status: List[str] = Query(['available'], description="Filter by batch status"),
+    batch_status: List[str] = Query(['available'], description="Filter by batch status"),
     batch_types: List[str] = Query(None, description="Filter by batch types"),
     product_ids: List[UUID] = Query(None, description="Filter by product IDs"),
     facility_ids: List[UUID] = Query(None, description="Filter by facility IDs"),
@@ -66,7 +66,7 @@ async def get_inventory(
         query = db.query(Batch).options(joinedload(Batch.product)).filter(Batch.company_id == current_user.company_id)
         
         # Apply status filters (map new enum values to existing database values)
-        if status:
+        if batch_status:
             # Map new enum values to existing database values
             status_mapping = {
                 'available': 'active',
@@ -79,7 +79,7 @@ async def get_inventory(
                 'expired': 'expired',
                 'recalled': 'recalled'
             }
-            mapped_statuses = [status_mapping.get(s, s) for s in status]
+            mapped_statuses = [status_mapping.get(s, s) for s in batch_status]
             query = query.filter(Batch.status.in_(mapped_statuses))
         
         # Apply type filters
