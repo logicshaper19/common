@@ -98,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }] : []),
     // Inventory Management - Available for all roles that have batches
     ...(permissions.can_create_po || permissions.can_confirm_po || permissions.can_manage_transformations ? [{
-      name: '📦 Inventory',
+      name: 'Inventory',
       href: '/inventory',
       icon: ArchiveBoxIcon,
     }] : []),
