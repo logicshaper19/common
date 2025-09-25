@@ -80,17 +80,11 @@ const PurchaseOrderTraceability: React.FC<PurchaseOrderTraceabilityProps> = ({
         setCompanyDetails(companyDetailsMap);
       }
 
-      // Fetch batch details if we have origin company info
-      if (data.origin_company_id && data.path_companies && data.path_companies.length > 0) {
-        try {
-          // For now, we'll use the first company in the path as the batch source
-          // In a real implementation, we'd need to link batches to companies properly
-          const batchDetails = await traceabilityApi.getBatchDetails(data.path_companies[0]);
-          setBatchDetails(batchDetails);
-        } catch (err) {
-          console.warn('Failed to fetch batch details:', err);
-        }
-      }
+      // Note: We don't fetch batch details here because the traceability data
+      // only contains company IDs, not batch IDs. Batch details would need to be
+      // fetched separately if we had actual batch IDs from the traceability data.
+      // For now, we'll skip batch details to avoid 404 errors.
+      setBatchDetails(null);
     } catch (err: any) {
       console.error('Error loading traceability data:', err);
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to load traceability data';

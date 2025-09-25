@@ -6,7 +6,7 @@ import React, { Suspense, lazy } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 
 // Lazy load components for better performance
-const InventoryDashboard = lazy(() => import('../../pages/InventoryDashboard'));
+const InventoryPage = lazy(() => import('../../pages/InventoryPage'));
 const BatchManagement = lazy(() => import('../../pages/BatchManagement'));
 const BatchAnalytics = lazy(() => import('../../pages/BatchAnalytics'));
 
@@ -39,7 +39,7 @@ const InventoryRouter: React.FC<InventoryRouterProps> = ({ view = 'dashboard' })
         return <BatchAnalytics />;
       case 'dashboard':
       default:
-        return <InventoryDashboard />;
+        return <InventoryPage />;
     }
   };
 

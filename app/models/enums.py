@@ -45,3 +45,28 @@ class AmendmentReason(str, Enum):
     BUYER_REQUEST = "buyer_request"
     REGULATORY_CHANGE = "regulatory_change"
     OTHER = "other"
+
+
+class BatchStatus(str, Enum):
+    """Status of batches in inventory management."""
+    AVAILABLE = "available"      # In inventory, ready to sell
+    RESERVED = "reserved"        # Reserved for specific customer/PO (soft allocation)
+    ALLOCATED = "allocated"      # Hard allocation to a specific PO
+    INCOMING = "incoming"        # Expected from supplier (from incoming POs)
+    SOLD = "sold"               # Transferred to buyer, awaiting delivery
+    SHIPPED = "shipped"         # Physically shipped to customer
+    CONSUMED = "consumed"       # Used in processing/transformation
+    EXPIRED = "expired"         # Past expiry date
+    RECALLED = "recalled"       # Recalled for quality/safety issues
+    ACTIVE = "active"           # Legacy status (to be migrated)
+    TRANSFERRED = "transferred" # Legacy status (to be migrated)
+    DELIVERED = "delivered"     # Legacy status (to be migrated)
+
+
+class BatchType(str, Enum):
+    """Types of batches in the supply chain."""
+    HARVEST = "harvest"         # From plantations/farms
+    PROCESSING = "processing"   # From mills/processors  
+    INVENTORY = "inventory"     # Pure inventory (created independently)
+    TRANSFORMATION = "transformation"  # From refineries/manufacturers
+    FINISHED = "finished"       # Final products ready for distribution

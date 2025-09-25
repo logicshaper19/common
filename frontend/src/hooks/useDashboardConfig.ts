@@ -17,6 +17,7 @@ export interface DashboardPermissions {
   can_view_margin_analysis?: boolean;
   can_report_farm_data?: boolean;
   can_manage_certifications?: boolean;
+  can_manage_transformations?: boolean;
   dashboard_type: string;
 }
 

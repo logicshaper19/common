@@ -28,6 +28,7 @@ import InventoryRouter from './components/inventory/InventoryRouter';
 import OriginatorRouter from './components/origin/OriginatorRouter';
 import OriginatorFeaturesDemo from './pages/OriginatorFeaturesDemo';
 import HarvestManagement from './pages/HarvestManagement';
+import TransformationDashboard from './pages/TransformationDashboard';
 import DebugAuth from './pages/DebugAuth';
 
 function App() {
@@ -136,6 +137,12 @@ function App() {
             <Route path="harvest" element={
               <ProtectedRoute>
                 <HarvestManagement />
+              </ProtectedRoute>
+            } />
+
+            <Route path="transformations" element={
+              <ProtectedRoute>
+                <TransformationDashboard />
               </ProtectedRoute>
             } />
 
