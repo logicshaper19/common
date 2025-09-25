@@ -13,7 +13,7 @@ from sqlalchemy import and_, or_, func
 from app.core.database import get_db
 from app.core.auth import get_current_user_sync, CurrentUser
 from app.core.logging import get_logger
-from app.core.rate_limiting import rate_limit
+# from app.core.rate_limiting import rate_limit  # Temporarily disabled - function doesn't exist
 from app.models.batch import Batch
 from app.models.product import Product
 from app.models.company import Company
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
 
 @router.get("/")
-@rate_limit("inventory:get", max_requests=100, window_seconds=60)
+# @rate_limit("inventory:get", max_requests=100, window_seconds=60)  # Temporarily disabled
 async def get_inventory(
     # Filtering parameters
     status: List[str] = Query(['available'], description="Filter by batch status"),
