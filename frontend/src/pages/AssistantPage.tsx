@@ -39,7 +39,7 @@ const AssistantPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Supply chain topics for the landing screen
+  // Core supply chain topics for the landing screen
   const suggestedActions = [
     {
       id: 'traceability',
@@ -58,18 +58,6 @@ const AssistantPage: React.FC = () => {
       label: 'Inventory',
       icon: ArchiveBoxIcon,
       description: 'Manage batches and stock levels'
-    },
-    {
-      id: 'transformation',
-      label: 'Transformation',
-      icon: BeakerIcon,
-      description: 'Processing and manufacturing events'
-    },
-    {
-      id: 'choice',
-      label: 'Assistant\'s choice',
-      icon: LightBulbIcon,
-      description: 'Let me suggest something useful'
     }
   ];
 
@@ -97,9 +85,7 @@ const AssistantPage: React.FC = () => {
     const prompts = {
       traceability: "Explain how traceability works in our supply chain system",
       compliance: "Help me understand EUDR and RSPO compliance requirements",
-      inventory: "Show me how to manage inventory batches and stock levels",
-      transformation: "Explain the transformation process for processing events",
-      choice: "What's the most important thing I should focus on today?"
+      inventory: "Show me how to manage inventory batches and stock levels"
     };
     
     startChat(prompts[action.id as keyof typeof prompts]);
@@ -163,13 +149,23 @@ const AssistantPage: React.FC = () => {
         <div className="absolute top-20 left-20 w-32 h-32 bg-purple-400 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-purple-300 rounded-full blur-3xl"></div>
         <div className="absolute top-1/2 left-1/3 w-24 h-24 bg-purple-500 rounded-full blur-2xl"></div>
+        <div className="absolute top-1/4 right-1/4 w-20 h-20 bg-purple-200 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-1/3 left-1/2 w-28 h-28 bg-purple-400 rounded-full blur-3xl"></div>
+      </div>
+      
+      {/* Subtle Grid Pattern */}
+      <div className="absolute inset-0 opacity-[0.02]">
+        <div className="w-full h-full" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, rgba(139, 92, 246, 0.3) 1px, transparent 0)`,
+          backgroundSize: '40px 40px'
+        }}></div>
       </div>
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
         {/* Input Card */}
         <div className="w-full max-w-4xl mb-8">
-          <Card className="bg-white/80 backdrop-blur-sm border border-white/20 shadow-2xl shadow-purple-500/10 hover:shadow-purple-500/20 transition-all duration-300">
+          <Card className="bg-white/90 backdrop-blur-sm border-2 border-purple-200/50 shadow-2xl shadow-purple-500/20 hover:shadow-purple-500/30 hover:border-purple-300/70 transition-all duration-300">
             <CardBody className="p-8">
               <div className="text-center mb-8">
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-purple-700 bg-clip-text text-transparent mb-2">
@@ -225,12 +221,12 @@ const AssistantPage: React.FC = () => {
         </div>
 
         {/* Suggested Actions */}
-        <div className="w-full max-w-4xl">
-          <div className="text-center mb-6">
+        <div className="w-full max-w-5xl">
+          <div className="text-center mb-8">
             <h2 className="text-lg font-semibold text-gray-700 mb-2">Quick Actions</h2>
             <p className="text-sm text-gray-500">Choose a topic to get started</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {suggestedActions.map((action, index) => (
               <div
                 key={action.id}
@@ -238,16 +234,16 @@ const AssistantPage: React.FC = () => {
                 onClick={() => handleSuggestedAction(action)}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="bg-white/70 backdrop-blur-sm border border-white/30 rounded-2xl p-6 hover:bg-white/90 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/10 transform hover:scale-105 transition-all duration-300 group-hover:border-purple-300">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl group-hover:from-purple-200 group-hover:to-purple-300 transition-all duration-300">
-                      <action.icon className="h-6 w-6 text-purple-600 group-hover:text-purple-700" />
+                <div className="bg-white/80 backdrop-blur-sm border border-white/40 rounded-2xl p-8 hover:bg-white/95 hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/15 transform hover:scale-105 hover:-translate-y-1 transition-all duration-300 group-hover:border-purple-300">
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className="p-4 bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl group-hover:from-purple-200 group-hover:to-purple-300 transition-all duration-300 shadow-sm">
+                      <action.icon className="h-8 w-8 text-purple-600 group-hover:text-purple-700" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-800 group-hover:text-purple-700 transition-colors duration-200">
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-gray-800 group-hover:text-purple-700 transition-colors duration-200 text-lg">
                         {action.label}
                       </h3>
-                      <p className="text-sm text-gray-500 group-hover:text-gray-600 transition-colors duration-200">
+                      <p className="text-sm text-gray-500 group-hover:text-gray-600 transition-colors duration-200 leading-relaxed">
                         {action.description}
                       </p>
                     </div>
