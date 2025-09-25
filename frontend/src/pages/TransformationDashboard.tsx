@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { EnhancedTransformationManager } from '../components/transformation/EnhancedTransformationManager';
 import { 
   CogIcon, 
   PlusIcon, 
@@ -421,27 +422,38 @@ const TransformationDashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Create Form Modal - Placeholder */}
+        {/* Transformation Creation Modal */}
         {showCreateForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Transformation</h3>
-              <p className="text-gray-600 mb-4">
-                Transformation creation form will be implemented here.
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setShowCreateForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => setShowCreateForm(false)}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-                >
-                  Create
-                </button>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    Create New Transformation
+                  </h3>
+                  <button
+                    onClick={() => setShowCreateForm(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <EnhancedTransformationManager
+                  transformationEventId={undefined}
+                  onTransformationUpdate={(transformation) => {
+                    setShowCreateForm(false);
+                    loadDashboardData(); // Refresh the dashboard
+                    showToast({
+                      type: 'success',
+                      title: 'Transformation Created',
+                      message: 'Your transformation has been created successfully.'
+                    });
+                  }}
+                  className="w-full"
+                />
               </div>
             </div>
           </div>
