@@ -1,12 +1,13 @@
 """
 Assistant API Endpoints
-Enhanced chat endpoint with comprehensive supply chain data access
+AI-powered chat endpoint with comprehensive supply chain data access
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
 from app.core.database import get_db
+from app.core.openai_client import SimpleOpenAIClient
 from app.models.user import User
 from app.models.company import Company
 from app.models.purchase_order import PurchaseOrder
@@ -34,53 +35,78 @@ async def chat_endpoint(
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Enhanced chat endpoint with comprehensive supply chain data access."""
+    """AI-powered chat endpoint with comprehensive supply chain data access."""
     
     try:
-        message_lower = request.message.lower()
         user_name = current_user.full_name or current_user.email.split('@')[0] if current_user.email else "User"
         company_name = current_user.company.name if current_user.company else "your company"
         
-        # Enhanced keyword-based responses with real data access
-        if "inventory" in message_lower:
-            inventory_data = await get_comprehensive_inventory_data(current_user, db)
-            response = format_inventory_response(inventory_data, user_name, company_name)
+        # Gather comprehensive context data from all sources
+        context_data = await gather_comprehensive_context(current_user, db)
         
-        elif "purchase order" in message_lower or "po" in message_lower:
-            po_data = await get_comprehensive_po_data(current_user, db)
-            response = format_po_response(po_data, user_name, company_name)
+        # Use OpenAI to generate AI-powered response
+        ai_client = SimpleOpenAIClient()
+        response = await ai_client.generate_response(
+            user_message=request.message,
+            context_data=context_data,
+            user_name=user_name
+        )
         
-        elif "traceability" in message_lower or "transparency" in message_lower:
-            transparency_data = await get_comprehensive_transparency_data(current_user, db)
-            response = format_transparency_response(transparency_data, user_name, company_name)
-        
-        elif "compliance" in message_lower:
-            compliance_data = await get_compliance_data(current_user, db)
-            response = format_compliance_response(compliance_data, user_name, company_name)
-        
-        elif "supplier" in message_lower or "company" in message_lower or "partner" in message_lower:
-            company_data = await get_comprehensive_company_data(current_user, db)
-            response = format_company_response(company_data, user_name, company_name)
-        
-        elif "processing" in message_lower or "mill" in message_lower or "refinery" in message_lower or "transformation" in message_lower:
-            processing_data = await get_processing_data(current_user, db)
-            response = format_processing_response(processing_data, user_name, company_name)
-        
-        elif "help" in message_lower or "what can you do" in message_lower:
-            response = f"Hello {user_name}! I'm your supply chain assistant. I can help you with:\n\n• 📦 Inventory management\n• 📋 Purchase orders\n• 🔍 Traceability & transparency\n• 🏭 Processing operations\n• ✅ Compliance requirements\n• 🏢 Supplier relationships\n\nWhat would you like to know about?"
-        
-        else:
-            # Get comprehensive overview
-            overview_data = await get_supply_chain_overview(current_user, db)
-            response = format_overview_response(overview_data, user_name, company_name)
-        
-        logger.info(f"Assistant response generated for user {current_user.id}: {message_lower[:50]}...")
+        logger.info(f"AI response generated for user {current_user.id}: {request.message[:50]}...")
         
         return ChatResponse(response=response)
         
     except Exception as e:
-        logger.error(f"Error in assistant chat endpoint: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Error in AI assistant chat endpoint: {e}")
+        # Fallback to simple response
+        user_name = current_user.full_name or current_user.email.split('@')[0] if current_user.email else "User"
+        company_name = current_user.company.name if current_user.company else "your company"
+        fallback_response = f"Hello {user_name}! I'm having trouble connecting to the AI service right now. I can still help you with basic supply chain questions. What would you like to know about {company_name}?"
+        
+        return ChatResponse(response=fallback_response)
+
+
+async def gather_comprehensive_context(user, db):
+    """Gather all relevant context data for AI response generation."""
+    
+    try:
+        # Get all data sources in parallel for efficiency
+        inventory_data = await get_comprehensive_inventory_data(user, db)
+        po_data = await get_comprehensive_po_data(user, db)
+        transparency_data = await get_comprehensive_transparency_data(user, db)
+        compliance_data = await get_compliance_data(user, db)
+        company_data = await get_comprehensive_company_data(user, db)
+        processing_data = await get_processing_data(user, db)
+        
+        # Build comprehensive context
+        context_data = {
+            "company_name": user.company.name,
+            "company_type": user.company.company_type,
+            "user_role": user.role,
+            "inventory": inventory_data,
+            "purchase_orders": po_data,
+            "transparency": transparency_data,
+            "compliance": compliance_data,
+            "company_relationships": company_data,
+            "processing": processing_data
+        }
+        
+        return context_data
+        
+    except Exception as e:
+        logger.error(f"Error gathering comprehensive context: {e}")
+        # Return minimal context
+        return {
+            "company_name": user.company.name,
+            "company_type": user.company.company_type,
+            "user_role": user.role,
+            "inventory": {"total_batches": 0, "available_quantity": 0},
+            "purchase_orders": {"pending_pos": 0, "confirmed_pos": 0},
+            "transparency": {"average_score": 0, "total_batches": 0},
+            "compliance": {"eudr_compliant": 0, "rspo_compliant": 0},
+            "company_relationships": {"total_relationships": 0},
+            "processing": {"processing_batches": 0}
+        }
 
 
 # Helper functions to get comprehensive data
