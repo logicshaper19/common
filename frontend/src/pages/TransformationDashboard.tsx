@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { EnhancedTransformationManager } from '../components/transformation/EnhancedTransformationManager';
+import { SimpleTransformationManager } from '../components/transformation/SimpleTransformationManager';
 import { 
   CogIcon, 
   PlusIcon, 
@@ -441,7 +441,7 @@ const TransformationDashboard: React.FC = () => {
                   </button>
                 </div>
                 
-                <EnhancedTransformationManager
+                <SimpleTransformationManager
                   transformationEventId={undefined}
                   onTransformationUpdate={(transformation) => {
                     setShowCreateForm(false);
