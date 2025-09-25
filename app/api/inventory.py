@@ -22,7 +22,7 @@ from app.models.po_batch_linkage import POBatchLinkage
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/inventory", tags=["inventory"])
+router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
 @router.get("/")
