@@ -180,16 +180,6 @@ const AssistantPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6">
-        {/* Greeting */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center mb-4">
-            <SparklesIcon className="h-8 w-8 text-purple-600 mr-3" />
-            <h2 className="text-4xl font-light text-gray-700">
-              How's it going?
-            </h2>
-          </div>
-        </div>
-
         {/* Input Card */}
         <div className="w-full max-w-4xl mb-8">
           <Card className="bg-white border border-gray-200 shadow-sm">
