@@ -158,9 +158,9 @@ const DeliveryTab: React.FC<DeliveryTabProps> = ({ purchaseOrderId, onStatusUpda
       case 'in_transit':
         return 'warning';
       case 'failed':
-        return 'danger';
+        return 'error';
       default:
-        return 'neutral';
+        return 'secondary';
     }
   };
 
@@ -233,7 +233,7 @@ const DeliveryTab: React.FC<DeliveryTabProps> = ({ purchaseOrderId, onStatusUpda
                   <span>Mark In Transit</span>
                 </Button>
                 <Button
-                  variant="danger"
+                  variant="error"
                   size="sm"
                   onClick={() => updateStatus('failed')}
                   disabled={updating}
@@ -258,7 +258,7 @@ const DeliveryTab: React.FC<DeliveryTabProps> = ({ purchaseOrderId, onStatusUpda
                   <span>Mark Delivered</span>
                 </Button>
                 <Button
-                  variant="danger"
+                  variant="error"
                   size="sm"
                   onClick={() => updateStatus('failed')}
                   disabled={updating}

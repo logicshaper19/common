@@ -113,7 +113,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     // Icon wrapper classes
     const iconWrapperClasses = 'absolute inset-y-0 flex items-center pointer-events-none';
     const leftIconClasses = cn(iconWrapperClasses, 'left-0 pl-3');
-    const rightIconClasses = cn(iconWrapperClasses, 'right-0 pr-3');
+    const rightIconClasses = cn('absolute inset-y-0 flex items-center right-0 pr-3');
 
     // Icon size based on input size
     const iconSize = size === 'lg' ? 'h-5 w-5' : 'h-4 w-4';
@@ -147,13 +147,16 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={inputClasses}
+            onPaste={(e) => {
+              // Allow normal paste behavior - no intervention needed
+            }}
             {...props}
           />
 
           {/* Right icon */}
           {rightIcon && (
             <div className={rightIconClasses}>
-              <span className={cn('text-neutral-400', iconSize)}>
+              <span className={cn('text-neutral-400', iconSize, 'pointer-events-auto')}>
                 {rightIcon}
               </span>
             </div>
