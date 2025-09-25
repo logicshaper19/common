@@ -14,7 +14,7 @@ import {
   DocumentTextIcon,
   AcademicCapIcon,
   CodeBracketIcon,
-  CoffeeIcon,
+  HeartIcon,
   LightBulbIcon,
   PlusIcon,
   Squares2X2Icon,
@@ -59,7 +59,7 @@ const AssistantPage: React.FC = () => {
     {
       id: 'life',
       label: 'Life stuff',
-      icon: CoffeeIcon,
+      icon: HeartIcon,
       description: 'General productivity tips'
     },
     {
@@ -349,7 +349,7 @@ const AssistantPage: React.FC = () => {
               />
             </div>
             <Button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={isLoading || !inputMessage.trim()}
               variant="primary"
               size="md"
