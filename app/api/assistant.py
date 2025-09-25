@@ -4,7 +4,7 @@ Simple chat endpoint with keyword-based responses
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from app.core.auth import get_current_user_sync
+from app.core.auth import get_current_user
 from app.models.user import User
 from app.core.logging import get_logger
 
@@ -25,7 +25,7 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(
     request: ChatRequest,
-    current_user: User = Depends(get_current_user_sync)
+    current_user = Depends(get_current_user)
 ):
     """Simple chat endpoint - no AI yet, just keyword matching."""
     
