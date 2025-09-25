@@ -11,6 +11,7 @@ import Label from '../ui/Label';
 import Textarea from '../ui/Textarea';
 import Select from '../ui/Select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/Tabs';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   BoltIcon, 
   ChartBarIcon, 
@@ -82,10 +83,12 @@ export const EnhancedTransformationManager: React.FC<EnhancedTransformationManag
   onTransformationUpdate,
   className = ''
 }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('auto-features');
   const [transformation, setTransformation] = useState<TransformationEvent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [allowedTransformationTypes, setAllowedTransformationTypes] = useState<Array<{label: string, value: string}>>([]);
   const [results, setResults] = useState<{
     qualityInheritance?: QualityInheritanceResult;
     costCalculation?: CostCalculationResult;
@@ -112,8 +115,48 @@ export const EnhancedTransformationManager: React.FC<EnhancedTransformationManag
   useEffect(() => {
     if (transformationEventId) {
       loadTransformation();
+    } else {
+      // Load allowed transformation types for new transformations
+      loadAllowedTransformationTypes();
     }
   }, [transformationEventId]);
+
+  const loadAllowedTransformationTypes = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/transformation-dashboard/transformation-templates`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const allowedTypes = data.allowed_transformation_types || [];
+        
+        // Convert to the format expected by the Select component
+        const typeOptions = allowedTypes.map((type: string) => ({
+          label: type.charAt(0).toUpperCase() + type.slice(1).toLowerCase(),
+          value: type
+        }));
+        
+        setAllowedTransformationTypes(typeOptions);
+        
+        // Set the first allowed type as default if none is set
+        if (typeOptions.length > 0 && newTransformation.transformation_type === 'MILLING') {
+          setNewTransformation(prev => ({ ...prev, transformation_type: typeOptions[0].value }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading allowed transformation types:', error);
+      // Fallback to default options if API fails
+      setAllowedTransformationTypes([
+        { label: 'Milling', value: 'MILLING' },
+        { label: 'Refining', value: 'REFINING' },
+        { label: 'Manufacturing', value: 'MANUFACTURING' }
+      ]);
+    }
+  };
 
   const loadTransformation = async () => {
     if (!transformationEventId) return;
@@ -518,12 +561,8 @@ export const EnhancedTransformationManager: React.FC<EnhancedTransformationManag
                   <Select
                     value={newTransformation.transformation_type}
                     onChange={(e) => setNewTransformation(prev => ({ ...prev, transformation_type: e.target.value }))}
-                    options={[
-                      { label: 'Harvest', value: 'HARVEST' },
-                      { label: 'Milling', value: 'MILLING' },
-                      { label: 'Refining', value: 'REFINING' },
-                      { label: 'Fractionation', value: 'FRACTIONATION' },
-                      { label: 'Blending', value: 'BLENDING' }
+                    options={allowedTransformationTypes.length > 0 ? allowedTransformationTypes : [
+                      { label: 'Loading...', value: 'LOADING' }
                     ]}
                   />
                 </div>
