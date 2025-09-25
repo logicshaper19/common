@@ -807,6 +807,21 @@ class TransformationService:
             )
             self.db.add(mapping)
     
+    async def count_transformations_by_company(self, company_id: UUID) -> int:
+        """Count total transformations for a company."""
+        return self.db.query(TransformationEvent).filter(
+            TransformationEvent.company_id == company_id
+        ).count()
+    
+    async def count_transformations_by_status(self, company_id: UUID, status: TransformationStatus) -> int:
+        """Count transformations by status for a company."""
+        return self.db.query(TransformationEvent).filter(
+            and_(
+                TransformationEvent.company_id == company_id,
+                TransformationEvent.status == status
+            )
+        ).count()
+
     async def _get_transformation_response(self, transformation_id: UUID) -> TransformationEventResponse:
         """Get transformation event response."""
         transformation = self.db.query(TransformationEvent).filter(
