@@ -71,6 +71,7 @@ const Login: React.FC = () => {
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    console.log('Input change:', name, value);
     setFormData(prev => ({
       ...prev,
       [name]: value,
@@ -245,6 +246,8 @@ const Login: React.FC = () => {
                 placeholder="Enter your password"
                 isRequired
                 autoComplete="current-password"
+                spellCheck={false}
+                style={{ userSelect: 'text' }}
                 leftIcon={
                   <svg
                     className="h-4 w-4"

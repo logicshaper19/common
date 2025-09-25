@@ -200,6 +200,27 @@ class PermissionService:
         # Can only manage users in the same company
         return target_user.company_id == user.company_id
     
+    def can_user_manage_transformations(self, user: User) -> bool:
+        """
+        Check if user can manage transformations based on company type.
+        
+        Note: Plantation growers only harvest raw materials (FFB) and do not perform
+        value-adding transformations. They should use harvest management instead.
+        """
+        company_type = user.company.company_type
+        
+        # Companies that perform value-adding transformations can manage them
+        transformation_enabled_types = [
+            # "plantation_grower",  # REMOVED - they only harvest, don't transform
+            "smallholder_cooperative",  # May have processing capabilities
+            "mill_processor",           # Transform FFB into CPO
+            "refinery_crusher",         # Transform CPO into RBD PO
+            "manufacturer",             # Blend and manufacture products
+            "oleochemical_producer"     # Create oleochemicals
+        ]
+        
+        return company_type in transformation_enabled_types
+    
     # ============================================================================
     # DASHBOARD PERMISSIONS
     # ============================================================================
@@ -235,6 +256,7 @@ class PermissionService:
             "can_manage_settings": user.role == UserRole.ADMIN,
             "can_audit_companies": user.role == UserRole.AUDITOR,
             "can_regulate_platform": user.role == UserRole.REGULATOR,
+            "can_manage_transformations": self.can_user_manage_transformations(user),
             "dashboard_type": self.get_dashboard_type(user),
         }
 
