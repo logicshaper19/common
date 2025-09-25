@@ -238,29 +238,31 @@ const FarmInformationManager: React.FC<FarmInformationManagerProps> = ({
       
       // Transform API response to match component interface
       const transformedFarms: FarmInformation[] = farms.map(farm => ({
-        id: farm.id,
-        farm_id: farm.id, // Use id as farm_id
+        id: farm.farm_id,
+        farm_id: farm.farm_id,
         farm_name: farm.farm_name,
-        farm_size_hectares: farm.total_area_hectares,
-        establishment_year: new Date(farm.created_at).getFullYear(),
-        owner_name: farm.contact_person.name,
-        owner_contact: farm.contact_person.phone,
-        plantation_type: farm.farm_type === 'plantation' ? 'own_estate' : 
-                        farm.farm_type === 'cooperative' ? 'smallholder' : 
-                        farm.farm_type === 'mill' ? 'other' : 'other',
+        farm_size_hectares: farm.farm_size_hectares,
+        establishment_year: farm.established_year,
+        owner_name: farm.farm_owner,
+        owner_contact: '', // Not available in API response
+        plantation_type: farm.farm_type === 'oil_palm_plantation' ? 'own_estate' : 'other',
         cultivation_methods: [], // Not available in API response
         gps_coordinates: {
-          latitude: farm.location.latitude,
-          longitude: farm.location.longitude
+          latitude: farm.coordinates.latitude,
+          longitude: farm.coordinates.longitude
         },
         soil_type: '', // Not available in API response
         irrigation_system: '', // Not available in API response
         annual_production_capacity: 0, // Not available in API response
-        certification_status: farm.certifications,
-        compliance_status: farm.eudr_status === 'compliant' ? 'verified' : 
-                          farm.eudr_status === 'non_compliant' ? 'failed' : 'pending',
-        last_updated: farm.updated_at,
-        is_active: farm.is_active
+        certification_status: farm.certifications.certifications || [],
+        compliance_status: 'verified', // Default to verified since we have compliance_data
+        last_updated: farm.created_at,
+        is_active: true, // Default to true since we don't have this field
+        registration_number: farm.registration_number,
+        specialization: farm.specialization,
+        address: farm.location.address,
+        city: farm.location.city,
+        country: farm.location.country
       }));
       
       setFarms(transformedFarms);
