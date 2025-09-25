@@ -25,6 +25,7 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
   CogIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
@@ -67,6 +68,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   // Navigation items with backend-driven permissions
   const navigation: NavigationItem[] = [
+    // Common Assistant - Available for all users
+    {
+      name: 'Common Assistant',
+      href: '/assistant',
+      icon: ChatBubbleLeftRightIcon,
+    },
     {
       name: 'Dashboard',
       href: '/dashboard',
