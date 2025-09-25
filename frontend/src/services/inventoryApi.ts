@@ -82,7 +82,7 @@ export const inventoryApi = {
     
     // Add filters to params
     if (filters.status) {
-      filters.status.forEach(status => params.append('status', status));
+      filters.status.forEach(status => params.append('batch_status', status));
     }
     if (filters.batch_types) {
       filters.batch_types.forEach(type => params.append('batch_types', type));
