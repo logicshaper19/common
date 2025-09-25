@@ -56,9 +56,22 @@ async def get_inventory(
         # Base query for user's company
         query = db.query(Batch).filter(Batch.company_id == current_user.company_id)
         
-        # Apply status filters
+        # Apply status filters (map new enum values to existing database values)
         if status:
-            query = query.filter(Batch.status.in_(status))
+            # Map new enum values to existing database values
+            status_mapping = {
+                'available': 'active',
+                'reserved': 'active',  # Reserved batches are still active
+                'allocated': 'active',  # Allocated batches are still active
+                'incoming': 'active',   # Incoming batches are active
+                'sold': 'transferred',
+                'shipped': 'delivered',
+                'consumed': 'consumed',
+                'expired': 'expired',
+                'recalled': 'recalled'
+            }
+            mapped_statuses = [status_mapping.get(s, s) for s in status]
+            query = query.filter(Batch.status.in_(mapped_statuses))
         
         # Apply type filters
         if batch_types:
@@ -68,10 +81,12 @@ async def get_inventory(
         if product_ids:
             query = query.filter(Batch.product_id.in_(product_ids))
         
-        # Apply facility filters (if facility_id exists in batch model)
-        # Note: This assumes facility_id exists in Batch model
-        # if facility_ids:
-        #     query = query.filter(Batch.facility_id.in_(facility_ids))
+        # Apply facility filters using location_name or facility_code
+        if facility_ids:
+            # For now, we'll filter by location_name since facility_id doesn't exist
+            # This is a placeholder - in a real implementation, you'd have a facilities table
+            # query = query.filter(Batch.location_name.in_(facility_names))
+            pass  # Skip facility filtering for now
         
         # Apply date filters
         if production_date_from:
@@ -177,19 +192,29 @@ def group_inventory_results(batches: List[Batch], group_by: str, db: Session) ->
     
     elif group_by == "status":
         groups = {}
+        # Status mapping for user-friendly display
+        status_mapping = {
+            'active': 'available',
+            'transferred': 'sold',
+            'delivered': 'shipped',
+            'consumed': 'consumed',
+            'expired': 'expired',
+            'recalled': 'recalled'
+        }
+        
         for batch in batches:
-            status = batch.status
-            if status not in groups:
-                groups[status] = {
-                    "status": status,
+            user_friendly_status = status_mapping.get(batch.status, batch.status)
+            if user_friendly_status not in groups:
+                groups[user_friendly_status] = {
+                    "status": user_friendly_status,
                     "total_quantity": 0,
                     "batch_count": 0,
                     "batches": []
                 }
             
-            groups[status]["batches"].append(format_batch_summary(batch))
-            groups[status]["total_quantity"] += float(batch.quantity)
-            groups[status]["batch_count"] += 1
+            groups[user_friendly_status]["batches"].append(format_batch_summary(batch))
+            groups[user_friendly_status]["total_quantity"] += float(batch.quantity)
+            groups[user_friendly_status]["batch_count"] += 1
         
         return list(groups.values())
     
@@ -236,13 +261,23 @@ def group_inventory_results(batches: List[Batch], group_by: str, db: Session) ->
 
 def format_batch_summary(batch: Batch) -> Dict[str, Any]:
     """Format a batch for summary display."""
+    # Map database status to user-friendly status
+    status_mapping = {
+        'active': 'available',
+        'transferred': 'sold',
+        'delivered': 'shipped',
+        'consumed': 'consumed',
+        'expired': 'expired',
+        'recalled': 'recalled'
+    }
+    
     return {
         "batch_id": batch.batch_id,
         "batch_type": batch.batch_type,
         "product_id": str(batch.product_id),
         "quantity": float(batch.quantity),
         "unit": batch.unit,
-        "status": batch.status,
+        "status": status_mapping.get(batch.status, batch.status),
         "production_date": batch.production_date.isoformat(),
         "expiry_date": batch.expiry_date.isoformat() if batch.expiry_date else None,
         "location_name": batch.location_name,
@@ -265,14 +300,25 @@ def calculate_inventory_summary(batches: List[Batch]) -> Dict[str, Any]:
         "product_breakdown": {}
     }
     
+    # Status mapping for user-friendly display
+    status_mapping = {
+        'active': 'available',
+        'transferred': 'sold',
+        'delivered': 'shipped',
+        'consumed': 'consumed',
+        'expired': 'expired',
+        'recalled': 'recalled'
+    }
+    
     for batch in batches:
         summary["total_quantity"] += float(batch.quantity)
         summary["available_quantity"] += float(batch.quantity)  # Simplified
         
-        # Status breakdown
-        if batch.status not in summary["status_breakdown"]:
-            summary["status_breakdown"][batch.status] = 0
-        summary["status_breakdown"][batch.status] += 1
+        # Status breakdown with mapping
+        user_friendly_status = status_mapping.get(batch.status, batch.status)
+        if user_friendly_status not in summary["status_breakdown"]:
+            summary["status_breakdown"][user_friendly_status] = 0
+        summary["status_breakdown"][user_friendly_status] += 1
         
         # Type breakdown
         if batch.batch_type not in summary["type_breakdown"]:
