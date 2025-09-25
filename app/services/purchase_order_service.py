@@ -71,7 +71,7 @@ class PurchaseOrderService:
             
             # Convert to response format using schema classes
             purchase_orders = [
-                self._convert_po_to_response(po) for po in result['purchase_orders']
+                self._convert_po_to_details_response(po) for po in result['purchase_orders']
             ]
             
             # Simple production logging for N+1 fix verification
@@ -305,5 +305,46 @@ class PurchaseOrderService:
     
     def _convert_po_to_details_response(self, po: PurchaseOrder) -> PurchaseOrderWithDetails:
         """Convert purchase order to detailed response format using schema classes."""
-        # Use the existing schema's from_orm method
-        return PurchaseOrderWithDetails.from_orm(po)
+        # Convert relationships to dictionaries as expected by the schema
+        buyer_company_dict = {
+            "id": str(po.buyer_company.id),
+            "name": po.buyer_company.name,
+            "company_type": po.buyer_company.company_type,
+            "email": po.buyer_company.email
+        } if po.buyer_company else {}
+        
+        seller_company_dict = {
+            "id": str(po.seller_company.id),
+            "name": po.seller_company.name,
+            "company_type": po.seller_company.company_type,
+            "email": po.seller_company.email
+        } if po.seller_company else {}
+        
+        product_dict = {
+            "id": str(po.product.id),
+            "name": po.product.name,
+            "common_product_id": po.product.common_product_id,
+            "category": po.product.category
+        } if po.product else {}
+        
+        return PurchaseOrderWithDetails(
+            id=po.id,
+            po_number=po.po_number,
+            buyer_company=buyer_company_dict,
+            seller_company=seller_company_dict,
+            product=product_dict,
+            quantity=po.quantity,
+            unit_price=po.unit_price,
+            total_amount=po.total_amount,
+            unit=po.unit,
+            delivery_date=po.delivery_date,
+            delivery_location=po.delivery_location,
+            status=po.status,
+            composition=po.composition,
+            input_materials=po.input_materials,
+            origin_data=po.origin_data,
+            notes=po.notes,
+            amendments=[],  # TODO: Load amendments if needed
+            created_at=po.created_at,
+            updated_at=po.updated_at
+        )
