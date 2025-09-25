@@ -62,33 +62,8 @@ async def get_inventory(
         )
     
     try:
-        # Base query for user's company - simplified to avoid relationship issues
-        batches = db.query(Batch).filter(Batch.company_id == current_user.company_id).all()
-        
-        # For now, return a simple response to test basic functionality
-        return {
-            "results": [],
-            "summary": {
-                "total_batches": len(batches),
-                "total_quantity": sum(float(b.quantity) for b in batches),
-                "available_quantity": sum(float(b.quantity) for b in batches),  # Simplified for now
-                "allocated_quantity": 0,  # Simplified for now
-                "expiring_soon": 0,
-                "status_breakdown": {},
-                "type_breakdown": {},
-                "product_breakdown": {}
-            },
-            "total_count": len(batches),
-            "limit": limit,
-            "offset": offset,
-            "group_by": group_by,
-            "filters_applied": {
-                "batch_status": batch_status,
-                "batch_types": batch_types,
-                "product_ids": product_ids,
-                "facility_ids": facility_ids
-            }
-        }
+        # Base query for user's company
+        query = db.query(Batch).filter(Batch.company_id == current_user.company_id)
         
         # Apply status filters (map new enum values to existing database values)
         if batch_status:
@@ -165,7 +140,7 @@ async def get_inventory(
             "results": grouped_results,
             "summary": summary,
             "filters_applied": {
-                "status": status,
+                "batch_status": batch_status,
                 "batch_types": batch_types,
                 "product_ids": [str(pid) for pid in product_ids] if product_ids else None,
                 "facility_ids": [str(fid) for fid in facility_ids] if facility_ids else None,
