@@ -6,29 +6,32 @@ import { apiClient } from '../lib/api';
 
 // Types
 export interface FarmInformation {
-  id: string;
+  farm_id: string;
   farm_name: string;
-  farm_code: string;
-  location: {
+  farm_type: string;
+  farm_size_hectares: number;
+  specialization: string;
+  coordinates: {
     latitude: number;
     longitude: number;
+    accuracy_meters: number;
+  };
+  farm_owner: string;
+  established_year: number;
+  registration_number: string;
+  certifications: {
+    certifications: string[];
+    certification_count: number;
+  };
+  compliance_data: {
+    [key: string]: any;
+  };
+  location: {
     address: string;
-    region: string;
+    city: string;
     country: string;
   };
-  farm_type: 'plantation' | 'smallholder' | 'cooperative' | 'mill';
-  total_area_hectares: number;
-  certifications: string[];
-  eudr_status: 'compliant' | 'non_compliant' | 'pending';
-  last_harvest_date?: string;
-  contact_person: {
-    name: string;
-    email: string;
-    phone: string;
-  };
-  is_active: boolean;
   created_at: string;
-  updated_at: string;
 }
 
 export interface FarmCreateRequest {
