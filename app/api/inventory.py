@@ -62,8 +62,33 @@ async def get_inventory(
         )
     
     try:
-        # Base query for user's company with eager loading to prevent N+1 queries
-        query = db.query(Batch).options(joinedload(Batch.product)).filter(Batch.company_id == current_user.company_id)
+        # Base query for user's company - simplified for debugging
+        batches = db.query(Batch).filter(Batch.company_id == current_user.company_id).all()
+        
+        # Return simple response for debugging
+        return {
+            "results": [],
+            "summary": {
+                "total_batches": len(batches),
+                "total_quantity": 0,
+                "available_quantity": 0,
+                "allocated_quantity": 0,
+                "expiring_soon": 0,
+                "status_breakdown": {},
+                "type_breakdown": {},
+                "product_breakdown": {}
+            },
+            "total_count": len(batches),
+            "limit": limit,
+            "offset": offset,
+            "group_by": group_by,
+            "filters_applied": {
+                "batch_status": batch_status,
+                "batch_types": batch_types,
+                "product_ids": product_ids,
+                "facility_ids": facility_ids
+            }
+        }
         
         # Apply status filters (map new enum values to existing database values)
         if batch_status:
