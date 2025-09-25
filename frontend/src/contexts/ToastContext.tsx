@@ -30,6 +30,7 @@ interface ToastProviderProps {
 
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastProps[]>([]);
+  const [recentToasts, setRecentToasts] = useState<Map<string, number>>(new Map());
 
   const removeToast = useCallback((id: string) => {
     console.log('Removing toast:', id); // Debug log
@@ -43,13 +44,44 @@ export function ToastProvider({ children }: ToastProviderProps) {
   const showToast = useCallback((toast: Omit<ToastProps, 'id' | 'onClose'>) => {
     const id = Math.random().toString(36).substr(2, 9);
     console.log('Adding toast:', id, toast.title); // Debug log
-    const newToast: ToastProps = {
-      ...toast,
-      id,
-      onClose: removeToast
-    };
     
+    // Create a unique key for this toast type
+    const toastKey = `${toast.type}-${toast.title}-${toast.message || ''}`;
+    const now = Date.now();
+    
+    // Check for recent duplicate toasts (within 5 seconds)
+    setRecentToasts(prev => {
+      const recentTime = prev.get(toastKey);
+      if (recentTime && (now - recentTime) < 5000) {
+        console.log('Recent duplicate toast prevented:', toast.title);
+        return prev; // Don't update recent toasts
+      }
+      
+      // Update recent toasts map
+      const updated = new Map(prev);
+      updated.set(toastKey, now);
+      return updated;
+    });
+    
+    // Check for duplicate toasts (same title and message)
     setToasts(prev => {
+      const isDuplicate = prev.some(existingToast => 
+        existingToast.title === toast.title && 
+        existingToast.message === toast.message &&
+        existingToast.type === toast.type
+      );
+      
+      if (isDuplicate) {
+        console.log('Duplicate toast prevented:', toast.title);
+        return prev; // Don't add duplicate
+      }
+      
+      const newToast: ToastProps = {
+        ...toast,
+        id,
+        onClose: removeToast
+      };
+      
       const updated = [...prev, newToast];
       console.log('Total toasts after adding:', updated.length); // Debug log
       return updated;
