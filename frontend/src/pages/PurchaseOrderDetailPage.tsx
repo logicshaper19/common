@@ -14,6 +14,7 @@ import {
   PrinterIcon,
   MapIcon,
   CogIcon,
+  TruckIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { purchaseOrderApi, PurchaseOrderWithDetails, ProposeChangesRequest, PurchaseOrderConfirmation, ConfirmationResponse } from '../services/purchaseOrderApi';
@@ -28,6 +29,7 @@ import EditPurchaseOrderModal from '../components/purchase-orders/EditPurchaseOr
 import PurchaseOrderTraceability from '../components/purchase-orders/PurchaseOrderTraceability';
 import { DeliveryConfirmationModal } from '../components/purchase-orders/DeliveryConfirmationModal';
 import { PurchaseOrderTransformations } from '../components/purchase-orders/PurchaseOrderTransformations';
+import DeliveryTab from '../components/purchase-orders/DeliveryTab';
 import { TransformationPrompt } from '../components/transformation/TransformationPrompt';
 import { TransformationWizard } from '../components/transformation/TransformationWizard';
 import { cn, formatCurrency, formatDate } from '../lib/utils';
@@ -41,7 +43,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
 
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrderWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'details' | 'amendments' | 'history' | 'traceability' | 'transformations'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'amendments' | 'history' | 'traceability' | 'delivery' | 'transformations'>('details');
   const [showAmendmentModal, setShowAmendmentModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -466,6 +468,7 @@ const PurchaseOrderDetailPage: React.FC = () => {
             { id: 'amendments', label: 'Amendments', icon: PencilIcon, count: purchaseOrder.amendments?.length || 0 },
             { id: 'history', label: 'History', icon: ClockIcon },
             { id: 'traceability', label: 'Traceability', icon: MapIcon },
+            { id: 'delivery', label: 'Delivery', icon: TruckIcon },
             ...(shouldShowTransformationPrompt() ? [{ id: 'transformations', label: 'Transformations', icon: CogIcon }] : []),
           ].map((tab) => {
             const Icon = tab.icon;
@@ -660,6 +663,13 @@ const PurchaseOrderDetailPage: React.FC = () => {
         <PurchaseOrderTraceability
           poId={id!}
           poNumber={purchaseOrder.po_number}
+        />
+      )}
+
+      {activeTab === 'delivery' && (
+        <DeliveryTab
+          purchaseOrderId={id!}
+          onStatusUpdate={loadPurchaseOrder}
         />
       )}
 

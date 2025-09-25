@@ -36,9 +36,12 @@ from app.core.circuit_breaker import CircuitBreakerError
 from app.api.health import router as health_router
 from app.api.auth import router as auth_router
 from app.api.admin import router as admin_router
+from app.api.admin.query_monitoring import router as query_monitoring_router
 from app.api.users import router as users_router
 from app.api.products import router as products_router
 from app.api.purchase_orders import router as purchase_orders_router
+from app.api.purchase_order_debug import router as purchase_order_debug_router
+from app.api.deliveries import router as deliveries_router
 from app.api.simple_relationships import router as simple_relationships_router
 from app.api.traceability import router as traceability_router
 from app.api.transparency_jobs import router as transparency_jobs_router
@@ -258,11 +261,14 @@ app.include_router(health_router, prefix="/health", tags=["Health"])
 # V1 API endpoints
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(query_monitoring_router, prefix="/api/v1", tags=["Query Monitoring"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(companies_router, prefix="/api/v1/companies", tags=["Companies"])
 app.include_router(dashboard_v2_router, tags=["Dashboard V2"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(purchase_orders_router, prefix="/api/v1", tags=["Purchase Orders"])
+app.include_router(purchase_order_debug_router, prefix="/api/v1", tags=["Purchase Orders Debug"])
+app.include_router(deliveries_router, prefix="/api/v1", tags=["Deliveries"])
 app.include_router(simple_relationships_router, tags=["Simple Relationships"])
 # app.include_router(confirmation_router, prefix="/api/v1", tags=["Confirmation"])  # Removed to avoid routing conflicts
 app.include_router(traceability_router, prefix="/api/v1", tags=["Traceability"])
