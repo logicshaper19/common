@@ -302,7 +302,7 @@ app.include_router(transformation_versioning_router, prefix="/api/v1", tags=["Tr
 app.include_router(transformation_enhanced_router, prefix="/api/v1", tags=["Enhanced Transformations"])
 app.include_router(enhanced_transformations_router, tags=["Enhanced Transformations"])
 app.include_router(transformation_dashboard_router, prefix="/api/v1", tags=["Transformation Dashboard"])
-app.include_router(inventory_router, tags=["Inventory"])
+app.include_router(inventory_router, prefix="/api/v1", tags=["Inventory"])
 # Removed complex v2/v3 versioning systems
 
 # WebSocket endpoints (no prefix)

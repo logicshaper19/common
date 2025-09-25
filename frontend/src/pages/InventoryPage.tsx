@@ -18,7 +18,8 @@ import {
   ChartBarIcon,
   ClockIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 
 interface FilterState {
@@ -242,12 +243,30 @@ const InventoryPage: React.FC = () => {
   if (error) {
     return (
       <div className="p-6">
-        <div className="text-center">
-          <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Inventory</h3>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => loadInventoryData()}>Try Again</Button>
-        </div>
+        <Card>
+          <CardBody className="text-center py-12">
+            <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Inventory</h3>
+            <p className="text-gray-600 mb-4 max-w-md mx-auto">{error}</p>
+            <div className="text-sm text-gray-500 mb-4">
+              <p>This could be due to:</p>
+              <ul className="text-left max-w-sm mx-auto mt-2 space-y-1">
+                <li>• Network connectivity issues</li>
+                <li>• Server maintenance</li>
+                <li>• Authentication problems</li>
+              </ul>
+            </div>
+            <div className="flex justify-center space-x-2">
+              <Button onClick={() => loadInventoryData()} variant="primary">
+                <ArrowPathIcon className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Reload Page
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       </div>
     );
   }
@@ -454,9 +473,37 @@ const InventoryPage: React.FC = () => {
             <CardBody className="text-center py-12">
               <ArchiveBoxIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Inventory Found</h3>
-              <p className="text-gray-600">
-                No batches match your current filters. Try adjusting your search criteria.
+              <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                {summary.total_batches === 0 
+                  ? "No inventory batches are available yet. Inventory will appear here when purchase orders are confirmed and batches are created."
+                  : "No batches match your current filters. Try adjusting your search criteria."
+                }
               </p>
+              {summary.total_batches === 0 ? (
+                <div className="text-sm text-gray-500 mb-4">
+                  <p>Inventory batches are created when:</p>
+                  <ul className="text-left max-w-sm mx-auto mt-2 space-y-1">
+                    <li>• Purchase orders are confirmed</li>
+                    <li>• Products are received and processed</li>
+                    <li>• Batches are allocated to orders</li>
+                  </ul>
+                </div>
+              ) : null}
+              <div className="flex justify-center space-x-2">
+                {summary.total_batches === 0 ? (
+                  <Button onClick={() => window.location.href = '/purchase-orders'} variant="primary">
+                    View Purchase Orders
+                  </Button>
+                ) : (
+                  <Button onClick={resetFilters} variant="outline">
+                    Clear Filters
+                  </Button>
+                )}
+                <Button onClick={() => loadInventoryData()} variant="outline">
+                  <ArrowPathIcon className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
             </CardBody>
           </Card>
         ) : (
