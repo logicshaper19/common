@@ -19,6 +19,10 @@ from app.core.auth import get_current_user
 from app.core.streaming_assistant import SupplyChainStreamingAssistant, StreamingResponseFormatter
 from app.core.logging import get_logger
 from app.models.user import User
+from app.models.purchase_order import PurchaseOrder
+from app.models.company import Company
+from app.models.product import Product
+import re
 
 logger = get_logger(__name__)
 
@@ -27,6 +31,129 @@ router = APIRouter(prefix="/api/v1/assistant", tags=["streaming-assistant"])
 # Rate limiting storage (in production, use Redis)
 rate_limit_storage = defaultdict(lambda: deque())
 rate_limit_cleanup_time = time.time()
+
+
+async def check_for_po_query(message: str, db: Session, current_user: User) -> Optional[str]:
+    """Check if message is a PO query and return formatted response."""
+    
+    # Detect PO number patterns (same as main assistant)
+    po_patterns = [
+        r'PO[#\s-]*(\d{6}-\d{4})',  # PO-202509-0001
+        r'PO[#\s-]*(\d+)',          # PO-12345
+        r'PURCHASE ORDER[#\s-]*(\d+)', # Purchase Order 12345
+        r'#PO-(\d{6}-\d{4})',       # #PO-202509-0001
+    ]
+    
+    message_upper = message.upper()
+    po_identifier = None
+    
+    for pattern in po_patterns:
+        match = re.search(pattern, message_upper)
+        if match:
+            po_identifier = match.group(1)
+            break
+    
+    if not po_identifier:
+        return None
+    
+    try:
+        # Try different PO number formats
+        po_queries = [
+            f"PO-{po_identifier}",
+            po_identifier,
+            f"PO-202509-{po_identifier.zfill(4)}",
+            f"PO-202509-{po_identifier}",
+        ]
+        
+        po = None
+        for po_query in po_queries:
+            po = db.query(PurchaseOrder).filter(
+                PurchaseOrder.po_number == po_query
+            ).first()
+            if po:
+                break
+        
+        if not po:
+            user_name = current_user.first_name or "User"
+            return f"""Hello {user_name}, I couldn't find Purchase Order '{po_identifier}' in your system.
+
+🔍 POSSIBLE REASONS
+• The PO number format might be different  
+• You may not have access to view this PO
+• There could be a typo in the PO number
+
+💡 SUGGESTIONS
+• Check the exact PO format (e.g., PO-202509-0001)
+• Review the purchase orders dashboard
+• Contact system administrator if needed"""
+        
+        # Get related data
+        buyer = po.buyer_company
+        seller = po.seller_company  
+        product = po.product
+        
+        # Determine user role
+        user_role = "observer"
+        if po.buyer_company_id == current_user.company_id:
+            user_role = "buyer"
+        elif po.seller_company_id == current_user.company_id:
+            user_role = "seller"
+        
+        user_name = current_user.first_name or "User"
+        
+        # Build structured response (same format as main assistant)
+        response = f"Hello {user_name}, here's the detailed information for Purchase Order {po.po_number}:\n\n"
+        
+        response += "📋 ORDER OVERVIEW\n"
+        response += "=" * 40 + "\n"
+        response += f"PO Number: {po.po_number}\n"
+        response += f"Status: {po.status.title()}\n"
+        response += f"Created: {po.created_at.strftime('%Y-%m-%d') if po.created_at else 'Unknown'}\n\n"
+        
+        response += "🏢 TRADING PARTIES\n"
+        response += "=" * 40 + "\n"
+        response += f"Buyer: {buyer.name if buyer else 'Unknown Buyer'}\n"
+        response += f"Seller: {seller.name if seller else 'Unknown Seller'}\n"
+        response += f"Your Role: {user_role.title()}\n\n"
+        
+        response += "📦 PRODUCT & PRICING\n"
+        response += "=" * 40 + "\n"
+        response += f"Product: {product.name if product else 'Unknown Product'}\n"
+        response += f"Quantity: {float(po.quantity or 0):,.1f} MT\n"
+        response += f"Unit Price: ${float(po.unit_price or 0):,.2f} per MT\n"
+        response += f"Total Value: ${float(po.total_amount or 0):,.2f}\n\n"
+        
+        response += "🚚 DELIVERY DETAILS\n"
+        response += "=" * 40 + "\n"
+        response += f"Delivery Date: {po.delivery_date.strftime('%Y-%m-%d') if po.delivery_date else 'Not specified'}\n"
+        response += f"Delivery Location: {po.delivery_location or 'Not specified'}\n\n"
+        
+        response += "🎯 NEXT STEPS\n"
+        response += "=" * 40 + "\n"
+        if po.status == 'confirmed':
+            response += "Order confirmed - action items:\n\n"
+            response += f"1. Prepare for delivery on {po.delivery_date.strftime('%Y-%m-%d') if po.delivery_date else 'TBD'}\n"
+            response += f"2. Coordinate transportation and logistics\n"
+            response += f"3. Ensure quality compliance documentation\n"
+            response += f"4. Schedule quality inspection upon delivery\n\n"
+        elif po.status == 'pending':
+            if user_role == 'seller':
+                response += "As the seller, you should:\n\n"
+                response += f"1. Review and confirm order details\n"
+                response += f"2. Verify inventory availability\n"
+                response += f"3. Prepare sustainability documentation\n\n"
+        
+        response += "⚡ QUICK ACTIONS\n"
+        response += "=" * 40 + "\n"
+        response += "• View all purchase orders in dashboard\n"
+        response += "• Check inventory levels for this product\n"
+        response += "• Contact trading partner for coordination\n"
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error querying PO {po_identifier}: {e}")
+        return None
 
 
 class RateLimitError(Exception):
@@ -112,6 +239,17 @@ async def stream_chat_with_visuals(
         
         try:
             logger.info(f"Starting streaming chat for user {current_user.id}: {request.message[:50]}...")
+            
+            # Check for specific PO queries first
+            po_response = await check_for_po_query(request.message, db, current_user)
+            if po_response:
+                # Stream the PO response
+                yield StreamingResponseFormatter.format_sse_data({
+                    "type": "text", 
+                    "content": po_response
+                })
+                yield StreamingResponseFormatter.format_completion_signal()
+                return
             
             # Build user context
             user_context = await build_user_context(current_user, db)
