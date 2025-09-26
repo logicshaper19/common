@@ -189,7 +189,24 @@ def hash_password(password: str) -> str:
     Returns:
         Hashed password
     """
-    return pwd_context.hash(password)
+    try:
+        # Handle bcrypt 72-byte limit issue
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            # Truncate to 72 bytes if needed
+            password_bytes = password_bytes[:72]
+            password = password_bytes.decode('utf-8', errors='ignore')
+        
+        return pwd_context.hash(password)
+    except ValueError as e:
+        if "72 bytes" in str(e):
+            # Fallback to direct bcrypt if passlib fails
+            import bcrypt
+            password_bytes = password.encode('utf-8')[:72]
+            salt = bcrypt.gensalt(rounds=12)
+            hash_bytes = bcrypt.hashpw(password_bytes, salt)
+            return hash_bytes.decode('utf-8')
+        raise e
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -203,7 +220,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Handle bcrypt 72-byte limit issue
+        password_bytes = plain_password.encode('utf-8')
+        if len(password_bytes) > 72:
+            # Truncate to 72 bytes if needed
+            password_bytes = password_bytes[:72]
+            plain_password = password_bytes.decode('utf-8', errors='ignore')
+        
+        return pwd_context.verify(plain_password, hashed_password)
+    except ValueError as e:
+        if "72 bytes" in str(e):
+            # Fallback to direct bcrypt if passlib fails
+            import bcrypt
+            try:
+                password_bytes = plain_password.encode('utf-8')[:72]
+                return bcrypt.checkpw(password_bytes, hashed_password.encode('utf-8'))
+            except Exception:
+                return False
+        raise e
 
 
 def generate_password_reset_token() -> str:

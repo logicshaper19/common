@@ -25,7 +25,7 @@ def custom_openapi(app: FastAPI) -> Dict[str, Any]:
     
     openapi_schema = get_openapi(
         title="Common Supply Chain Platform API",
-        version=settings.app_version,
+        version="1.0.0",
         description="""
 # Common Supply Chain Platform API
 
@@ -214,7 +214,7 @@ Companies can invite suppliers, creating a viral growth cascade:
     # Add servers
     openapi_schema["servers"] = [
         {
-            "url": settings.api_base_url,
+            "url": "https://api.common.supply",
             "description": "Production server"
         },
         {

@@ -1,7 +1,17 @@
 """
 Enhanced supply chain prompts with schema awareness.
 """
+from enum import Enum
+from typing import Tuple, Dict, Any
 from app.core.schema_context import SupplyChainSchemaContext
+
+class InteractionType(Enum):
+    """Types of user interactions with different temperature requirements."""
+    FACTUAL_QUERY = "factual_query"
+    ANALYTICAL_REQUEST = "analytical_request" 
+    CREATIVE_PLANNING = "creative_planning"
+    TROUBLESHOOTING = "troubleshooting"
+    GENERAL_CONVERSATION = "general_conversation"
 
 class EnhancedSupplyChainPrompts:
     
@@ -72,6 +82,55 @@ class EnhancedSupplyChainPrompts:
 5. **Understand relationships** - Know how companies, POs, batches, and transformations connect
 
 When users ask about data, you understand exactly what exists and can provide accurate, actionable responses based on the actual database structure."""
+    
+    @staticmethod
+    def classify_interaction_type(user_message: str, user_context: Dict[str, Any]) -> Tuple[InteractionType, float]:
+        """Classify user interaction and return appropriate temperature."""
+        
+        # Analyze message content to determine interaction type
+        message_lower = user_message.lower()
+        
+        # Factual queries (low temperature)
+        factual_keywords = ['what is', 'how many', 'when did', 'where is', 'show me', 'list', 'status of']
+        if any(keyword in message_lower for keyword in factual_keywords):
+            return InteractionType.FACTUAL_QUERY, 0.1
+        
+        # Analytical requests (medium temperature)  
+        analytical_keywords = ['analyze', 'compare', 'trend', 'performance', 'why', 'impact', 'correlation']
+        if any(keyword in message_lower for keyword in analytical_keywords):
+            return InteractionType.ANALYTICAL_REQUEST, 0.3
+        
+        # Troubleshooting (medium temperature)
+        troubleshooting_keywords = ['problem', 'error', 'issue', 'not working', 'fix', 'troubleshoot']
+        if any(keyword in message_lower for keyword in troubleshooting_keywords):
+            return InteractionType.TROUBLESHOOTING, 0.4
+        
+        # Creative planning (high temperature)
+        creative_keywords = ['plan', 'strategy', 'idea', 'suggest', 'recommend', 'optimize', 'improve']
+        if any(keyword in message_lower for keyword in creative_keywords):
+            return InteractionType.CREATIVE_PLANNING, 0.7
+        
+        # Default to general conversation
+        return InteractionType.GENERAL_CONVERSATION, 0.5
+    
+    @staticmethod
+    def get_conversation_context_prompt(interaction_type: InteractionType) -> str:
+        """Get context-specific prompt based on interaction type."""
+        
+        prompts = {
+            InteractionType.FACTUAL_QUERY: "Focus on providing accurate, specific facts from the database.",
+            InteractionType.ANALYTICAL_REQUEST: "Provide analytical insights with data-driven reasoning.",
+            InteractionType.CREATIVE_PLANNING: "Offer creative solutions and strategic recommendations.",
+            InteractionType.TROUBLESHOOTING: "Help identify and resolve operational issues systematically.", 
+            InteractionType.GENERAL_CONVERSATION: "Engage naturally while staying focused on supply chain topics."
+        }
+        
+        return prompts.get(interaction_type, prompts[InteractionType.GENERAL_CONVERSATION])
+    
+    @staticmethod
+    def get_enhanced_system_prompt() -> str:
+        """Get the enhanced system prompt for general use."""
+        return "You are a knowledgeable supply chain assistant with deep expertise in palm oil operations."
 
     @staticmethod
     def get_query_generation_context() -> str:

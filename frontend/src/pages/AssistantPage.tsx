@@ -101,7 +101,13 @@ const AssistantPage: React.FC = () => {
   };
 
   const sendMessage = async (messageText?: string) => {
-    const messageToSend = messageText || inputMessage.trim();
+    let messageToSend = messageText;
+    
+    // If no messageText provided, get it from the input ref
+    if (!messageToSend && inputRef.current) {
+      messageToSend = inputRef.current.value.trim();
+    }
+    
     if (!messageToSend || isLoading) return;
 
     const userMessage: Message = {
@@ -112,7 +118,12 @@ const AssistantPage: React.FC = () => {
     };
     
     setMessages(prev => [...prev, userMessage]);
-    debugSetInputMessage('');
+    
+    // Clear the input field
+    if (inputRef.current && !messageText) {
+      inputRef.current.value = '';
+    }
+    
     setIsLoading(true);
 
     // Call backend assistant API
@@ -142,7 +153,12 @@ const AssistantPage: React.FC = () => {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      if (inputRef.current) {
+        const value = inputRef.current.value.trim();
+        if (value) {
+          sendMessage();
+        }
+      }
     }
   };
 
@@ -384,22 +400,21 @@ const AssistantPage: React.FC = () => {
             <div className="flex-1">
               <div className="relative">
                 <textarea
-                  value={inputMessage}
-                  onChange={(e) => debugSetInputMessage(e.target.value)}
+                  ref={inputRef}
+                  defaultValue=""
                   onKeyPress={handleKeyPress}
                   placeholder="Ask about your supply chain operations..."
                   disabled={isLoading}
                   className="w-full min-h-[60px] max-h-[120px] p-4 border-2 border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 bg-white/70 backdrop-blur-sm text-gray-800 placeholder-gray-400 disabled:opacity-50"
                   rows={2}
+                  autoComplete="off"
+                  spellCheck="false"
                 />
-                <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-                  {inputMessage.length > 0 && `${inputMessage.length} chars`}
-                </div>
               </div>
             </div>
             <Button
               onClick={() => sendMessage()}
-              disabled={isLoading || !inputMessage.trim()}
+              disabled={isLoading}
               variant="primary"
               size="lg"
               className="px-6 py-4 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:transform-none"
