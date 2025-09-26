@@ -105,8 +105,8 @@ async def handle_specific_po_query(message: str, db: Session, current_user) -> d
             }
         
         # Get related data
-        buyer = po.buyer_company
-        seller = po.seller_company  
+        buyer_company = po.buyer_company
+        seller_company = po.seller_company  
         product = po.product
         
         # Determine user role
@@ -134,8 +134,8 @@ async def handle_specific_po_query(message: str, db: Session, current_user) -> d
         # TRADING PARTIES SECTION
         response += "🏢 TRADING PARTIES\n"
         response += "=" * 40 + "\n"
-        response += f"Buyer: {buyer.name if buyer else 'Unknown Buyer'}\n"
-        response += f"Seller: {seller.name if seller else 'Unknown Seller'}\n"
+        response += f"Buyer: {buyer_company.name if buyer_company else 'Unknown Buyer'}\n"
+        response += f"Seller: {seller_company.name if seller_company else 'Unknown Seller'}\n"
         response += f"Your Role: {user_role.title()}\n"
         response += "\n"
         
@@ -160,10 +160,10 @@ async def handle_specific_po_query(message: str, db: Session, current_user) -> d
         response += "=" * 40 + "\n"
         
         if user_role == 'buyer':
-            response += f"• You are purchasing {product.name if product else 'product'} from {seller.name if seller else 'seller'}\n"
+            response += f"• You are purchasing {product.name if product else 'product'} from {seller_company.name if seller_company else 'seller'}\n"
             response += f"• This is an upstream procurement transaction\n"
         elif user_role == 'seller':
-            response += f"• You are selling {product.name if product else 'product'} to {buyer.name if buyer else 'buyer'}\n"
+            response += f"• You are selling {product.name if product else 'product'} to {buyer_company.name if buyer_company else 'buyer'}\n"
             response += f"• This is a downstream sales transaction\n"
         
         # Add pricing context
@@ -264,14 +264,18 @@ async def professional_chat_with_context(
     
     try:
         # Check if this is a specific PO query first
+        logger.info(f"🔍 Checking for PO query in message: {request.message}")
         po_data = await handle_specific_po_query(request.message, db, current_user)
         if po_data:
+            logger.info(f"✅ PO query detected and processed successfully")
             return ChatResponse(
                 response=po_data["response"],
                 context_used=True,
                 user_company=po_data["company_name"],
                 success=True
             )
+        else:
+            logger.info(f"❌ No PO query detected, proceeding to advanced prompts")
         
         # Get comprehensive context using new context manager
         context_manager = SupplyChainContextManager(db, current_user)

@@ -88,8 +88,8 @@ async def check_for_po_query(message: str, db: Session, current_user: User) -> O
 • Contact system administrator if needed"""
         
         # Get related data
-        buyer = po.buyer_company
-        seller = po.seller_company  
+        buyer_company = po.buyer_company
+        seller_company = po.seller_company  
         product = po.product
         
         # Determine user role
@@ -112,8 +112,8 @@ async def check_for_po_query(message: str, db: Session, current_user: User) -> O
         
         response += "🏢 TRADING PARTIES\n"
         response += "=" * 40 + "\n"
-        response += f"Buyer: {buyer.name if buyer else 'Unknown Buyer'}\n"
-        response += f"Seller: {seller.name if seller else 'Unknown Seller'}\n"
+        response += f"Buyer: {buyer_company.name if buyer_company else 'Unknown Buyer'}\n"
+        response += f"Seller: {seller_company.name if seller_company else 'Unknown Seller'}\n"
         response += f"Your Role: {user_role.title()}\n\n"
         
         response += "📦 PRODUCT & PRICING\n"
