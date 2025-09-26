@@ -21,10 +21,226 @@ from app.models.product import Product
 from app.core.logging import get_logger
 from datetime import datetime
 import os
+import re
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/assistant", tags=["assistant"])
+
+
+async def handle_specific_po_query(message: str, db: Session, current_user) -> dict:
+    """Handle specific PO number queries with structured database lookup."""
+    
+    # Detect PO number patterns
+    po_patterns = [
+        r'PO[#\s-]*(\d{6}-\d{4})',  # PO-202509-0001
+        r'PO[#\s-]*(\d+)',          # PO-12345
+        r'PURCHASE ORDER[#\s-]*(\d+)', # Purchase Order 12345
+        r'#PO-(\d{6}-\d{4})',       # #PO-202509-0001
+    ]
+    
+    message_upper = message.upper()
+    po_identifier = None
+    
+    for pattern in po_patterns:
+        match = re.search(pattern, message_upper)
+        if match:
+            po_identifier = match.group(1)
+            break
+    
+    if not po_identifier:
+        return None
+    
+    try:
+        # Try different PO number formats
+        po_queries = [
+            f"PO-{po_identifier}",
+            po_identifier,
+            f"PO-202509-{po_identifier.zfill(4)}",  # Pad with zeros
+            f"PO-202509-{po_identifier}",
+        ]
+        
+        po = None
+        for po_query in po_queries:
+            po = db.query(PurchaseOrder).filter(
+                PurchaseOrder.po_number == po_query
+            ).first()
+            
+            if po:
+                break
+        
+        # Try by ID if numeric
+        if not po and po_identifier.replace("-", "").isdigit():
+            try:
+                po_id = int(po_identifier.replace("-", ""))
+                po = db.query(PurchaseOrder).filter(
+                    PurchaseOrder.id == po_id
+                ).first()
+            except ValueError:
+                pass
+        
+        if not po:
+            user_name = current_user.first_name or "User"
+            return {
+                "response": f"""Hello {user_name}, I couldn't find Purchase Order '{po_identifier}' in your system.
+
+🔍 POSSIBLE REASONS
+• The PO number format might be different  
+• You may not have access to view this PO
+• There could be a typo in the PO number
+• The PO might be in a different system
+
+💡 SUGGESTIONS
+• Check the exact PO format (e.g., PO-202509-0001)
+• Verify your access permissions  
+• Review the purchase orders dashboard
+• Contact system administrator if needed
+
+🔗 ALTERNATIVE ACTIONS  
+• Browse all purchase orders
+• Search by company or product name
+• Check recent transactions
+• Ask about specific suppliers or buyers""",
+                "company_name": current_user.company.name if current_user.company else "Unknown"
+            }
+        
+        # Get related data
+        buyer = po.buyer_company
+        seller = po.seller_company  
+        product = po.product
+        
+        # Determine user role
+        user_role = "observer"
+        if po.buyer_company_id == current_user.company_id:
+            user_role = "buyer"
+        elif po.seller_company_id == current_user.company_id:
+            user_role = "seller"
+        
+        user_name = current_user.first_name or "User"
+        
+        # Build structured response
+        response = f"Hello {user_name}, here's the detailed information for Purchase Order {po.po_number}:\n\n"
+        
+        # ORDER OVERVIEW SECTION
+        response += "📋 ORDER OVERVIEW\n"
+        response += "=" * 40 + "\n"
+        response += f"PO Number: {po.po_number}\n"
+        response += f"Status: {po.status.title()}\n"
+        response += f"Created: {po.created_at.strftime('%Y-%m-%d') if po.created_at else 'Unknown'}\n"
+        if hasattr(po, 'confirmed_at') and po.confirmed_at:
+            response += f"Confirmed: {po.confirmed_at.strftime('%Y-%m-%d')}\n"
+        response += "\n"
+        
+        # TRADING PARTIES SECTION
+        response += "🏢 TRADING PARTIES\n"
+        response += "=" * 40 + "\n"
+        response += f"Buyer: {buyer.name if buyer else 'Unknown Buyer'}\n"
+        response += f"Seller: {seller.name if seller else 'Unknown Seller'}\n"
+        response += f"Your Role: {user_role.title()}\n"
+        response += "\n"
+        
+        # PRODUCT & PRICING SECTION
+        response += "📦 PRODUCT & PRICING\n"
+        response += "=" * 40 + "\n"
+        response += f"Product: {product.name if product else 'Unknown Product'}\n"
+        response += f"Quantity: {float(po.quantity or 0):,.1f} MT\n"
+        response += f"Unit Price: ${float(po.unit_price or 0):,.2f} per MT\n"
+        response += f"Total Value: ${float(po.total_amount or 0):,.2f}\n"
+        response += "\n"
+        
+        # DELIVERY DETAILS SECTION
+        response += "🚚 DELIVERY DETAILS\n"
+        response += "=" * 40 + "\n"
+        response += f"Delivery Date: {po.delivery_date.strftime('%Y-%m-%d') if po.delivery_date else 'Not specified'}\n"
+        response += f"Delivery Location: {po.delivery_location or 'Not specified'}\n"
+        response += "\n"
+        
+        # BUSINESS CONTEXT SECTION
+        response += "💼 BUSINESS CONTEXT\n"
+        response += "=" * 40 + "\n"
+        
+        if user_role == 'buyer':
+            response += f"• You are purchasing {product.name if product else 'product'} from {seller.name if seller else 'seller'}\n"
+            response += f"• This is an upstream procurement transaction\n"
+        elif user_role == 'seller':
+            response += f"• You are selling {product.name if product else 'product'} to {buyer.name if buyer else 'buyer'}\n"
+            response += f"• This is a downstream sales transaction\n"
+        
+        # Add pricing context
+        unit_price = float(po.unit_price or 0)
+        if unit_price > 1400:
+            response += "• Premium RSPO-certified pricing detected\n"
+        elif unit_price > 1200:
+            response += "• Above-market pricing with sustainability premiums\n"
+        elif unit_price > 1000:
+            response += "• Standard market-rate pricing\n"
+        
+        response += "\n"
+        
+        # NEXT STEPS SECTION
+        response += "🎯 NEXT STEPS\n"
+        response += "=" * 40 + "\n"
+        
+        if po.status == 'pending':
+            if user_role == 'seller':
+                response += "As the seller, you should:\n\n"
+                response += f"1. Review order specifications\n"
+                response += f"   • Verify {float(po.quantity or 0):,.1f} MT availability\n"
+                response += f"   • Confirm product quality standards\n\n"
+                response += f"2. Validate delivery requirements\n"
+                response += f"   • Check delivery date: {po.delivery_date.strftime('%Y-%m-%d') if po.delivery_date else 'TBD'}\n"
+                response += f"   • Confirm delivery location access\n\n"
+                response += f"3. Prepare documentation\n"
+                response += f"   • RSPO certification\n"
+                response += f"   • GPS coordinates for EUDR compliance\n"
+                response += f"   • Quality certificates\n\n"
+                response += f"4. Confirm order acceptance\n"
+            else:
+                response += "Current status requires:\n\n"
+                response += f"1. Await seller confirmation\n"
+                response += f"2. Monitor order status updates\n"
+                response += f"3. Prepare receiving logistics\n"
+                response += f"4. Review contract terms\n"
+        
+        elif po.status == 'confirmed':
+            response += "Order confirmed - action items:\n\n"
+            response += f"1. Delivery preparation\n"
+            response += f"   • Schedule for {po.delivery_date.strftime('%Y-%m-%d') if po.delivery_date else 'TBD'}\n"
+            response += f"   • Coordinate transportation\n\n"
+            response += f"2. Quality assurance\n"
+            response += f"   • Prepare inspection documentation\n"
+            response += f"   • Schedule quality control\n\n"
+            response += f"3. Compliance verification\n"
+            response += f"   • Ensure sustainability certificates\n"
+            response += f"   • Verify traceability documents\n\n"
+            response += f"4. Financial preparation\n"
+            response += f"   • Process payment (${float(po.total_amount or 0):,.2f})\n"
+        
+        response += "\n"
+        
+        # ADDITIONAL NOTES
+        if po.notes:
+            response += "📝 ADDITIONAL NOTES\n"
+            response += "=" * 40 + "\n"
+            response += f"{po.notes}\n\n"
+        
+        # QUICK ACTIONS
+        response += "⚡ QUICK ACTIONS\n"
+        response += "=" * 40 + "\n"
+        response += "• View all purchase orders in dashboard\n"
+        response += "• Check inventory levels for this product\n"
+        response += "• Review supplier compliance documentation\n"
+        response += "• Contact trading partner for coordination\n"
+        response += "• Generate compliance reports\n"
+        
+        return {
+            "response": response,
+            "company_name": current_user.company.name if current_user.company else "Unknown"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error querying PO {po_identifier}: {e}")
+        return None
 
 
 class ChatRequest(BaseModel):
@@ -47,6 +263,16 @@ async def professional_chat_with_context(
     """Professional chat with comprehensive context and clean formatting."""
     
     try:
+        # Check if this is a specific PO query first
+        po_data = await handle_specific_po_query(request.message, db, current_user)
+        if po_data:
+            return ChatResponse(
+                response=po_data["response"],
+                context_used=True,
+                user_company=po_data["company_name"],
+                success=True
+            )
+        
         # Get comprehensive context using new context manager
         context_manager = SupplyChainContextManager(db, current_user)
         user_context = await context_manager.get_comprehensive_context()
