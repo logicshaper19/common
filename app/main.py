@@ -5,6 +5,10 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+# Load environment variables first
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 # Removed TrustedHostMiddleware import - ghost architecture

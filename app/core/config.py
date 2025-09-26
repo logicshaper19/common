@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # Business Logic (2 settings)
     transparency_degradation_factor: float = Field(default=0.95, alias="TRANSPARENCY_DEGRADATION_FACTOR")
     transparency_calculation_timeout: int = Field(default=30, alias="TRANSPARENCY_CALCULATION_TIMEOUT")
+    
+    # Admin User (4 settings)
+    admin_email: str = Field(default="admin@common.co", alias="ADMIN_EMAIL")
+    admin_password: str = Field(default="admin123", alias="ADMIN_PASSWORD")
+    admin_name: str = Field(default="System Administrator", alias="ADMIN_NAME")
+    admin_company_name: str = Field(default="Common Platform Admin", alias="ADMIN_COMPANY_NAME")
 
     @property
     def allowed_origins_list(self) -> List[str]:

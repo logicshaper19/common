@@ -2,7 +2,7 @@
  * Common Assistant Page
  * AI-powered supply chain assistant with landing and chat screens
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardBody } from '../components/ui/Card';
@@ -36,8 +36,16 @@ const AssistantPage: React.FC = () => {
   const [isInChat, setIsInChat] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+  
+  // Debug: Track every setState call
+  const debugSetInputMessage = (value: string) => {
+    console.log('🔧 setInputMessage CALLED with:', value, 'from:', new Error().stack?.split('\n')[2]);
+    setInputMessage(value);
+  };
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  
 
   // Core supply chain topics for the landing screen
   const suggestedActions = [
@@ -70,16 +78,17 @@ const AssistantPage: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const startChat = (initialMessage?: string) => {
+
+  const startChat = useCallback((initialMessage?: string) => {
     setIsInChat(true);
     if (initialMessage) {
-      setInputMessage(initialMessage);
+      debugSetInputMessage(initialMessage);
       // Auto-send the initial message
       setTimeout(() => {
         sendMessage(initialMessage);
       }, 100);
     }
-  };
+  }, []);
 
   const handleSuggestedAction = (action: typeof suggestedActions[0]) => {
     const prompts = {
@@ -103,7 +112,7 @@ const AssistantPage: React.FC = () => {
     };
     
     setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
+    debugSetInputMessage('');
     setIsLoading(true);
 
     // Call backend assistant API
@@ -194,12 +203,25 @@ const AssistantPage: React.FC = () => {
                 
                 <div className="flex-1 relative">
                   <textarea
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), startChat())}
+                    ref={inputRef}
+                    defaultValue=""
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (inputRef.current) {
+                          const value = inputRef.current.value.trim();
+                          if (value) {
+                            startChat(value);
+                            inputRef.current.value = '';
+                          }
+                        }
+                      }
+                    }}
                     placeholder="Ask about your supply chain operations..."
                     className="w-full min-h-[140px] p-6 border-2 border-gray-200 rounded-2xl resize-none focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 bg-white/50 backdrop-blur-sm text-gray-800 placeholder-gray-400"
                     rows={4}
+                    autoComplete="off"
+                    spellCheck="false"
                   />
                   <div className="absolute bottom-3 right-3 text-xs text-gray-400">
                     Press Enter to send, Shift+Enter for new line
@@ -207,11 +229,18 @@ const AssistantPage: React.FC = () => {
                 </div>
                 
                 <Button
-                  onClick={() => startChat()}
-                  disabled={!inputMessage.trim()}
+                  onClick={() => {
+                    if (inputRef.current) {
+                      const value = inputRef.current.value.trim();
+                      if (value) {
+                        startChat(value);
+                        inputRef.current.value = '';
+                      }
+                    }
+                  }}
                   variant="primary"
                   size="lg"
-                  className="p-4 mt-2 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:transform-none"
+                  className="p-4 mt-2 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                 >
                   <PaperAirplaneIcon className="h-5 w-5" />
                 </Button>
@@ -356,7 +385,7 @@ const AssistantPage: React.FC = () => {
               <div className="relative">
                 <textarea
                   value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
+                  onChange={(e) => debugSetInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Ask about your supply chain operations..."
                   disabled={isLoading}

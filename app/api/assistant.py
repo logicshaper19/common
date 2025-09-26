@@ -8,12 +8,14 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.core.openai_client import SimpleOpenAIClient
+from app.core.langchain_assistant import SupplyChainLangChainAssistant, SupplyChainTools, SimpleSupplyChainAssistant, LANGCHAIN_AVAILABLE
 from app.models.user import User
 from app.models.company import Company
 from app.models.purchase_order import PurchaseOrder
 from app.models.batch import Batch
 from app.models.product import Product
 from app.core.logging import get_logger
+from datetime import datetime
 
 logger = get_logger(__name__)
 
@@ -35,7 +37,7 @@ async def chat_endpoint(
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI-powered chat endpoint with comprehensive supply chain data access."""
+    """Enhanced AI-powered chat endpoint using LangChain with comprehensive supply chain data access."""
     
     try:
         user_name = current_user.full_name or current_user.email.split('@')[0] if current_user.email else "User"
@@ -44,21 +46,44 @@ async def chat_endpoint(
         # Gather comprehensive context data from all sources
         context_data = await gather_comprehensive_context(current_user, db)
         
-        # Use OpenAI to generate AI-powered response
-        ai_client = SimpleOpenAIClient()
-        response = await ai_client.generate_response(
-            user_message=request.message,
-            context_data=context_data,
-            user_name=user_name
-        )
-        
-        logger.info(f"AI response generated for user {current_user.id}: {request.message[:50]}...")
-        
-        return ChatResponse(response=response)
+        # Try LangChain first if available, fallback to simple assistant
+        if LANGCHAIN_AVAILABLE:
+            try:
+                langchain_assistant = SupplyChainLangChainAssistant()
+                response = await langchain_assistant.get_response(
+                    user_message=request.message,
+                    user_context=context_data
+                )
+                
+                logger.info(f"LangChain response generated for user {current_user.id}: {request.message[:50]}...")
+                return ChatResponse(response=response)
+                
+            except Exception as langchain_error:
+                logger.warning(f"LangChain failed, falling back to simple assistant: {langchain_error}")
+                
+                # Fallback to simple assistant
+                simple_assistant = SimpleSupplyChainAssistant()
+                response = await simple_assistant.get_response(
+                    user_message=request.message,
+                    user_context=context_data
+                )
+                
+                logger.info(f"Simple assistant response generated for user {current_user.id}: {request.message[:50]}...")
+                return ChatResponse(response=response)
+        else:
+            # Use simple assistant when LangChain is not available
+            simple_assistant = SimpleSupplyChainAssistant()
+            response = await simple_assistant.get_response(
+                user_message=request.message,
+                user_context=context_data
+            )
+            
+            logger.info(f"Simple assistant response generated for user {current_user.id}: {request.message[:50]}...")
+            return ChatResponse(response=response)
         
     except Exception as e:
         logger.error(f"Error in AI assistant chat endpoint: {e}")
-        # Fallback to simple response
+        # Final fallback to simple response
         user_name = current_user.full_name or current_user.email.split('@')[0] if current_user.email else "User"
         company_name = current_user.company.name if current_user.company else "your company"
         fallback_response = f"Hello {user_name}! I'm having trouble connecting to the AI service right now. I can still help you with basic supply chain questions. What would you like to know about {company_name}?"
@@ -78,11 +103,17 @@ async def gather_comprehensive_context(user, db):
         company_data = await get_comprehensive_company_data(user, db)
         processing_data = await get_processing_data(user, db)
         
-        # Build comprehensive context
+        # Build comprehensive context for LangChain
         context_data = {
-            "company_name": user.company.name,
-            "company_type": user.company.company_type,
+            "user_name": user.full_name or user.email.split('@')[0] if user.email else "User",
+            "company_name": user.company.name if user.company else "Unknown Company",
+            "company_type": user.company.company_type if user.company else "unknown",
             "user_role": user.role,
+            "inventory_summary": f"{inventory_data.get('summary', {}).get('summary', {}).get('total_batches', 0)} batches, {inventory_data.get('summary', {}).get('summary', {}).get('available_quantity', 0)} MT available",
+            "recent_pos": f"{po_data.get('pending_pos', 0)} pending, {po_data.get('active_pos', 0)} active purchase orders",
+            "transparency_score": f"{transparency_data.get('average_score', 0):.1f}% average transparency",
+            "compliance_status": f"{compliance_data.get('eudr_compliant', 0)} EUDR compliant batches",
+            # Full data for detailed responses
             "inventory": inventory_data,
             "purchase_orders": po_data,
             "transparency": transparency_data,
@@ -97,9 +128,14 @@ async def gather_comprehensive_context(user, db):
         logger.error(f"Error gathering comprehensive context: {e}")
         # Return minimal context
         return {
-            "company_name": user.company.name,
-            "company_type": user.company.company_type,
+            "user_name": user.full_name or user.email.split('@')[0] if user.email else "User",
+            "company_name": user.company.name if user.company else "Unknown Company",
+            "company_type": user.company.company_type if user.company else "unknown",
             "user_role": user.role,
+            "inventory_summary": "0 batches, 0 MT available",
+            "recent_pos": "0 pending, 0 active purchase orders",
+            "transparency_score": "0.0% average transparency",
+            "compliance_status": "0 EUDR compliant batches",
             "inventory": {"total_batches": 0, "available_quantity": 0},
             "purchase_orders": {"pending_pos": 0, "confirmed_pos": 0},
             "transparency": {"average_score": 0, "total_batches": 0},
