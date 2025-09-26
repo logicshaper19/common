@@ -81,6 +81,7 @@ from app.api.transformation_dashboard import router as transformation_dashboard_
 from app.api.inventory import router as inventory_router
 from app.api.assistant import router as assistant_router
 from app.api.assistant_enhanced import router as assistant_enhanced_router
+from app.api.streaming_assistant import router as streaming_assistant_router
 # Removed transformation_enhanced_v2 - complex versioning system
 from app.api.websocket import router as websocket_router
 from app.services.seed_data import SeedDataService
@@ -311,6 +312,7 @@ app.include_router(transformation_dashboard_router, prefix="/api/v1", tags=["Tra
 app.include_router(inventory_router, prefix="/api/v1", tags=["Inventory"])
 app.include_router(assistant_router, tags=["Assistant"])
 app.include_router(assistant_enhanced_router, tags=["Enhanced Assistant"])
+app.include_router(streaming_assistant_router, tags=["Streaming Assistant"])
 # Removed complex v2/v3 versioning systems
 
 # WebSocket endpoints (no prefix)
