@@ -9,6 +9,10 @@ from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.core.openai_client import SimpleOpenAIClient
 from app.core.langchain_assistant import SupplyChainLangChainAssistant, SupplyChainTools, SimpleSupplyChainAssistant, LANGCHAIN_AVAILABLE
+from app.core.context_manager import SupplyChainContextManager
+from app.core.response_formatter import ProfessionalResponseFormatter
+from app.core.professional_prompts import ProfessionalSupplyChainPrompts
+from app.core.advanced_prompts import AdvancedSupplyChainPrompts, ResponseMode
 from app.models.user import User
 from app.models.company import Company
 from app.models.purchase_order import PurchaseOrder
@@ -16,6 +20,7 @@ from app.models.batch import Batch
 from app.models.product import Product
 from app.core.logging import get_logger
 from datetime import datetime
+import os
 
 logger = get_logger(__name__)
 
@@ -29,21 +34,157 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     success: bool = True
+    context_used: bool = False
+    user_company: str = None
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(
+async def professional_chat_with_context(
     request: ChatRequest,
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Enhanced AI-powered chat endpoint using LangChain with comprehensive supply chain data access."""
+    """Professional chat with comprehensive context and clean formatting."""
     
     try:
-        user_name = current_user.full_name or current_user.email.split('@')[0] if current_user.email else "User"
-        company_name = current_user.company.name if current_user.company else "your company"
+        # Get comprehensive context using new context manager
+        context_manager = SupplyChainContextManager(db, current_user)
+        user_context = await context_manager.get_comprehensive_context()
         
-        # Gather comprehensive context data from all sources
+        # Generate advanced prompts with .env integration
+        advanced_prompts = AdvancedSupplyChainPrompts()
+        
+        # Determine optimal response mode based on message and context
+        response_mode = advanced_prompts.determine_response_mode(request.message, user_context)
+        
+        # Get master system prompt with .env configuration
+        system_prompt = advanced_prompts.get_master_system_prompt()
+        
+        # Get context-aware prompt with live data integration
+        context_prompt = advanced_prompts.get_context_aware_prompt(user_context, response_mode)
+        
+        # Try LangChain first if available
+        if LANGCHAIN_AVAILABLE:
+            try:
+                # Use LangChain with professional prompts
+                from langchain_openai import ChatOpenAI
+                
+                # Create LLM with response mode appropriate temperature
+                temperature = 0.3 if response_mode == ResponseMode.COMPLIANCE_FOCUS else 0.6
+                llm = ChatOpenAI(
+                    model="gpt-3.5-turbo", 
+                    temperature=temperature,
+                    openai_api_key=os.getenv("OPENAI_API_KEY"),
+                    max_tokens=1200  # Increased for more comprehensive responses
+                )
+                
+                # Create messages with advanced context and industry expertise
+                enhanced_industry_context = advanced_prompts.get_enhanced_industry_context()
+                compliance_intelligence = advanced_prompts.get_compliance_intelligence_prompt()
+                
+                messages = [
+                    {"role": "system", "content": f"{system_prompt}\n\n{enhanced_industry_context}\n\n{compliance_intelligence}"},
+                    {"role": "user", "content": f"{context_prompt}\n\nUser Question: {request.message}\n\nProvide a comprehensive response that demonstrates deep palm oil supply chain expertise and addresses their specific business context."}
+                ]
+                
+                response = await llm.ainvoke(messages)
+                
+                # Format professionally (remove markdown, clean formatting)
+                professional_response = ProfessionalResponseFormatter.format_professional_response(
+                    response.content, 
+                    user_context
+                )
+                
+                logger.info(f"Advanced LangChain response generated (mode: {response_mode.value}) for user {current_user.id}: {request.message[:50]}...")
+                return ChatResponse(
+                    response=professional_response,
+                    context_used=True,
+                    user_company=user_context['user_info']['company_name']
+                )
+                
+            except Exception as langchain_error:
+                logger.warning(f"LangChain failed, falling back to simple assistant: {langchain_error}")
+        
+        # Fallback to simple assistant with advanced prompts
+        try:
+            # Also use advanced prompts for fallback assistant
+            simple_assistant = SimpleOpenAIClient()
+            
+            # Enhanced fallback with advanced prompt system
+            enhanced_context = {
+                "advanced_system_prompt": system_prompt,
+                "context_prompt": context_prompt,
+                "response_mode": response_mode.value,
+                "industry_context": advanced_prompts.get_enhanced_industry_context(),
+                "compliance_intelligence": advanced_prompts.get_compliance_intelligence_prompt()
+            }
+            
+            response = await simple_assistant.generate_advanced_response(
+                user_message=request.message,
+                context_data=user_context,
+                enhanced_context=enhanced_context,
+                user_name=user_context['user_info']['name']
+            )
+            
+            # Apply professional formatting to simple assistant response too
+            professional_response = ProfessionalResponseFormatter.format_professional_response(
+                response, 
+                user_context
+            )
+            
+            logger.info(f"Professional simple assistant response generated for user {current_user.id}: {request.message[:50]}...")
+            return ChatResponse(
+                response=professional_response,
+                context_used=True,
+                user_company=user_context['user_info']['company_name']
+            )
+            
+        except Exception as simple_error:
+            logger.error(f"Simple assistant also failed: {simple_error}")
+            # Use professional error formatter
+            error_response = ProfessionalResponseFormatter.format_error_response(
+                "system_error", 
+                user_context
+            )
+            return ChatResponse(
+                response=error_response,
+                context_used=False,
+                user_company=fallback_context.get('user_info', {}).get('company_name')
+            )
+        
+    except Exception as e:
+        logger.error(f"Error in professional chat endpoint: {e}")
+        
+        # Create minimal context for error response
+        fallback_context = {
+            "user_info": {
+                "name": current_user.full_name or current_user.email.split('@')[0] if current_user.email else "User",
+                "company_name": current_user.company.name if current_user.company else "your company"
+            }
+        }
+        
+        error_response = ProfessionalResponseFormatter.format_error_response(
+            "system_error", 
+            fallback_context
+        )
+        
+        return ChatResponse(
+            response=error_response,
+            context_used=False,
+            user_company=fallback_context.get('user_info', {}).get('company_name')
+        )
+
+
+@router.post("/chat-legacy", response_model=ChatResponse)
+async def chat_endpoint_legacy(
+    request: ChatRequest,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Legacy chat endpoint for backward compatibility."""
+    
+    try:
+        # Use old context gathering method
         context_data = await gather_comprehensive_context(current_user, db)
         
         # Try LangChain first if available, fallback to simple assistant
@@ -55,7 +196,7 @@ async def chat_endpoint(
                     user_context=context_data
                 )
                 
-                logger.info(f"LangChain response generated for user {current_user.id}: {request.message[:50]}...")
+                logger.info(f"Legacy LangChain response generated for user {current_user.id}: {request.message[:50]}...")
                 return ChatResponse(response=response)
                 
             except Exception as langchain_error:
@@ -68,7 +209,7 @@ async def chat_endpoint(
                     user_context=context_data
                 )
                 
-                logger.info(f"Simple assistant response generated for user {current_user.id}: {request.message[:50]}...")
+                logger.info(f"Legacy simple assistant response generated for user {current_user.id}: {request.message[:50]}...")
                 return ChatResponse(response=response)
         else:
             # Use simple assistant when LangChain is not available
@@ -78,11 +219,11 @@ async def chat_endpoint(
                 user_context=context_data
             )
             
-            logger.info(f"Simple assistant response generated for user {current_user.id}: {request.message[:50]}...")
+            logger.info(f"Legacy simple assistant response generated for user {current_user.id}: {request.message[:50]}...")
             return ChatResponse(response=response)
         
     except Exception as e:
-        logger.error(f"Error in AI assistant chat endpoint: {e}")
+        logger.error(f"Error in legacy AI assistant chat endpoint: {e}")
         # Final fallback to simple response
         user_name = current_user.full_name or current_user.email.split('@')[0] if current_user.email else "User"
         company_name = current_user.company.name if current_user.company else "your company"

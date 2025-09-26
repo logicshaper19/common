@@ -89,6 +89,66 @@ class SimpleOpenAIClient:
             # Fallback to a helpful response
             return self._get_fallback_response(user_message, context_data, user_name)
     
+    async def generate_advanced_response(
+        self, 
+        user_message: str, 
+        context_data: Dict[str, Any], 
+        enhanced_context: Dict[str, Any],
+        user_name: str = "User"
+    ) -> str:
+        """
+        Generate AI response using OpenAI with advanced prompts system.
+        
+        Args:
+            user_message: The user's input message
+            context_data: Supply chain context data (company, inventory, etc.)
+            enhanced_context: Advanced prompt system context
+            user_name: Name of the user for personalization
+            
+        Returns:
+            AI-generated response string
+        """
+        try:
+            # Use the advanced system prompt from the enhanced context
+            system_prompt = enhanced_context.get("advanced_system_prompt", "")
+            context_prompt = enhanced_context.get("context_prompt", "")
+            industry_context = enhanced_context.get("industry_context", "")
+            compliance_intelligence = enhanced_context.get("compliance_intelligence", "")
+            response_mode = enhanced_context.get("response_mode", "executive_summary")
+            
+            # Adjust temperature based on response mode
+            temperature = 0.3 if response_mode == "compliance_focus" else 0.6
+            
+            # Create comprehensive messages
+            full_system_prompt = f"{system_prompt}\n\n{industry_context}\n\n{compliance_intelligence}"
+            full_user_prompt = f"{context_prompt}\n\nUser Question: {user_message}\n\nProvide a comprehensive response that demonstrates deep palm oil supply chain expertise and addresses their specific business context."
+            
+            messages = [
+                {"role": "system", "content": full_system_prompt},
+                {"role": "user", "content": full_user_prompt}
+            ]
+            
+            # Call OpenAI API with enhanced settings
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=1200,  # Increased for more comprehensive responses
+                temperature=temperature,
+                top_p=1.0,
+                frequency_penalty=0.0,
+                presence_penalty=0.0
+            )
+            
+            ai_response = response.choices[0].message.content.strip()
+            logger.info(f"Advanced OpenAI response generated (mode: {response_mode}) for user {user_name}")
+            
+            return ai_response
+            
+        except Exception as e:
+            logger.error(f"Error generating advanced OpenAI response: {e}")
+            # Fallback to standard response
+            return await self.generate_response(user_message, context_data, user_name)
+    
     def _build_system_prompt(self, context_data: Dict[str, Any], user_name: str) -> str:
         """Build a comprehensive system prompt with supply chain context."""
         
