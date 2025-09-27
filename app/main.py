@@ -80,6 +80,7 @@ from app.api.enhanced_transformations import router as enhanced_transformations_
 from app.api.transformation_dashboard import router as transformation_dashboard_router
 from app.api.inventory import router as inventory_router
 from app.api.unified_assistant import router as unified_assistant_router
+from app.api.agent_orchestrator import router as agent_orchestrator_router
 # Removed transformation_enhanced_v2 - complex versioning system
 from app.api.websocket import router as websocket_router
 from app.services.seed_data import SeedDataService
@@ -309,6 +310,7 @@ app.include_router(enhanced_transformations_router, tags=["Enhanced Transformati
 app.include_router(transformation_dashboard_router, prefix="/api/v1", tags=["Transformation Dashboard"])
 app.include_router(inventory_router, prefix="/api/v1", tags=["Inventory"])
 app.include_router(unified_assistant_router, prefix="/api/v1", tags=["AI Assistant"])
+app.include_router(agent_orchestrator_router, tags=["Agent Orchestrator"])
 # Removed complex v2/v3 versioning systems
 
 # WebSocket endpoints (no prefix)
