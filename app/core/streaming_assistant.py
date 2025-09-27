@@ -83,48 +83,70 @@ class MemoryManagedCache:
                 logger.debug(f"Evicted LRU cache entry: {key}")
     
     def get(self, key: str) -> Optional[Any]:
-        """Get value from cache, updating LRU order."""
+        """Get value from cache, updating LRU order with atomic operations."""
         with self._lock:
-            current_time = time.time()
-            
-            # Periodic cleanup check (every 5 minutes)
-            if current_time - self._last_cleanup > self._cleanup_interval:
-                self._cleanup_expired()
-                self._last_cleanup = current_time
-            
-            # Check if key exists and is not expired
-            if key in self._cache and key in self._cache_ttl:
-                if current_time < self._cache_ttl[key]:
-                    # Move to end (most recently used)
-                    value = self._cache.pop(key)
-                    self._cache[key] = value
-                    logger.debug(f"Cache hit for key: {key}")
-                    return value
-                else:
-                    # Expired, remove it
-                    self._cache.pop(key, None)
-                    self._cache_ttl.pop(key, None)
-                    logger.debug(f"Cache expired for key: {key}")
-            
-            return None
+            try:
+                current_time = time.time()
+                
+                # Periodic cleanup check (every 5 minutes)
+                if current_time - self._last_cleanup > self._cleanup_interval:
+                    self._cleanup_expired()
+                    self._last_cleanup = current_time
+                
+                # Atomic check and retrieve with proper error handling
+                if key in self._cache and key in self._cache_ttl:
+                    expiry_time = self._cache_ttl.get(key)
+                    if expiry_time and current_time < expiry_time:
+                        # Atomic move to end (most recently used)
+                        try:
+                            value = self._cache.pop(key)
+                            self._cache[key] = value
+                            logger.debug(f"Cache hit for key: {key}")
+                            return value
+                        except KeyError:
+                            # Key was removed by another thread, return None
+                            logger.debug(f"Cache key {key} was removed during access")
+                            return None
+                    else:
+                        # Expired, remove it atomically
+                        try:
+                            self._cache.pop(key, None)
+                            self._cache_ttl.pop(key, None)
+                            logger.debug(f"Cache expired for key: {key}")
+                        except KeyError:
+                            # Already removed by another thread
+                            pass
+                
+                return None
+                
+            except Exception as e:
+                logger.error(f"Error accessing cache for key {key}: {e}")
+                return None
     
     def set(self, key: str, value: Any, ttl_seconds: int = 300):
-        """Set value in cache with TTL."""
+        """Set value in cache with TTL using atomic operations."""
         with self._lock:
-            current_time = time.time()
-            
-            # Remove existing entry if present
-            self._cache.pop(key, None)
-            self._cache_ttl.pop(key, None)
-            
-            # Add new entry
-            self._cache[key] = value
-            self._cache_ttl[key] = current_time + ttl_seconds
-            
-            # Evict LRU if necessary
-            self._evict_lru()
-            
-            logger.debug(f"Cached data for key: {key}, TTL: {ttl_seconds}s")
+            try:
+                current_time = time.time()
+                
+                # Atomic remove existing entry if present
+                self._cache.pop(key, None)
+                self._cache_ttl.pop(key, None)
+                
+                # Atomic add new entry
+                self._cache[key] = value
+                self._cache_ttl[key] = current_time + ttl_seconds
+                
+                # Evict LRU if necessary
+                self._evict_lru()
+                
+                logger.debug(f"Cached data for key: {key}, TTL: {ttl_seconds}s")
+                
+            except Exception as e:
+                logger.error(f"Error setting cache for key {key}: {e}")
+                # Clean up any partial state
+                self._cache.pop(key, None)
+                self._cache_ttl.pop(key, None)
     
     def clear(self, key_prefix: str = None):
         """Clear cache entries."""
