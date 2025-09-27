@@ -18,6 +18,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
 from collections import defaultdict, deque
+from pydantic import BaseModel, Field, validator
 from sqlalchemy.exc import SQLAlchemyError, DatabaseError, OperationalError, DisconnectionError
 from fastapi import HTTPException, status
 
@@ -27,6 +28,58 @@ from app.core.supply_chain_prompts import EnhancedSupplyChainPrompts, Interactio
 # Enhanced in-memory cache with memory management
 from collections import OrderedDict
 import threading
+
+# Input validation schemas
+class UserContextSchema(BaseModel):
+    """Schema for validating user context input to prevent malicious data injection."""
+    
+    user_id: Optional[str] = Field(None, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+    company_id: Optional[str] = Field(None, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+    role: Optional[str] = Field(None, max_length=50, pattern=r'^[a-zA-Z0-9_\s-]+$')
+    permissions: Optional[List[str]] = Field(None, max_items=20)
+    preferences: Optional[Dict[str, Any]] = Field(None, max_items=50)
+    session_id: Optional[str] = Field(None, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+    timestamp: Optional[str] = Field(None, max_length=50)
+    
+    @validator('permissions')
+    def validate_permissions(cls, v):
+        """Validate permissions list."""
+        if v is not None:
+            for perm in v:
+                if not isinstance(perm, str) or len(perm) > 50:
+                    raise ValueError('Invalid permission format')
+                if not re.match(r'^[a-zA-Z0-9_.-]+$', perm):
+                    raise ValueError('Permission contains invalid characters')
+        return v
+    
+    @validator('preferences')
+    def validate_preferences(cls, v):
+        """Validate preferences dictionary."""
+        if v is not None:
+            for key, value in v.items():
+                if not isinstance(key, str) or len(key) > 50:
+                    raise ValueError('Invalid preference key')
+                if not re.match(r'^[a-zA-Z0-9_.-]+$', key):
+                    raise ValueError('Preference key contains invalid characters')
+                # Limit value size to prevent large payloads
+                if isinstance(value, str) and len(value) > 1000:
+                    raise ValueError('Preference value too large')
+                if isinstance(value, (dict, list)) and len(str(value)) > 1000:
+                    raise ValueError('Preference value too large')
+        return v
+    
+    @validator('timestamp')
+    def validate_timestamp(cls, v):
+        """Validate timestamp format."""
+        if v is not None:
+            # Allow ISO format timestamps
+            if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', v):
+                raise ValueError('Invalid timestamp format')
+        return v
+    
+    class Config:
+        extra = "forbid"  # Reject any extra fields
+        str_max_length = 1000  # Global string length limit
 
 class MemoryManagedCache:
     """
@@ -616,6 +669,15 @@ class SupplyChainStreamingAssistant:
     
     async def analyze_content_requirements(self, message: str, context: dict) -> List[str]:
         """Determine what visualizations and content to include."""
+        
+        # Validate user context to prevent malicious data injection
+        try:
+            validated_context = UserContextSchema(**context)
+            logger.debug(f"User context validated successfully for user: {validated_context.user_id}")
+        except Exception as e:
+            logger.warning(f"Invalid user context provided: {e}")
+            # Use safe default context
+            validated_context = UserContextSchema()
         
         content_types = []
         message_lower = message.lower()
