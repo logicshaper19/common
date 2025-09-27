@@ -602,9 +602,16 @@ class SupplyChainAgentOrchestrator:
             role_mapping = {
                 "brand_manager": AgentRole.BRAND_MANAGER,
                 "processor": AgentRole.PROCESSOR_OPERATIONS,
+                "mill_processor": AgentRole.PROCESSOR_OPERATIONS,
+                "processor_operations": AgentRole.PROCESSOR_OPERATIONS,
                 "originator": AgentRole.ORIGINATOR_PLANTATION,
+                "plantation_grower": AgentRole.ORIGINATOR_PLANTATION,
+                "originator_plantation": AgentRole.ORIGINATOR_PLANTATION,
                 "trader": AgentRole.TRADER_LOGISTICS,
+                "trader_aggregator": AgentRole.TRADER_LOGISTICS,
+                "trader_logistics": AgentRole.TRADER_LOGISTICS,
                 "admin": AgentRole.ADMIN_SYSTEM,
+                "platform_admin": AgentRole.ADMIN_SYSTEM,
                 "super_admin": AgentRole.ADMIN_SYSTEM
             }
             
