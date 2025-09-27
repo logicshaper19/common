@@ -18,7 +18,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
 from collections import defaultdict, deque
-from sqlalchemy.exc import SQLAlchemyError, DatabaseError, OperationalError
+from sqlalchemy.exc import SQLAlchemyError, DatabaseError, OperationalError, DisconnectionError
 from fastapi import HTTPException, status
 
 from app.core.logging import get_logger
@@ -252,6 +252,58 @@ class RateLimiter:
 # Global rate limiter instance
 _rate_limiter = RateLimiter(max_requests=10, window_seconds=60, max_concurrent=3)
 
+class DatabaseRetryManager:
+    """
+    Database connection retry manager with exponential backoff.
+    Handles connection failures and provides retry logic.
+    """
+    
+    def __init__(self, max_retries: int = 3, base_delay: float = 1.0, max_delay: float = 10.0):
+        self.max_retries = max_retries
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+        self.retryable_errors = (DatabaseError, OperationalError, DisconnectionError)
+    
+    async def execute_with_retry(self, operation, *args, **kwargs):
+        """
+        Execute a database operation with retry logic.
+        """
+        last_exception = None
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                if asyncio.iscoroutinefunction(operation):
+                    return await operation(*args, **kwargs)
+                else:
+                    return operation(*args, **kwargs)
+                    
+            except self.retryable_errors as e:
+                last_exception = e
+                
+                if attempt < self.max_retries:
+                    delay = min(self.base_delay * (2 ** attempt), self.max_delay)
+                    logger.warning(f"Database error on attempt {attempt + 1}/{self.max_retries + 1}: {e}. Retrying in {delay}s...")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"Database operation failed after {self.max_retries + 1} attempts: {e}")
+                    raise DatabaseError(f"Database operation failed after {self.max_retries + 1} attempts: {e}")
+                    
+            except Exception as e:
+                # Non-retryable error, raise immediately
+                logger.error(f"Non-retryable database error: {e}")
+                raise e
+        
+        # This should never be reached, but just in case
+        if last_exception:
+            raise last_exception
+    
+    def is_retryable_error(self, error: Exception) -> bool:
+        """Check if an error is retryable."""
+        return isinstance(error, self.retryable_errors)
+
+# Global database retry manager
+_db_retry_manager = DatabaseRetryManager(max_retries=3, base_delay=1.0, max_delay=10.0)
+
 logger = get_logger(__name__)
 
 
@@ -351,6 +403,10 @@ class SupplyChainStreamingAssistant:
     def release_rate_limit(self, user_id: str):
         """Release a rate limit slot for a user."""
         _rate_limiter.release_request(user_id)
+    
+    async def execute_db_operation_with_retry(self, operation, *args, **kwargs):
+        """Execute a database operation with retry logic."""
+        return await _db_retry_manager.execute_with_retry(operation, *args, **kwargs)
     
     def _validate_user_input(self, message: str, user_id: str = "anonymous") -> Optional[str]:
         """Validate and sanitize user input for security and rate limiting."""
@@ -487,14 +543,28 @@ class SupplyChainStreamingAssistant:
                     )
                 except DatabaseError as e:
                     logger.error(f"Database error for {content_type}: {e}")
-                    yield StreamingResponse(
-                        type=ResponseType.ALERT,
-                        content={
-                            "type": "error",
-                            "message": "Database temporarily unavailable",
-                            "action": "Please try again in a moment"
-                        }
-                    )
+                    
+                    # Check if this is a retryable error
+                    if _db_retry_manager.is_retryable_error(e):
+                        yield StreamingResponse(
+                            type=ResponseType.ALERT,
+                            content={
+                                "type": "warning",
+                                "message": "Database connection issue detected. Retrying...",
+                                "action": "Please wait while we reconnect to the database"
+                            }
+                        )
+                        # The retry mechanism will handle the retry automatically
+                        raise e
+                    else:
+                        yield StreamingResponse(
+                            type=ResponseType.ALERT,
+                            content={
+                                "type": "error",
+                                "message": "Database operation failed",
+                                "action": "Please try again or contact support if the issue persists"
+                            }
+                        )
                 except Exception as e:
                     logger.error(f"Unexpected error for {content_type}: {e}")
                     yield StreamingResponse(
