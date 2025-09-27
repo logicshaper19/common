@@ -373,9 +373,9 @@ class SupplyChainStreamingAssistant:
             raise StreamingAssistantError(f"Initialization failed: {e}")
     
     def _get_cache_key(self, key_prefix: str, user_id: str, additional_params: str = "") -> str:
-        """Generate a cache key."""
+        """Generate a secure cache key using SHA-256 to prevent collisions."""
         key_string = f"{key_prefix}:{user_id}:{additional_params}"
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return hashlib.sha256(key_string.encode()).hexdigest()
     
     def _get_from_cache(self, cache_key: str) -> Optional[Any]:
         """Get data from cache if not expired."""
