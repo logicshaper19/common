@@ -25,9 +25,6 @@ from app.core.supply_chain_prompts import EnhancedSupplyChainPrompts, Interactio
 # Enhanced in-memory cache with memory management
 from collections import OrderedDict
 import threading
-import asyncio
-from typing import Dict, Any, Optional
-import weakref
 
 class MemoryManagedCache:
     """
@@ -53,24 +50,10 @@ class MemoryManagedCache:
     
     def _start_cleanup_task(self):
         """Start the periodic cleanup task."""
-        if self._cleanup_task is None or self._cleanup_task.done():
-            try:
-                loop = asyncio.get_event_loop()
-                self._cleanup_task = loop.create_task(self._periodic_cleanup())
-            except RuntimeError:
-                # No event loop running, cleanup will happen on next access
-                pass
+        # Don't start async task during module import
+        # Cleanup will happen on cache access instead
+        pass
     
-    async def _periodic_cleanup(self):
-        """Periodic cleanup of expired cache entries."""
-        while True:
-            try:
-                await asyncio.sleep(self._cleanup_interval)
-                self._cleanup_expired()
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in periodic cache cleanup: {e}")
     
     def _cleanup_expired(self):
         """Remove expired entries from cache."""
@@ -102,6 +85,11 @@ class MemoryManagedCache:
         """Get value from cache, updating LRU order."""
         with self._lock:
             current_time = time.time()
+            
+            # Periodic cleanup check (every 5 minutes)
+            if current_time - self._last_cleanup > self._cleanup_interval:
+                self._cleanup_expired()
+                self._last_cleanup = current_time
             
             # Check if key exists and is not expired
             if key in self._cache and key in self._cache_ttl:
@@ -167,8 +155,7 @@ class MemoryManagedCache:
     
     def __del__(self):
         """Cleanup when cache is destroyed."""
-        if self._cleanup_task and not self._cleanup_task.done():
-            self._cleanup_task.cancel()
+        pass
 
 # Global cache instance with memory management
 _cache_manager = MemoryManagedCache(max_size=1000, cleanup_interval=300)
