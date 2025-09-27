@@ -21,6 +21,7 @@ from collections import defaultdict, deque
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.exc import SQLAlchemyError, DatabaseError, OperationalError, DisconnectionError
 from fastapi import HTTPException, status
+import traceback
 
 from app.core.logging import get_logger
 from app.core.supply_chain_prompts import EnhancedSupplyChainPrompts, InteractionType
@@ -28,6 +29,63 @@ from app.core.supply_chain_prompts import EnhancedSupplyChainPrompts, Interactio
 # Enhanced in-memory cache with memory management
 from collections import OrderedDict
 import threading
+
+# Secure error handling utility
+class SecureErrorHandler:
+    """Utility class for secure error handling without information leakage."""
+    
+    @staticmethod
+    def sanitize_error_message(error: Exception, context: str = "") -> str:
+        """Sanitize error messages to prevent information leakage."""
+        # Define safe error messages for different error types
+        safe_messages = {
+            DatabaseError: "Database operation failed",
+            OperationalError: "Database connection issue",
+            DisconnectionError: "Database connection lost",
+            ValueError: "Invalid input provided",
+            TypeError: "Invalid data type",
+            KeyError: "Required data not found",
+            AttributeError: "Invalid operation attempted",
+            PermissionError: "Access denied",
+            FileNotFoundError: "Resource not found",
+            ConnectionError: "Network connection failed",
+            TimeoutError: "Operation timed out",
+        }
+        
+        # Get safe message based on error type
+        error_type = type(error)
+        safe_message = safe_messages.get(error_type, "An unexpected error occurred")
+        
+        if context:
+            safe_message = f"{context}: {safe_message}"
+        
+        return safe_message
+    
+    @staticmethod
+    def log_error_securely(error: Exception, context: str = "", user_id: str = None):
+        """Log errors securely without exposing sensitive information."""
+        # Create a safe error ID for tracking
+        error_id = hashlib.sha256(f"{type(error).__name__}{context}{time.time()}".encode()).hexdigest()[:8]
+        
+        # Log minimal information
+        logger.error(f"Error {error_id} in {context}: {type(error).__name__}")
+        
+        # Log full details only in debug mode (for development)
+        if os.getenv("DEBUG", "false").lower() == "true":
+            logger.debug(f"Error {error_id} full details: {str(error)}")
+            logger.debug(f"Error {error_id} traceback: {traceback.format_exc()}")
+        
+        return error_id
+    
+    @staticmethod
+    def create_safe_response(error_id: str, context: str = "") -> dict:
+        """Create a safe error response for users."""
+        return {
+            "type": "error",
+            "message": "An unexpected error occurred. Please try again.",
+            "error_id": error_id,
+            "action": "Please try again or contact support if the issue persists"
+        }
 
 # Input validation schemas
 class UserContextSchema(BaseModel):
@@ -174,7 +232,7 @@ class MemoryManagedCache:
                 return None
                 
             except Exception as e:
-                logger.error(f"Error accessing cache for key {key}: {e}")
+                SecureErrorHandler.log_error_securely(e, f"cache_access_{key}")
                 return None
     
     def set(self, key: str, value: Any, ttl_seconds: int = 300):
@@ -197,7 +255,7 @@ class MemoryManagedCache:
                 logger.debug(f"Cached data for key: {key}, TTL: {ttl_seconds}s")
                 
             except Exception as e:
-                logger.error(f"Error setting cache for key {key}: {e}")
+                SecureErrorHandler.log_error_securely(e, f"cache_set_{key}")
                 # Clean up any partial state
                 self._cache.pop(key, None)
                 self._cache_ttl.pop(key, None)
@@ -343,7 +401,7 @@ class DatabaseRetryManager:
                     
             except Exception as e:
                 # Non-retryable error, raise immediately
-                logger.error(f"Non-retryable database error: {e}")
+                SecureErrorHandler.log_error_securely(e, "non_retryable_database_error")
                 raise e
         
         # This should never be reached, but just in case
@@ -422,8 +480,8 @@ class SupplyChainStreamingAssistant:
             self.request_timeout = 30  # 30 seconds timeout for requests
             logger.info("Streaming assistant initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize streaming assistant: {e}")
-            raise StreamingAssistantError(f"Initialization failed: {e}")
+            error_id = SecureErrorHandler.log_error_securely(e, "streaming_assistant_initialization")
+            raise StreamingAssistantError(f"Initialization failed (Error ID: {error_id})")
     
     def _get_cache_key(self, key_prefix: str, user_id: str, additional_params: str = "") -> str:
         """Generate a secure cache key using SHA-256 to prevent collisions."""
@@ -619,14 +677,11 @@ class SupplyChainStreamingAssistant:
                             }
                         )
                 except Exception as e:
-                    logger.error(f"Unexpected error for {content_type}: {e}")
+                    error_id = SecureErrorHandler.log_error_securely(e, f"content_processing_{content_type}")
+                    safe_response = SecureErrorHandler.create_safe_response(error_id, f"processing {content_type.replace('_', ' ')}")
                     yield StreamingResponse(
                         type=ResponseType.ALERT,
-                        content={
-                            "type": "error",
-                            "message": f"Error processing {content_type.replace('_', ' ')}",
-                            "action": "Please try again or contact support"
-                        }
+                        content=safe_response
                     )
             
             # Final completion
@@ -657,14 +712,11 @@ class SupplyChainStreamingAssistant:
                 }
             )
         except Exception as e:
-            logger.error(f"Unexpected error in streaming response: {e}")
+            error_id = SecureErrorHandler.log_error_securely(e, "streaming_response", user_id)
+            safe_response = SecureErrorHandler.create_safe_response(error_id, "streaming response")
             yield StreamingResponse(
                 type=ResponseType.ALERT,
-                content={
-                    "type": "error",
-                    "message": "An unexpected error occurred",
-                    "action": "Please try rephrasing your question or contact support"
-                }
+                content=safe_response
             )
     
     async def analyze_content_requirements(self, message: str, context: dict) -> List[str]:
@@ -815,8 +867,8 @@ class SupplyChainStreamingAssistant:
             logger.error(f"Database error in inventory: {e}")
             raise
         except Exception as e:
-            logger.error(f"Unexpected error retrieving inventory data: {e}")
-            raise DataRetrievalError(f"Inventory data retrieval failed: {e}")
+            error_id = SecureErrorHandler.log_error_securely(e, "inventory_data_retrieval")
+            raise DataRetrievalError(f"Inventory data retrieval failed (Error ID: {error_id})")
     
     def _process_inventory_for_chart(self, batches: List[Dict]) -> List[Dict]:
         """Process inventory batches into chart data format."""
@@ -845,7 +897,7 @@ class SupplyChainStreamingAssistant:
             return chart_data
             
         except Exception as e:
-            logger.error(f"Error processing inventory for chart: {e}")
+            SecureErrorHandler.log_error_securely(e, "inventory_chart_processing")
             return []
     
     def _process_inventory_for_table(self, batches: List[Dict]) -> List[List[str]]:
@@ -866,7 +918,7 @@ class SupplyChainStreamingAssistant:
             return table_rows
             
         except Exception as e:
-            logger.error(f"Error processing inventory for table: {e}")
+            SecureErrorHandler.log_error_securely(e, "inventory_table_processing")
             return []
     
     def _calculate_trend(self, current_value: float, metric_type: str) -> str:
@@ -985,8 +1037,8 @@ class SupplyChainStreamingAssistant:
             logger.error(f"Database error in transparency: {e}")
             raise
         except Exception as e:
-            logger.error(f"Unexpected error retrieving transparency data: {e}")
-            raise DataRetrievalError(f"Transparency data retrieval failed: {e}")
+            error_id = SecureErrorHandler.log_error_securely(e, "transparency_data_retrieval")
+            raise DataRetrievalError(f"Transparency data retrieval failed (Error ID: {error_id})")
     
     async def _get_supply_chain_data(self, user_context: dict) -> Optional[Dict]:
         """Get supply chain data for visualization."""
@@ -1044,7 +1096,7 @@ class SupplyChainStreamingAssistant:
             return {"nodes": nodes, "edges": edges}
             
         except Exception as e:
-            logger.error(f"Error getting supply chain data: {e}")
+            SecureErrorHandler.log_error_securely(e, "supply_chain_data_retrieval")
             return None
     
     async def _get_compliance_data(self, user_context: dict) -> Optional[List[List[str]]]:
@@ -1080,7 +1132,7 @@ class SupplyChainStreamingAssistant:
             return compliance_rows
             
         except Exception as e:
-            logger.error(f"Error getting compliance data: {e}")
+            SecureErrorHandler.log_error_securely(e, "compliance_data_retrieval")
             return None
 
     async def stream_yield_analysis(self, user_context: dict) -> AsyncGenerator[StreamingResponse, None]:
@@ -1200,14 +1252,11 @@ class SupplyChainStreamingAssistant:
             )
             
         except Exception as e:
-            logger.error(f"Error retrieving supplier network data: {e}")
+            error_id = SecureErrorHandler.log_error_securely(e, "supplier_network_retrieval")
+            safe_response = SecureErrorHandler.create_safe_response(error_id, "supplier network data")
             yield StreamingResponse(
                 type=ResponseType.ALERT,
-                content={
-                    "type": "info",
-                    "message": "Supplier network data is being updated. Please check back later.",
-                    "action": "View Companies Page"
-                }
+                content=safe_response
             )
 
     async def stream_compliance_content(self, user_context: dict) -> AsyncGenerator[StreamingResponse, None]:
@@ -1247,14 +1296,11 @@ class SupplyChainStreamingAssistant:
             )
             
         except Exception as e:
-            logger.error(f"Error retrieving compliance data: {e}")
+            error_id = SecureErrorHandler.log_error_securely(e, "compliance_data_retrieval")
+            safe_response = SecureErrorHandler.create_safe_response(error_id, "compliance data")
             yield StreamingResponse(
                 type=ResponseType.ALERT,
-                content={
-                    "type": "warning",
-                    "message": "Compliance data is being calculated. Please check the compliance dashboard.",
-                    "action": "View Compliance Dashboard"
-                }
+                content=safe_response
             )
 
     async def stream_processing_efficiency(self, user_context: dict) -> AsyncGenerator[StreamingResponse, None]:
@@ -1289,14 +1335,11 @@ class SupplyChainStreamingAssistant:
             )
             
         except Exception as e:
-            logger.error(f"Error retrieving processing efficiency data: {e}")
+            error_id = SecureErrorHandler.log_error_securely(e, "processing_efficiency_retrieval")
+            safe_response = SecureErrorHandler.create_safe_response(error_id, "processing efficiency data")
             yield StreamingResponse(
                 type=ResponseType.ALERT,
-                content={
-                    "type": "info",
-                    "message": "Processing efficiency data is being updated.",
-                    "action": "View Transformations Page"
-                }
+                content=safe_response
             )
 
 
