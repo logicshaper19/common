@@ -15,12 +15,11 @@ from langchain_core.tools import tool, Tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
-from langchain_core.memory import ConversationBufferWindowMemory, ConversationSummaryMemory
+from langchain.memory import ConversationBufferWindowMemory, ConversationSummaryMemory
 from langchain_core.callbacks import BaseCallbackHandler
-from langchain_core.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.chains import LLMChain
-from langchain_core.retrievers import BaseRetriever
-from langchain_core.documents import Document
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain.chains import LLMChain
+from langchain.schema import BaseRetriever, Document
 
 # LangChain Advanced Components
 from langchain_community.tools import DuckDuckGoSearchRun

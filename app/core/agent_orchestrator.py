@@ -37,6 +37,9 @@ from .config import Settings
 from .consolidated_feature_flags import consolidated_feature_flags
 from .feature_flags import FeatureFlag, feature_flags
 
+# Import enhanced LangChain system
+from .enhanced_langchain_system import EnhancedSupplyChainTools, SupplyChainMemoryManager, SupplyChainKnowledgeBase
+
 logger = logging.getLogger(__name__)
 
 class AgentRole(Enum):
@@ -72,23 +75,31 @@ class AgentResponse:
     error_message: Optional[str] = None
 
 class BaseAgent:
-    """Base class for all specialized agents."""
+    """Base class for all specialized agents with enhanced LangChain integration."""
     
     def __init__(self, role: AgentRole, db_manager, config: Settings):
         self.role = role
         self.db_manager = db_manager
         self.config = config
         self.tools = []
-        self.memory = ConversationBufferWindowMemory(
-            k=10,  # Keep last 10 exchanges
-            memory_key="chat_history",
-            return_messages=True
-        )
+        
+        # Initialize LLM
         self.llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.1,
             api_key=os.getenv("OPENAI_API_KEY")
         )
+        
+        # Initialize enhanced memory management
+        self.memory_manager = SupplyChainMemoryManager(self.llm)
+        self.memory = self.memory_manager.conversation_memory
+        
+        # Initialize knowledge base
+        self.knowledge_base = SupplyChainKnowledgeBase(self.llm)
+        
+        # Initialize enhanced tools
+        self.enhanced_tools = EnhancedSupplyChainTools(db_manager)
+        
         self._initialize_tools()
         self._create_agent()
     
@@ -129,22 +140,47 @@ class BaseAgent:
         return f"You are a {self.role.value} agent for the Supply Chain Transparency Platform."
     
     async def execute(self, query: str, context: AgentContext) -> AgentResponse:
-        """Execute a query using this agent."""
+        """Execute a query using this agent with enhanced memory and knowledge base."""
         start_time = datetime.now()
         tools_used = []
         
         try:
+            # Add context to memory
+            self.memory_manager.add_context("user_context", context)
+            self.memory_manager.add_context("query", query)
+            
+            # Get relevant context from memory
+            relevant_context = self.memory_manager.get_relevant_context(query)
+            
+            # Enhance query with relevant context
+            enhanced_query = query
+            if relevant_context:
+                context_info = "\n".join([f"{k}: {v}" for k, v in relevant_context.items()])
+                enhanced_query = f"Context: {context_info}\n\nQuery: {query}"
+            
             if self.agent_executor:
                 response = await self.agent_executor.ainvoke({
-                    "input": query,
+                    "input": enhanced_query,
                     "chat_history": self.memory.chat_memory.messages
                 })
                 result = response.get("output", str(response))
+                
+                # Extract tools used from response if available
+                if hasattr(response, 'intermediate_steps'):
+                    tools_used = [step[0].tool for step in response.intermediate_steps]
             else:
-                # Fallback to direct LLM call
+                # Fallback to direct LLM call with knowledge base
+                # Search knowledge base for relevant information
+                knowledge_docs = self.knowledge_base.search_knowledge(query, k=2)
+                knowledge_context = ""
+                if knowledge_docs:
+                    knowledge_context = "\n\nRelevant Knowledge:\n" + "\n".join([
+                        f"- {doc.page_content}" for doc in knowledge_docs
+                    ])
+                
                 messages = [
                     SystemMessage(content=self._get_system_prompt()),
-                    HumanMessage(content=query)
+                    HumanMessage(content=enhanced_query + knowledge_context)
                 ]
                 response = await self.llm.ainvoke(messages)
                 result = response.content
@@ -181,56 +217,39 @@ class BrandManagerAgent(BaseAgent):
         self.ai_assistant = ComprehensiveSupplyChainAI(db_manager)
     
     def _initialize_tools(self):
-        """Initialize brand management tools."""
-        @tool
-        def get_supply_chain_analytics() -> str:
-            """Get supply chain analytics and sustainability metrics for brand portfolio."""
-            try:
-                # This would call the actual function from supply_chain_functions
-                return "Supply chain analytics retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving analytics: {e}"
+        """Initialize brand management tools using enhanced LangChain system."""
+        # Get all available tools from enhanced system
+        all_tools = self.enhanced_tools.create_all_tools()
         
-        @tool
-        def get_company_info(company_id: str) -> str:
-            """Get company information and compliance status."""
-            try:
-                # This would call the actual function from certification_functions
-                return f"Company info for {company_id} retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving company info: {e}"
+        # Filter tools relevant to brand management
+        brand_tools = []
+        for tool in all_tools:
+            tool_name = tool.name.lower()
+            if any(keyword in tool_name for keyword in [
+                'certification', 'company_info', 'analytics', 'document', 
+                'recommendation', 'dashboard', 'supply_chain'
+            ]):
+                brand_tools.append(tool)
         
+        # Add knowledge base search tool
         @tool
-        def get_certifications(company_id: str) -> str:
-            """Get RSPO/MSPO certifications for company."""
+        def search_knowledge_base(query: str) -> str:
+            """Search supply chain knowledge base for best practices and documentation."""
             try:
-                return f"Certifications for {company_id} retrieved successfully"
+                docs = self.knowledge_base.search_knowledge(query, k=3)
+                if docs:
+                    result = "Knowledge Base Results:\n"
+                    for i, doc in enumerate(docs, 1):
+                        result += f"{i}. {doc.page_content}\n"
+                        result += f"   Source: {doc.metadata.get('source', 'unknown')}\n\n"
+                    return result
+                else:
+                    return "No relevant information found in knowledge base."
             except Exception as e:
-                return f"Error retrieving certifications: {e}"
+                return f"Error searching knowledge base: {e}"
         
-        @tool
-        def get_documents(document_type: str) -> str:
-            """Get sustainability reports and compliance documentation."""
-            try:
-                return f"Documents of type {document_type} retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving documents: {e}"
-        
-        @tool
-        def get_intelligent_recommendations() -> str:
-            """Get AI-driven insights for brand sustainability strategy."""
-            try:
-                return "Intelligent recommendations generated successfully"
-            except Exception as e:
-                return f"Error generating recommendations: {e}"
-        
-        self.tools = [
-            get_supply_chain_analytics,
-            get_company_info,
-            get_certifications,
-            get_documents,
-            get_intelligent_recommendations
-        ]
+        brand_tools.append(search_knowledge_base)
+        self.tools = brand_tools
     
     def _get_system_prompt(self) -> str:
         return """You are a Brand Manager Agent for the Supply Chain Transparency Platform.
@@ -255,54 +274,39 @@ class ProcessorOperationsAgent(BaseAgent):
         self.supply_manager = SupplyChainManager(db_connection=db_manager)
     
     def _initialize_tools(self):
-        """Initialize processor operations tools."""
-        @tool
-        def get_transformations() -> str:
-            """Get milling operations, OER rates, and processing efficiency data."""
-            try:
-                return "Transformation data retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving transformations: {e}"
+        """Initialize processor operations tools using enhanced LangChain system."""
+        # Get all available tools from enhanced system
+        all_tools = self.enhanced_tools.create_all_tools()
         
-        @tool
-        def get_products() -> str:
-            """Get CPO/RBDPO specifications, quality parameters, and inventory levels."""
-            try:
-                return "Product data retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving products: {e}"
+        # Filter tools relevant to processor operations
+        processor_tools = []
+        for tool in all_tools:
+            tool_name = tool.name.lower()
+            if any(keyword in tool_name for keyword in [
+                'transformation', 'product', 'batch', 'trace', 'dashboard',
+                'analytics', 'search', 'inventory'
+            ]):
+                processor_tools.append(tool)
         
+        # Add knowledge base search tool
         @tool
-        def search_batches(product_type: str, status: str) -> str:
-            """Search inventory batches by product type and status."""
+        def search_knowledge_base(query: str) -> str:
+            """Search supply chain knowledge base for processing best practices."""
             try:
-                return f"Batches for {product_type} with status {status} retrieved successfully"
+                docs = self.knowledge_base.search_knowledge(query, k=3)
+                if docs:
+                    result = "Knowledge Base Results:\n"
+                    for i, doc in enumerate(docs, 1):
+                        result += f"{i}. {doc.page_content}\n"
+                        result += f"   Source: {doc.metadata.get('source', 'unknown')}\n\n"
+                    return result
+                else:
+                    return "No relevant information found in knowledge base."
             except Exception as e:
-                return f"Error searching batches: {e}"
+                return f"Error searching knowledge base: {e}"
         
-        @tool
-        def trace_supply_chain(batch_id: str) -> str:
-            """Trace end-to-end batch from FFB to refined products."""
-            try:
-                return f"Supply chain trace for batch {batch_id} completed successfully"
-            except Exception as e:
-                return f"Error tracing supply chain: {e}"
-        
-        @tool
-        def get_comprehensive_dashboard() -> str:
-            """Get processing plant KPIs and operational overview."""
-            try:
-                return "Comprehensive dashboard data retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving dashboard: {e}"
-        
-        self.tools = [
-            get_transformations,
-            get_products,
-            search_batches,
-            trace_supply_chain,
-            get_comprehensive_dashboard
-        ]
+        processor_tools.append(search_knowledge_base)
+        self.tools = processor_tools
     
     def _get_system_prompt(self) -> str:
         return """You are a Processor Operations Agent for the Supply Chain Transparency Platform.
@@ -329,54 +333,39 @@ class OriginatorPlantationAgent(BaseAgent):
         self.notification_manager = NotificationManager(db_connection=db_manager)
     
     def _initialize_tools(self):
-        """Initialize plantation management tools."""
-        @tool
-        def get_farm_locations() -> str:
-            """Get plantation GPS coordinates and EUDR compliance status."""
-            try:
-                return "Farm locations and EUDR compliance data retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving farm locations: {e}"
+        """Initialize plantation management tools using enhanced LangChain system."""
+        # Get all available tools from enhanced system
+        all_tools = self.enhanced_tools.create_all_tools()
         
-        @tool
-        def search_batches_with_certification(certification_type: str) -> str:
-            """Search FFB batches with certification filtering."""
-            try:
-                return f"Batches with {certification_type} certification retrieved successfully"
-            except Exception as e:
-                return f"Error searching certified batches: {e}"
+        # Filter tools relevant to plantation management
+        plantation_tools = []
+        for tool in all_tools:
+            tool_name = tool.name.lower()
+            if any(keyword in tool_name for keyword in [
+                'farm_location', 'certification', 'batch', 'notification', 
+                'alert', 'compliance', 'eudr'
+            ]):
+                plantation_tools.append(tool)
         
+        # Add knowledge base search tool
         @tool
-        def get_certifications() -> str:
-            """Get RSPO, MSPO, and sustainability certification status."""
+        def search_knowledge_base(query: str) -> str:
+            """Search supply chain knowledge base for plantation and compliance best practices."""
             try:
-                return "Certification status retrieved successfully"
+                docs = self.knowledge_base.search_knowledge(query, k=3)
+                if docs:
+                    result = "Knowledge Base Results:\n"
+                    for i, doc in enumerate(docs, 1):
+                        result += f"{i}. {doc.page_content}\n"
+                        result += f"   Source: {doc.metadata.get('source', 'unknown')}\n\n"
+                    return result
+                else:
+                    return "No relevant information found in knowledge base."
             except Exception as e:
-                return f"Error retrieving certifications: {e}"
+                return f"Error searching knowledge base: {e}"
         
-        @tool
-        def get_notifications() -> str:
-            """Get compliance alerts for deforestation and regulatory issues."""
-            try:
-                return "Compliance notifications retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving notifications: {e}"
-        
-        @tool
-        def trigger_alert_check() -> str:
-            """Trigger manual compliance auditing and alert management."""
-            try:
-                return "Alert check triggered successfully"
-            except Exception as e:
-                return f"Error triggering alert check: {e}"
-        
-        self.tools = [
-            get_farm_locations,
-            search_batches_with_certification,
-            get_certifications,
-            get_notifications,
-            trigger_alert_check
-        ]
+        plantation_tools.append(search_knowledge_base)
+        self.tools = plantation_tools
     
     def _get_system_prompt(self) -> str:
         return """You are an Originator/Plantation Agent for the Supply Chain Transparency Platform.
@@ -403,54 +392,39 @@ class TraderLogisticsAgent(BaseAgent):
         self.cert_manager = CertificationManager(db_manager=db_manager)
     
     def _initialize_tools(self):
-        """Initialize trading and logistics tools."""
-        @tool
-        def get_purchase_orders() -> str:
-            """Get purchase orders with buyer/seller filtering and fulfillment tracking."""
-            try:
-                return "Purchase orders retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving purchase orders: {e}"
+        """Initialize trading and logistics tools using enhanced LangChain system."""
+        # Get all available tools from enhanced system
+        all_tools = self.enhanced_tools.create_all_tools()
         
-        @tool
-        def get_deliveries() -> str:
-            """Get shipment tracking, delivery performance, and logistics KPIs."""
-            try:
-                return "Delivery data retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving deliveries: {e}"
+        # Filter tools relevant to trading and logistics
+        logistics_tools = []
+        for tool in all_tools:
+            tool_name = tool.name.lower()
+            if any(keyword in tool_name for keyword in [
+                'purchase_order', 'delivery', 'shipment', 'inventory', 
+                'logistics', 'analytics', 'trading'
+            ]):
+                logistics_tools.append(tool)
         
+        # Add knowledge base search tool
         @tool
-        def get_shipments() -> str:
-            """Get transportation data with carrier performance analytics."""
+        def search_knowledge_base(query: str) -> str:
+            """Search supply chain knowledge base for logistics and trading best practices."""
             try:
-                return "Shipment data retrieved successfully"
+                docs = self.knowledge_base.search_knowledge(query, k=3)
+                if docs:
+                    result = "Knowledge Base Results:\n"
+                    for i, doc in enumerate(docs, 1):
+                        result += f"{i}. {doc.page_content}\n"
+                        result += f"   Source: {doc.metadata.get('source', 'unknown')}\n\n"
+                    return result
+                else:
+                    return "No relevant information found in knowledge base."
             except Exception as e:
-                return f"Error retrieving shipments: {e}"
+                return f"Error searching knowledge base: {e}"
         
-        @tool
-        def get_inventory_movements() -> str:
-            """Get inventory coordination across multiple locations."""
-            try:
-                return "Inventory movements retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving inventory movements: {e}"
-        
-        @tool
-        def get_logistics_analytics() -> str:
-            """Get transportation optimization and logistics analytics."""
-            try:
-                return "Logistics analytics retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving logistics analytics: {e}"
-        
-        self.tools = [
-            get_purchase_orders,
-            get_deliveries,
-            get_shipments,
-            get_inventory_movements,
-            get_logistics_analytics
-        ]
+        logistics_tools.append(search_knowledge_base)
+        self.tools = logistics_tools
     
     def _get_system_prompt(self) -> str:
         return """You are a Trader/Logistics Agent for the Supply Chain Transparency Platform.
@@ -477,54 +451,39 @@ class AdminSystemAgent(BaseAgent):
         self.ai_assistant = ComprehensiveSupplyChainAI(db_manager)
     
     def _initialize_tools(self):
-        """Initialize admin system tools."""
-        @tool
-        def get_system_analytics() -> str:
-            """Get comprehensive system analytics and platform performance metrics."""
-            try:
-                return "System analytics retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving system analytics: {e}"
+        """Initialize admin system tools using enhanced LangChain system."""
+        # Get all available tools from enhanced system
+        all_tools = self.enhanced_tools.create_all_tools()
         
-        @tool
-        def get_user_management() -> str:
-            """Get user management and access control information."""
-            try:
-                return "User management data retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving user management data: {e}"
+        # Filter tools relevant to admin system
+        admin_tools = []
+        for tool in all_tools:
+            tool_name = tool.name.lower()
+            if any(keyword in tool_name for keyword in [
+                'analytics', 'dashboard', 'notification', 'user', 'system',
+                'audit', 'health', 'management'
+            ]):
+                admin_tools.append(tool)
         
+        # Add knowledge base search tool
         @tool
-        def get_platform_health() -> str:
-            """Get platform health monitoring and system status."""
+        def search_knowledge_base(query: str) -> str:
+            """Search supply chain knowledge base for system administration best practices."""
             try:
-                return "Platform health data retrieved successfully"
+                docs = self.knowledge_base.search_knowledge(query, k=3)
+                if docs:
+                    result = "Knowledge Base Results:\n"
+                    for i, doc in enumerate(docs, 1):
+                        result += f"{i}. {doc.page_content}\n"
+                        result += f"   Source: {doc.metadata.get('source', 'unknown')}\n\n"
+                    return result
+                else:
+                    return "No relevant information found in knowledge base."
             except Exception as e:
-                return f"Error retrieving platform health: {e}"
+                return f"Error searching knowledge base: {e}"
         
-        @tool
-        def get_notifications() -> str:
-            """Get system-wide notifications and alerts."""
-            try:
-                return "System notifications retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving notifications: {e}"
-        
-        @tool
-        def get_audit_logs() -> str:
-            """Get audit logs and system activity tracking."""
-            try:
-                return "Audit logs retrieved successfully"
-            except Exception as e:
-                return f"Error retrieving audit logs: {e}"
-        
-        self.tools = [
-            get_system_analytics,
-            get_user_management,
-            get_platform_health,
-            get_notifications,
-            get_audit_logs
-        ]
+        admin_tools.append(search_knowledge_base)
+        self.tools = admin_tools
     
     def _get_system_prompt(self) -> str:
         return """You are an Admin System Agent for the Supply Chain Transparency Platform.
