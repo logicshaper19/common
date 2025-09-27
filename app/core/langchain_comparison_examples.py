@@ -3,6 +3,36 @@ LangChain Usage Comparison: Current vs Enhanced
 Shows the dramatic difference between basic and advanced LangChain usage.
 """
 
+# Import LangChain components
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+    from langchain_core.tools import tool, Tool
+    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+    from langchain.memory import ConversationBufferWindowMemory
+    from langchain.agents import AgentExecutor, create_tool_calling_agent
+    LANGCHAIN_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: LangChain components not available: {e}")
+    LANGCHAIN_AVAILABLE = False
+    # Create dummy classes for demonstration
+    class ChatOpenAI:
+        def __init__(self, **kwargs): pass
+        async def ainvoke(self, messages): return AIMessage(content="Mock response")
+    class HumanMessage:
+        def __init__(self, content): self.content = content
+    class SystemMessage:
+        def __init__(self, content): self.content = content
+    class AIMessage:
+        def __init__(self, content): self.content = content
+    class Tool:
+        def __init__(self, **kwargs): pass
+    class ConversationBufferWindowMemory:
+        def __init__(self, **kwargs): pass
+    class AgentExecutor:
+        def __init__(self, **kwargs): pass
+        async def ainvoke(self, inputs): return {"output": "Mock agent response"}
+
 # =============================================================================
 # CURRENT IMPLEMENTATION (Limited LangChain Usage)
 # =============================================================================
@@ -11,9 +41,6 @@ class CurrentBasicAssistant:
     """Current basic implementation - limited LangChain usage."""
     
     def __init__(self):
-        from langchain_openai import ChatOpenAI
-        from langchain_core.messages import HumanMessage, SystemMessage
-        
         self.llm = ChatOpenAI(model="gpt-4o", temperature=0.1)
     
     async def get_response(self, user_message: str, user_context: dict) -> str:
