@@ -33,6 +33,10 @@ from .ai_supply_chain_assistant import ComprehensiveSupplyChainAI
 from .database_manager import get_database_manager
 from .config import Settings
 
+# Import feature flag system
+from .consolidated_feature_flags import consolidated_feature_flags
+from .feature_flags import FeatureFlag, feature_flags
+
 logger = logging.getLogger(__name__)
 
 class AgentRole(Enum):
@@ -248,7 +252,7 @@ class ProcessorOperationsAgent(BaseAgent):
     
     def __init__(self, db_manager, config: Settings):
         super().__init__(AgentRole.PROCESSOR_OPERATIONS, db_manager, config)
-        self.supply_manager = SupplyChainManager(db_manager=db_manager)
+        self.supply_manager = SupplyChainManager(db_connection=db_manager)
     
     def _initialize_tools(self):
         """Initialize processor operations tools."""
@@ -322,7 +326,7 @@ class OriginatorPlantationAgent(BaseAgent):
     def __init__(self, db_manager, config: Settings):
         super().__init__(AgentRole.ORIGINATOR_PLANTATION, db_manager, config)
         self.cert_manager = CertificationManager(db_manager=db_manager)
-        self.notification_manager = NotificationManager(db_manager=db_manager)
+        self.notification_manager = NotificationManager(db_connection=db_manager)
     
     def _initialize_tools(self):
         """Initialize plantation management tools."""
@@ -395,7 +399,7 @@ class TraderLogisticsAgent(BaseAgent):
     
     def __init__(self, db_manager, config: Settings):
         super().__init__(AgentRole.TRADER_LOGISTICS, db_manager, config)
-        self.logistics_manager = LogisticsManager(db_manager=db_manager)
+        self.logistics_manager = LogisticsManager(db_connection=db_manager)
         self.cert_manager = CertificationManager(db_manager=db_manager)
     
     def _initialize_tools(self):
@@ -469,7 +473,7 @@ class AdminSystemAgent(BaseAgent):
     
     def __init__(self, db_manager, config: Settings):
         super().__init__(AgentRole.ADMIN_SYSTEM, db_manager, config)
-        self.notification_manager = NotificationManager(db_manager=db_manager)
+        self.notification_manager = NotificationManager(db_connection=db_manager)
         self.ai_assistant = ComprehensiveSupplyChainAI(db_manager)
     
     def _initialize_tools(self):
@@ -556,6 +560,81 @@ class SupplyChainAgentOrchestrator:
         
         logger.info(f"SupplyChainAgentOrchestrator initialized with {len(self.agents)} agents")
     
+    def is_agent_enabled(self, agent_role: AgentRole, user_role: str = None, company_type: str = None) -> bool:
+        """Check if an agent is enabled based on feature flags and user context."""
+        try:
+            # Get feature flags for the user
+            if user_role:
+                legacy_flags = consolidated_feature_flags.get_legacy_feature_flags(user_role, company_type)
+            else:
+                # Default to checking all flags if no user context
+                legacy_flags = {
+                    "v2_dashboard_brand": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_BRAND),
+                    "v2_dashboard_processor": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_PROCESSOR),
+                    "v2_dashboard_originator": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_ORIGINATOR),
+                    "v2_dashboard_trader": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_TRADER),
+                    "v2_dashboard_platform_admin": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_PLATFORM_ADMIN),
+                }
+            
+            # Map agent roles to feature flags
+            agent_flag_mapping = {
+                AgentRole.BRAND_MANAGER: legacy_flags.get("v2_dashboard_brand", False),
+                AgentRole.PROCESSOR_OPERATIONS: legacy_flags.get("v2_dashboard_processor", False),
+                AgentRole.ORIGINATOR_PLANTATION: legacy_flags.get("v2_dashboard_originator", False),
+                AgentRole.TRADER_LOGISTICS: legacy_flags.get("v2_dashboard_trader", False),
+                AgentRole.ADMIN_SYSTEM: legacy_flags.get("v2_dashboard_platform_admin", False),
+            }
+            
+            is_enabled = agent_flag_mapping.get(agent_role, False)
+            logger.debug(f"Agent {agent_role.value} enabled: {is_enabled} (user_role: {user_role}, company_type: {company_type})")
+            return is_enabled
+            
+        except Exception as e:
+            logger.error(f"Error checking agent enablement: {e}")
+            # Default to enabled if there's an error
+            return True
+    
+    def get_enabled_agents(self, user_role: str = None, company_type: str = None) -> List[AgentRole]:
+        """Get list of enabled agents based on feature flags."""
+        enabled_agents = []
+        for agent_role in AgentRole:
+            if self.is_agent_enabled(agent_role, user_role, company_type):
+                enabled_agents.append(agent_role)
+        return enabled_agents
+    
+    def get_agent_feature_flags(self, user_role: str = None, company_type: str = None) -> Dict[str, Any]:
+        """Get feature flag information for all agents."""
+        try:
+            if user_role and company_type:
+                dashboard_config = consolidated_feature_flags.get_dashboard_config(user_role, company_type)
+                legacy_flags = dashboard_config.get("feature_flags", {})
+            else:
+                legacy_flags = {
+                    "v2_dashboard_brand": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_BRAND),
+                    "v2_dashboard_processor": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_PROCESSOR),
+                    "v2_dashboard_originator": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_ORIGINATOR),
+                    "v2_dashboard_trader": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_TRADER),
+                    "v2_dashboard_platform_admin": feature_flags.is_enabled(FeatureFlag.V2_DASHBOARD_PLATFORM_ADMIN),
+                }
+            
+            return {
+                "agent_enablement": {
+                    "brand_manager": legacy_flags.get("v2_dashboard_brand", False),
+                    "processor_operations": legacy_flags.get("v2_dashboard_processor", False),
+                    "originator_plantation": legacy_flags.get("v2_dashboard_originator", False),
+                    "trader_logistics": legacy_flags.get("v2_dashboard_trader", False),
+                    "admin_system": legacy_flags.get("v2_dashboard_platform_admin", False),
+                },
+                "consolidated_flags": legacy_flags,
+                "user_context": {
+                    "user_role": user_role,
+                    "company_type": company_type
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error getting agent feature flags: {e}")
+            return {"error": str(e)}
+    
     def _determine_agent_role(self, context: AgentContext, query: str) -> AgentRole:
         """Determine which agent should handle the query based on context and content."""
         
@@ -620,6 +699,20 @@ class SupplyChainAgentOrchestrator:
         # Determine which agent should handle this query
         agent_role = self._determine_agent_role(context, query)
         
+        # Check if the agent is enabled based on feature flags
+        if not self.is_agent_enabled(agent_role, context.role, context.company_id):
+            logger.warning(f"Agent {agent_role.value} is disabled for user {context.user_id} (role: {context.role}, company_id: {context.company_id})")
+            
+            # Return a fallback response indicating the agent is disabled
+            return AgentResponse(
+                agent_role=agent_role,
+                response="This agent is currently disabled. Please contact your administrator to enable this feature.",
+                tools_used=[],
+                execution_time=0.0,
+                success=False,
+                error_message="Agent disabled by feature flags"
+            )
+        
         logger.info(f"Routing query to {agent_role.value} agent for user {context.user_id}")
         
         # Get the appropriate agent
@@ -632,14 +725,18 @@ class SupplyChainAgentOrchestrator:
         
         return response
     
-    def get_agent_info(self) -> Dict[str, Any]:
-        """Get information about all available agents."""
+    def get_agent_info(self, user_role: str = None, company_type: str = None) -> Dict[str, Any]:
+        """Get information about all available agents, including feature flag status."""
+        feature_flags_info = self.get_agent_feature_flags(user_role, company_type)
+        
         return {
             "total_agents": len(self.agents),
+            "feature_flags": feature_flags_info,
             "agents": {
                 role.value: {
                     "tools_count": len(agent.tools),
-                    "tools": [tool.name for tool in agent.tools] if agent.tools else []
+                    "tools": [tool.name for tool in agent.tools] if agent.tools else [],
+                    "enabled": self.is_agent_enabled(role, user_role, company_type)
                 }
                 for role, agent in self.agents.items()
             }

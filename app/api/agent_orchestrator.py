@@ -78,6 +78,7 @@ class AgentInfoResponse(BaseModel):
     """Response model for agent information."""
     total_agents: int = Field(..., description="Total number of available agents")
     agents: Dict[str, Dict[str, Any]] = Field(..., description="Information about each agent")
+    feature_flags: Optional[Dict[str, Any]] = Field(default=None, description="Feature flag status for agents")
     
     class Config:
         schema_extra = {
@@ -168,14 +169,22 @@ async def get_agent_info(
     - Total number of agents
     - Tools available to each agent
     - Agent capabilities and specializations
+    - Feature flag status for each agent
+    - User-specific agent enablement
     """
     try:
         orchestrator = get_orchestrator()
-        info = orchestrator.get_agent_info()
+        
+        # Get user context for feature flag evaluation
+        user_role = getattr(current_user, 'role', None)
+        company_type = getattr(current_user, 'company_type', None)
+        
+        info = orchestrator.get_agent_info(user_role, company_type)
         
         return AgentInfoResponse(
             total_agents=info["total_agents"],
-            agents=info["agents"]
+            agents=info["agents"],
+            feature_flags=info.get("feature_flags", {})
         )
         
     except Exception as e:
