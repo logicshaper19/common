@@ -16,7 +16,7 @@ The login timeout issue has been successfully resolved.
 
 ## Login Credentials
 - **Email:** manager@makmurselalu.com
-- **Password:** password123
+- **Password:** MillProcessor2024!
 
 ## Technical Details
 - Fixed bcrypt version compatibility with passlib
