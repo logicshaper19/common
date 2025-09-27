@@ -17,6 +17,7 @@ from enum import Enum
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from decimal import Decimal
+from collections import defaultdict, deque
 from sqlalchemy.exc import SQLAlchemyError, DatabaseError, OperationalError
 from fastapi import HTTPException, status
 
@@ -183,6 +184,74 @@ class MemoryManagedCache:
 # Global cache instance with memory management
 _cache_manager = MemoryManagedCache(max_size=1000, cleanup_interval=300)
 
+class RateLimiter:
+    """
+    Rate limiter to prevent resource exhaustion and abuse.
+    Implements sliding window rate limiting with per-user tracking.
+    """
+    
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60, max_concurrent: int = 3):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.max_concurrent = max_concurrent
+        self.user_requests = defaultdict(deque)  # user_id -> deque of timestamps
+        self.user_concurrent = defaultdict(int)  # user_id -> current concurrent requests
+        self._lock = threading.RLock()
+    
+    def is_allowed(self, user_id: str) -> tuple[bool, str]:
+        """
+        Check if user is allowed to make a request.
+        Returns (is_allowed, reason)
+        """
+        with self._lock:
+            current_time = time.time()
+            
+            # Check concurrent request limit
+            if self.user_concurrent[user_id] >= self.max_concurrent:
+                return False, f"Too many concurrent requests (max: {self.max_concurrent})"
+            
+            # Clean old requests outside the window
+            user_queue = self.user_requests[user_id]
+            while user_queue and user_queue[0] <= current_time - self.window_seconds:
+                user_queue.popleft()
+            
+            # Check rate limit
+            if len(user_queue) >= self.max_requests:
+                return False, f"Rate limit exceeded (max: {self.max_requests} requests per {self.window_seconds}s)"
+            
+            # Add current request
+            user_queue.append(current_time)
+            self.user_concurrent[user_id] += 1
+            
+            return True, "Allowed"
+    
+    def release_request(self, user_id: str):
+        """Release a concurrent request slot."""
+        with self._lock:
+            if self.user_concurrent[user_id] > 0:
+                self.user_concurrent[user_id] -= 1
+    
+    def get_user_stats(self, user_id: str) -> Dict[str, Any]:
+        """Get rate limiting stats for a user."""
+        with self._lock:
+            current_time = time.time()
+            user_queue = self.user_requests[user_id]
+            
+            # Clean old requests
+            while user_queue and user_queue[0] <= current_time - self.window_seconds:
+                user_queue.popleft()
+            
+            return {
+                "requests_in_window": len(user_queue),
+                "concurrent_requests": self.user_concurrent[user_id],
+                "max_requests": self.max_requests,
+                "max_concurrent": self.max_concurrent,
+                "window_seconds": self.window_seconds
+            }
+
+# Global rate limiter instance
+_rate_limiter = RateLimiter(max_requests=10, window_seconds=60, max_concurrent=3)
+
 logger = get_logger(__name__)
 
 
@@ -239,12 +308,13 @@ class SupplyChainStreamingAssistant:
         """Initialize the streaming assistant."""
         try:
             self.prompts = EnhancedSupplyChainPrompts()
-            self.max_message_length = 5000  # Increased to 5000 characters for longer queries
+            self.max_message_length = 2000  # Reduced to prevent resource exhaustion
             self.allowed_content_types = {
                 'inventory_summary', 'transparency_analysis', 'yield_performance',
                 'supplier_network', 'compliance_status', 'processing_efficiency'
             }
             self.cache_ttl = 300  # 5 minutes cache TTL
+            self.request_timeout = 30  # 30 seconds timeout for requests
             logger.info("Streaming assistant initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize streaming assistant: {e}")
@@ -274,10 +344,29 @@ class SupplyChainStreamingAssistant:
         """Get cache statistics for monitoring."""
         return _cache_manager.get_stats()
     
-    def _validate_user_input(self, message: str) -> Optional[str]:
-        """Validate and sanitize user input for security."""
+    def get_rate_limit_stats(self, user_id: str) -> Dict[str, Any]:
+        """Get rate limiting statistics for a user."""
+        return _rate_limiter.get_user_stats(user_id)
+    
+    def release_rate_limit(self, user_id: str):
+        """Release a rate limit slot for a user."""
+        _rate_limiter.release_request(user_id)
+    
+    def _validate_user_input(self, message: str, user_id: str = "anonymous") -> Optional[str]:
+        """Validate and sanitize user input for security and rate limiting."""
         if not message or len(message.strip()) == 0:
             raise InputValidationError("Message cannot be empty")
+        
+        # Check rate limiting
+        allowed, reason = _rate_limiter.is_allowed(user_id)
+        if not allowed:
+            logger.warning(f"Rate limit exceeded for user {user_id}: {reason}")
+            raise InputValidationError(f"Rate limit exceeded: {reason}")
+        
+        # Check message length to prevent resource exhaustion
+        if len(message) > self.max_message_length:
+            logger.warning(f"Message too long for user {user_id}: {len(message)} characters")
+            raise InputValidationError(f"Message too long. Maximum {self.max_message_length} characters allowed.")
         
         # Sanitize HTML input to prevent XSS attacks using bleach
         # Allow only safe HTML tags and attributes
