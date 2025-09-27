@@ -11,6 +11,7 @@ import re
 import html
 import hashlib
 import time
+import bleach
 from typing import Dict, Any, AsyncGenerator, List, Optional, Union
 from enum import Enum
 from dataclasses import dataclass, asdict
@@ -256,22 +257,21 @@ class SupplyChainStreamingAssistant:
         if not message or len(message.strip()) == 0:
             raise InputValidationError("Message cannot be empty")
         
-        # Check for potential XSS attacks
-        dangerous_patterns = [
-            r'<script[^>]*>.*?</script>',
-            r'<iframe[^>]*>.*?</iframe>',
-            r'javascript:',
-            r'data:text/html',
-            r'vbscript:',
-            r'onload\s*=',
-            r'onerror\s*=',
-            r'onclick\s*='
-        ]
+        # Sanitize HTML input to prevent XSS attacks using bleach
+        # Allow only safe HTML tags and attributes
+        allowed_tags = ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+        allowed_attributes = {}
         
-        for pattern in dangerous_patterns:
-            if re.search(pattern, message, re.IGNORECASE):
-                logger.warning(f"Potential XSS attempt detected: {message[:100]}...")
-                raise InputValidationError("Invalid input detected")
+        # Sanitize the message to remove any potentially dangerous content
+        sanitized_message = bleach.clean(message, tags=allowed_tags, attributes=allowed_attributes, strip=True)
+        
+        # Check if sanitization removed dangerous content
+        if len(sanitized_message) < len(message) * 0.8:  # If more than 20% was removed, likely malicious
+            logger.warning(f"Potential XSS attempt detected and sanitized: {message[:100]}...")
+            # Don't raise error, just use sanitized version
+            message = sanitized_message
+        else:
+            message = sanitized_message
         
         # Limit message length
         if len(message) > self.max_message_length:
