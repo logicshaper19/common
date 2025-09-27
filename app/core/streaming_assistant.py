@@ -22,9 +22,156 @@ from fastapi import HTTPException, status
 from app.core.logging import get_logger
 from app.core.supply_chain_prompts import EnhancedSupplyChainPrompts, InteractionType
 
-# Simple in-memory cache (in production, use Redis)
-_cache = {}
-_cache_ttl = {}
+# Enhanced in-memory cache with memory management
+from collections import OrderedDict
+import threading
+import asyncio
+from typing import Dict, Any, Optional
+import weakref
+
+class MemoryManagedCache:
+    """
+    Memory-managed cache with automatic cleanup and size limits.
+    Prevents memory leaks by implementing:
+    - Maximum cache size with LRU eviction
+    - Periodic cleanup of expired entries
+    - Thread-safe operations
+    - Memory usage monitoring
+    """
+    
+    def __init__(self, max_size: int = 1000, cleanup_interval: int = 300):
+        self._cache: OrderedDict[str, Any] = OrderedDict()
+        self._cache_ttl: Dict[str, float] = {}
+        self._max_size = max_size
+        self._cleanup_interval = cleanup_interval
+        self._lock = threading.RLock()
+        self._last_cleanup = time.time()
+        self._cleanup_task = None
+        
+        # Start periodic cleanup
+        self._start_cleanup_task()
+    
+    def _start_cleanup_task(self):
+        """Start the periodic cleanup task."""
+        if self._cleanup_task is None or self._cleanup_task.done():
+            try:
+                loop = asyncio.get_event_loop()
+                self._cleanup_task = loop.create_task(self._periodic_cleanup())
+            except RuntimeError:
+                # No event loop running, cleanup will happen on next access
+                pass
+    
+    async def _periodic_cleanup(self):
+        """Periodic cleanup of expired cache entries."""
+        while True:
+            try:
+                await asyncio.sleep(self._cleanup_interval)
+                self._cleanup_expired()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in periodic cache cleanup: {e}")
+    
+    def _cleanup_expired(self):
+        """Remove expired entries from cache."""
+        with self._lock:
+            current_time = time.time()
+            expired_keys = []
+            
+            for key, expiry_time in self._cache_ttl.items():
+                if current_time >= expiry_time:
+                    expired_keys.append(key)
+            
+            for key in expired_keys:
+                self._cache.pop(key, None)
+                self._cache_ttl.pop(key, None)
+            
+            if expired_keys:
+                logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
+    
+    def _evict_lru(self):
+        """Evict least recently used entries if cache is full."""
+        while len(self._cache) >= self._max_size:
+            if self._cache:
+                # Remove oldest entry (LRU)
+                key, _ = self._cache.popitem(last=False)
+                self._cache_ttl.pop(key, None)
+                logger.debug(f"Evicted LRU cache entry: {key}")
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Get value from cache, updating LRU order."""
+        with self._lock:
+            current_time = time.time()
+            
+            # Check if key exists and is not expired
+            if key in self._cache and key in self._cache_ttl:
+                if current_time < self._cache_ttl[key]:
+                    # Move to end (most recently used)
+                    value = self._cache.pop(key)
+                    self._cache[key] = value
+                    logger.debug(f"Cache hit for key: {key}")
+                    return value
+                else:
+                    # Expired, remove it
+                    self._cache.pop(key, None)
+                    self._cache_ttl.pop(key, None)
+                    logger.debug(f"Cache expired for key: {key}")
+            
+            return None
+    
+    def set(self, key: str, value: Any, ttl_seconds: int = 300):
+        """Set value in cache with TTL."""
+        with self._lock:
+            current_time = time.time()
+            
+            # Remove existing entry if present
+            self._cache.pop(key, None)
+            self._cache_ttl.pop(key, None)
+            
+            # Add new entry
+            self._cache[key] = value
+            self._cache_ttl[key] = current_time + ttl_seconds
+            
+            # Evict LRU if necessary
+            self._evict_lru()
+            
+            logger.debug(f"Cached data for key: {key}, TTL: {ttl_seconds}s")
+    
+    def clear(self, key_prefix: str = None):
+        """Clear cache entries."""
+        with self._lock:
+            if key_prefix:
+                keys_to_remove = [k for k in self._cache.keys() if k.startswith(key_prefix)]
+                for key in keys_to_remove:
+                    self._cache.pop(key, None)
+                    self._cache_ttl.pop(key, None)
+                logger.info(f"Cleared {len(keys_to_remove)} cache entries with prefix: {key_prefix}")
+            else:
+                self._cache.clear()
+                self._cache_ttl.clear()
+                logger.info("Cleared all cache entries")
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        with self._lock:
+            current_time = time.time()
+            expired_count = sum(1 for ttl in self._cache_ttl.values() if current_time >= ttl)
+            
+            return {
+                "total_entries": len(self._cache),
+                "expired_entries": expired_count,
+                "active_entries": len(self._cache) - expired_count,
+                "max_size": self._max_size,
+                "memory_usage_estimate": len(str(self._cache)) + len(str(self._cache_ttl))
+            }
+    
+    def __del__(self):
+        """Cleanup when cache is destroyed."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+
+# Global cache instance with memory management
+_cache_manager = MemoryManagedCache(max_size=1000, cleanup_interval=300)
 
 logger = get_logger(__name__)
 
@@ -100,43 +247,22 @@ class SupplyChainStreamingAssistant:
     
     def _get_from_cache(self, cache_key: str) -> Optional[Any]:
         """Get data from cache if not expired."""
-        current_time = time.time()
-        
-        if cache_key in _cache and cache_key in _cache_ttl:
-            if current_time < _cache_ttl[cache_key]:
-                logger.debug(f"Cache hit for key: {cache_key}")
-                return _cache[cache_key]
-            else:
-                # Cache expired, remove it
-                del _cache[cache_key]
-                del _cache_ttl[cache_key]
-                logger.debug(f"Cache expired for key: {cache_key}")
-        
-        return None
+        return _cache_manager.get(cache_key)
     
     def _set_cache(self, cache_key: str, data: Any, ttl_seconds: int = None) -> None:
         """Set data in cache with TTL."""
         if ttl_seconds is None:
             ttl_seconds = self.cache_ttl
         
-        current_time = time.time()
-        _cache[cache_key] = data
-        _cache_ttl[cache_key] = current_time + ttl_seconds
-        
-        logger.debug(f"Cached data for key: {cache_key}, TTL: {ttl_seconds}s")
+        _cache_manager.set(cache_key, data, ttl_seconds)
     
     def _clear_cache(self, key_prefix: str = None) -> None:
         """Clear cache entries."""
-        if key_prefix:
-            keys_to_remove = [k for k in _cache.keys() if k.startswith(key_prefix)]
-            for key in keys_to_remove:
-                del _cache[key]
-                del _cache_ttl[key]
-            logger.info(f"Cleared {len(keys_to_remove)} cache entries with prefix: {key_prefix}")
-        else:
-            _cache.clear()
-            _cache_ttl.clear()
-            logger.info("Cleared all cache entries")
+        _cache_manager.clear(key_prefix)
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics for monitoring."""
+        return _cache_manager.get_stats()
     
     def _validate_user_input(self, message: str) -> Optional[str]:
         """Validate and sanitize user input for security."""
