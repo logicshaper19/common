@@ -29,6 +29,7 @@ import OriginatorRouter from './components/origin/OriginatorRouter';
 import OriginatorFeaturesDemo from './pages/OriginatorFeaturesDemo';
 import HarvestManagement from './pages/HarvestManagement';
 import TransformationDashboard from './pages/TransformationDashboard';
+import AssistantPage from './pages/AssistantPage';
 import DebugAuth from './pages/DebugAuth';
 
 function App() {
@@ -51,6 +52,13 @@ function App() {
             <Route path="dashboard" element={
               <ProtectedRoute>
                 <DashboardRouter />
+              </ProtectedRoute>
+            } />
+
+            {/* Common Assistant - Available for all users */}
+            <Route path="assistant" element={
+              <ProtectedRoute>
+                <AssistantPage />
               </ProtectedRoute>
             } />
 

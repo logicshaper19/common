@@ -80,6 +80,16 @@ class EmailConfig:
 
 
 @dataclass
+class OpenAIConfig:
+    """OpenAI service configuration."""
+    api_key: Optional[str] = None
+    model: str = "gpt-3.5-turbo"
+    max_tokens: int = 500
+    temperature: float = 0.7
+    enabled: bool = True
+
+
+@dataclass
 class DeploymentConfig:
     """Deployment-specific configuration."""
     replicas: int = 1
@@ -99,6 +109,7 @@ class EnvironmentConfig:
     security: SecurityConfig
     monitoring: MonitoringConfig
     email: EmailConfig
+    openai: OpenAIConfig
     deployment: DeploymentConfig
     debug: bool = False
     
@@ -171,6 +182,7 @@ class EnvironmentConfigManager:
             security=SecurityConfig(**config_data.get("security", {})),
             monitoring=MonitoringConfig(**config_data.get("monitoring", {})),
             email=EmailConfig(**config_data.get("email", {})),
+            openai=OpenAIConfig(**config_data.get("openai", {})),
             deployment=DeploymentConfig(**config_data.get("deployment", {})),
             transparency_degradation_factor=config_data.get("transparency_degradation_factor", 0.95),
             transparency_calculation_timeout=config_data.get("transparency_calculation_timeout", 30),
@@ -208,6 +220,12 @@ class EnvironmentConfigManager:
             },
             "email": {
                 "from_address": "noreply@common.co",
+                "enabled": True
+            },
+            "openai": {
+                "model": "gpt-3.5-turbo",
+                "max_tokens": 500,
+                "temperature": 0.7,
                 "enabled": True
             },
             "deployment": {

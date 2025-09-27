@@ -50,5 +50,8 @@ psutil>=5.9.0
 # AWS SDK for document storage
 boto3>=1.26.0
 
+# OpenAI for AI-powered responses
+openai>=1.0.0
+
 # PDF generation (optional)
 # xhtml2pdf>=0.2.5
